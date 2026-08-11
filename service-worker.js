@@ -1,75 +1,42 @@
 /* ==========================================
    JUFELIX ERP v7.0 PROFESSIONAL
    PWA SERVICE WORKER
-
-   File:
-   service-worker.js
 ========================================== */
 
-const CACHE_NAME =
-    "jufelix-erp-v7-cache-v1";
-
+const CACHE_NAME = "jufelix-erp-v7-cache-v2";
 
 const CORE_FILES = [
-
     "./",
-
     "./index.html",
-
     "./login.html",
-
     "./dashboard.html",
-
     "./inventory.html",
-
     "./sales.html",
-
     "./customers.html",
-
     "./suppliers.html",
-
     "./purchases.html",
-
     "./expenses.html",
-
     "./reports.html",
-
     "./payments.html",
-
     "./transfers.html",
-
     "./pdf-preview.html",
-
     "./manifest.json",
 
-
     "./assets/css/variables.css",
-
     "./assets/css/base.css",
-
     "./assets/css/components.css",
-
     "./assets/css/style.css",
 
-
     "./assets/icons/icon-192.png",
-
     "./assets/icons/icon-512.png",
-
     "./assets/icons/icon-maskable-512.png",
 
-
     "./js/core/storage.js",
-
     "./js/core/permissions.js",
-
     "./js/core/auth-guard.js",
-
     "./js/core/theme.js",
 
-
     "./js/components/sidebar.js",
-
     "./js/components/topbar.js"
 ];
 
@@ -78,215 +45,140 @@ const CORE_FILES = [
    INSTALL
 ========================================== */
 
-self.addEventListener(
-    "install",
-    function (event) {
+self.addEventListener("install", event => {
 
-        event.waitUntil(
+    event.waitUntil(
+        caches.open(CACHE_NAME).then(async cache => {
 
-            caches
-                .open(
-                    CACHE_NAME
-                )
-                .then(
-                    function (cache) {
+            for (const file of CORE_FILES) {
 
-                        return cache.addAll(
-                            CORE_FILES
-                        );
+                try {
+                    await cache.add(file);
+                } catch (error) {
+                    console.warn(
+                        "Could not precache:",
+                        file,
+                        error
+                    );
+                }
 
-                    }
-                )
-                .then(
-                    function () {
+            }
 
-                        return self.skipWaiting();
+            await self.skipWaiting();
+        })
+    );
 
-                    }
-                )
-
-        );
-
-    }
-);
+});
 
 
 /* ==========================================
    ACTIVATE
 ========================================== */
 
-self.addEventListener(
-    "activate",
-    function (event) {
+self.addEventListener("activate", event => {
 
-        event.waitUntil(
+    event.waitUntil(
 
-            caches
-                .keys()
-                .then(
-                    function (cacheNames) {
+        caches.keys().then(cacheNames => {
 
-                        return Promise.all(
+            return Promise.all(
 
-                            cacheNames
-                                .filter(
-                                    function (cacheName) {
+                cacheNames
+                    .filter(name => name !== CACHE_NAME)
+                    .map(name => caches.delete(name))
 
-                                        return (
-                                            cacheName !==
-                                            CACHE_NAME
-                                        );
+            );
 
-                                    }
-                                )
-                                .map(
-                                    function (cacheName) {
+        }).then(() => self.clients.claim())
 
-                                        return caches.delete(
-                                            cacheName
-                                        );
+    );
 
-                                    }
-                                )
-
-                        );
-
-                    }
-                )
-                .then(
-                    function () {
-
-                        return self.clients.claim();
-
-                    }
-                )
-
-        );
-
-    }
-);
+});
 
 
 /* ==========================================
    FETCH
 ========================================== */
 
-self.addEventListener(
-    "fetch",
-    function (event) {
+self.addEventListener("fetch", event => {
 
-        if (
-            event.request.method !==
-            "GET"
-        ) {
-
-            return;
-
-        }
-
-
-        const requestUrl =
-            new URL(
-                event.request.url
-            );
-
-
-        /*
-         * Do not cache external CDN files
-         * aggressively.
-         */
-
-        if (
-            requestUrl.origin !==
-            self.location.origin
-        ) {
-
-            return;
-
-        }
-
-
-        event.respondWith(
-
-            fetch(
-                event.request
-            )
-                .then(
-                    function (networkResponse) {
-
-                        const responseClone =
-                            networkResponse.clone();
-
-
-                        caches
-                            .open(
-                                CACHE_NAME
-                            )
-                            .then(
-                                function (cache) {
-
-                                    cache.put(
-                                        event.request,
-                                        responseClone
-                                    );
-
-                                }
-                            );
-
-
-                        return networkResponse;
-
-                    }
-                )
-                .catch(
-                    function () {
-
-                        return caches
-                            .match(
-                                event.request
-                            )
-                            .then(
-                                function (cachedResponse) {
-
-                                    if (
-                                        cachedResponse
-                                    ) {
-
-                                        return cachedResponse;
-
-                                    }
-
-
-                                    /*
-                                     * HTML fallback.
-                                     */
-
-                                    if (
-                                        event.request.headers
-                                            .get(
-                                                "accept"
-                                            )
-                                            ?.includes(
-                                                "text/html"
-                                            )
-                                    ) {
-
-                                        return caches.match(
-                                            "./index.html"
-                                        );
-
-                                    }
-
-
-                                    return Response.error();
-
-                                }
-                            );
-
-                    }
-                )
-
-        );
-
+    if (event.request.method !== "GET") {
+        return;
     }
-);
+
+    const requestUrl = new URL(event.request.url);
+
+    if (requestUrl.origin !== self.location.origin) {
+        return;
+    }
+
+    event.respondWith(
+
+        fetch(event.request)
+
+            .then(networkResponse => {
+
+                if (
+                    networkResponse &&
+                    networkResponse.status === 200
+                ) {
+
+                    const responseClone =
+                        networkResponse.clone();
+
+                    caches.open(CACHE_NAME)
+                        .then(cache => {
+
+                            cache.put(
+                                event.request,
+                                responseClone
+                            );
+
+                        });
+
+                }
+
+                return networkResponse;
+
+            })
+
+            .catch(async () => {
+
+                const cachedResponse =
+                    await caches.match(event.request);
+
+                if (cachedResponse) {
+                    return cachedResponse;
+                }
+
+                const accept =
+                    event.request.headers.get("accept") || "";
+
+                if (accept.includes("text/html")) {
+
+                    const indexPage =
+                        await caches.match("./index.html");
+
+                    if (indexPage) {
+                        return indexPage;
+                    }
+
+                }
+
+                return new Response(
+                    "You are offline and this resource is not cached.",
+                    {
+                        status: 503,
+                        statusText: "Offline",
+                        headers: {
+                            "Content-Type":
+                                "text/plain; charset=utf-8"
+                        }
+                    }
+                );
+
+            })
+
+    );
+
+});
