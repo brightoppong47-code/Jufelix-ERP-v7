@@ -1,0 +1,809 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <meta
+        name="theme-color"
+        content="#0b5ed7"
+    >
+
+    <title>Customers | Jufelix ERP v7.0</title>
+
+    <link rel="stylesheet" href="assets/css/variables.css">
+    <link rel="stylesheet" href="assets/css/base.css">
+    <link rel="stylesheet" href="assets/css/components.css">
+    <link rel="stylesheet" href="assets/css/style.css">
+
+    <style>
+
+        * {
+            box-sizing: border-box;
+        }
+
+        html,
+        body {
+            width: 100%;
+            max-width: 100%;
+            margin: 0;
+            overflow-x: hidden;
+            font-family: Arial, Helvetica, sans-serif;
+        }
+
+        body {
+            background: #f5f7fb;
+            color: #1f2937;
+        }
+
+        .main-content {
+            min-height: 100vh;
+            margin-left: 270px;
+            overflow-x: hidden;
+        }
+
+        .customers-page {
+            width: 100%;
+            padding: 24px;
+        }
+
+        .page-heading {
+            margin-bottom: 24px;
+        }
+
+        .page-heading h1 {
+            margin: 0 0 7px;
+            font-size: 32px;
+            color: #1f2937;
+        }
+
+        .page-heading p {
+            margin: 0;
+            color: #6b7280;
+            font-size: 15px;
+            line-height: 1.6;
+        }
+
+        .customers-summary {
+            display: grid;
+            grid-template-columns:
+                repeat(4, minmax(170px, 1fr));
+            gap: 17px;
+            margin-bottom: 24px;
+        }
+
+        .summary-card,
+        .customer-panel {
+            background: #ffffff;
+            border: 1px solid #edf0f4;
+            border-radius: 14px;
+            box-shadow:
+                0 4px 14px rgba(0, 0, 0, 0.06);
+        }
+
+        .summary-card {
+            padding: 20px;
+        }
+
+        .summary-card h3 {
+            margin: 0 0 10px;
+            color: #6b7280;
+            font-size: 14px;
+        }
+
+        .summary-card p {
+            margin: 0;
+            color: #1f2937;
+            font-size: 26px;
+            font-weight: 800;
+            overflow-wrap: anywhere;
+        }
+
+        .customer-panel {
+            margin-bottom: 24px;
+            padding: 22px;
+        }
+
+        .panel-header {
+            margin-bottom: 18px;
+        }
+
+        .panel-header h2 {
+            margin: 0 0 6px;
+            color: #1f2937;
+            font-size: 22px;
+        }
+
+        .panel-header p {
+            margin: 0;
+            color: #6b7280;
+            font-size: 13px;
+            line-height: 1.6;
+        }
+
+        .customer-form {
+            display: grid;
+            grid-template-columns:
+                repeat(2, minmax(0, 1fr));
+            gap: 17px;
+        }
+
+        .form-group {
+            min-width: 0;
+        }
+
+        .form-group.full-width {
+            grid-column: 1 / -1;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #374151;
+            font-size: 14px;
+            font-weight: 700;
+        }
+
+        .form-control {
+            width: 100%;
+            max-width: 100%;
+            min-height: 49px;
+            padding: 0 14px;
+            border: 1px solid #d7dce5;
+            border-radius: 9px;
+            outline: none;
+            background: #ffffff;
+            color: #1f2937;
+            font-size: 16px;
+        }
+
+        textarea.form-control {
+            min-height: 90px;
+            padding: 12px 14px;
+            resize: vertical;
+        }
+
+        .form-control:focus {
+            border-color: #0b5ed7;
+            box-shadow:
+                0 0 0 3px rgba(11, 94, 215, 0.12);
+        }
+
+        .form-actions {
+            grid-column: 1 / -1;
+            display: flex;
+            justify-content: flex-end;
+            gap: 11px;
+        }
+
+        .primary-button,
+        .secondary-button {
+            min-height: 47px;
+            padding: 0 18px;
+            border-radius: 9px;
+            font-size: 15px;
+            font-weight: 700;
+            cursor: pointer;
+        }
+
+        .primary-button {
+            border: none;
+            background: #0b5ed7;
+            color: #ffffff;
+        }
+
+        .primary-button:hover {
+            background: #084298;
+        }
+
+        .secondary-button {
+            border: 1px solid #cfd5df;
+            background: #ffffff;
+            color: #374151;
+        }
+
+        .customer-toolbar {
+            display: grid;
+            grid-template-columns:
+                minmax(220px, 1fr)
+                repeat(2, minmax(150px, 0.3fr));
+            gap: 13px;
+            margin-bottom: 18px;
+        }
+
+        .table-wrapper {
+            width: 100%;
+            max-width: 100%;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .customer-table {
+            width: 100%;
+            min-width: 1050px;
+            border-collapse: collapse;
+        }
+
+        .customer-table th,
+        .customer-table td {
+            padding: 13px 12px;
+            border-bottom: 1px solid #edf0f4;
+            text-align: left;
+            font-size: 13px;
+            vertical-align: middle;
+        }
+
+        .customer-table th {
+            background: #f8fafc;
+            color: #4b5563;
+            white-space: nowrap;
+        }
+
+        .customer-table td {
+            color: #374151;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 5px 9px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 700;
+            white-space: nowrap;
+        }
+
+        .status-active {
+            background: #d1e7dd;
+            color: #0f5132;
+        }
+
+        .status-inactive {
+            background: #f8d7da;
+            color: #842029;
+        }
+
+        .action-button {
+            min-height: 34px;
+            padding: 0 11px;
+            border: none;
+            border-radius: 7px;
+            font-size: 12px;
+            font-weight: 700;
+            cursor: pointer;
+        }
+
+        .edit-button {
+            background: #e7f1ff;
+            color: #084298;
+        }
+
+        .delete-button {
+            background: #f8d7da;
+            color: #842029;
+        }
+
+        .table-empty {
+            padding: 34px 15px !important;
+            text-align: center !important;
+            color: #9ca3af !important;
+        }
+
+        @media screen and (max-width: 1100px) {
+
+            .customers-summary {
+                grid-template-columns:
+                    repeat(2, minmax(170px, 1fr));
+            }
+        }
+
+        @media screen and (max-width: 900px) {
+
+            .main-content {
+                width: 100%;
+                max-width: 100%;
+                margin-left: 0;
+            }
+
+            .customers-page {
+                padding: 16px;
+            }
+
+            .customer-form {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media screen and (max-width: 700px) {
+
+            .customers-summary,
+            .customer-toolbar {
+                grid-template-columns: 1fr;
+            }
+
+            .customer-panel {
+                padding: 16px;
+            }
+
+            .form-actions {
+                flex-direction: column-reverse;
+            }
+
+            .form-actions button {
+                width: 100%;
+            }
+        }
+
+        @media screen and (max-width: 480px) {
+
+            .customers-page {
+                padding: 12px;
+            }
+
+            .page-heading h1 {
+                font-size: 29px;
+            }
+
+            .summary-card {
+                padding: 18px;
+            }
+        }
+
+    </style>
+
+</head>
+
+<body>
+
+    <aside
+        id="sidebar"
+        class="sidebar"
+    ></aside>
+
+
+    <main class="main-content">
+
+        <header
+            id="topbar"
+            class="topbar"
+        ></header>
+
+
+        <div class="customers-page">
+
+            <section class="page-heading">
+
+                <h1>Customers</h1>
+
+                <p>
+                    Register customers, manage contact details and prepare customer sales history.
+                </p>
+
+            </section>
+
+
+            <section class="customers-summary">
+
+                <article class="summary-card">
+
+                    <h3>Total Customers</h3>
+
+                    <p id="totalCustomers">
+                        0
+                    </p>
+
+                </article>
+
+
+                <article class="summary-card">
+
+                    <h3>Active Customers</h3>
+
+                    <p id="activeCustomers">
+                        0
+                    </p>
+
+                </article>
+
+
+                <article class="summary-card">
+
+                    <h3>Credit Customers</h3>
+
+                    <p id="creditCustomers">
+                        0
+                    </p>
+
+                </article>
+
+
+                <article class="summary-card">
+
+                    <h3>Total Customer Balance</h3>
+
+                    <p id="totalCustomerBalance">
+                        GH₵0.00
+                    </p>
+
+                </article>
+
+            </section>
+
+
+            <section class="customer-panel">
+
+                <div class="panel-header">
+
+                    <h2 id="customerFormTitle">
+                        Add New Customer
+                    </h2>
+
+                    <p>
+                        Enter the customer's personal and business information.
+                    </p>
+
+                </div>
+
+
+                <form
+                    id="customerForm"
+                    class="customer-form"
+                >
+
+                    <input
+                        type="hidden"
+                        id="customerId"
+                    >
+
+
+                    <div class="form-group">
+
+                        <label for="customerName">
+                            Customer Name *
+                        </label>
+
+                        <input
+                            type="text"
+                            id="customerName"
+                            class="form-control"
+                            placeholder="Enter customer name"
+                            required
+                        >
+
+                    </div>
+
+
+                    <div class="form-group">
+
+                        <label for="customerPhone">
+                            Phone Number *
+                        </label>
+
+                        <input
+                            type="tel"
+                            id="customerPhone"
+                            class="form-control"
+                            placeholder="Enter phone number"
+                            required
+                        >
+
+                    </div>
+
+
+                    <div class="form-group">
+
+                        <label for="customerEmail">
+                            Email Address
+                        </label>
+
+                        <input
+                            type="email"
+                            id="customerEmail"
+                            class="form-control"
+                            placeholder="Enter email address"
+                        >
+
+                    </div>
+
+
+                    <div class="form-group">
+
+                        <label for="customerType">
+                            Customer Type
+                        </label>
+
+                        <select
+                            id="customerType"
+                            class="form-control"
+                        >
+
+                            <option value="retail">
+                                Retail Customer
+                            </option>
+
+                            <option value="wholesale">
+                                Wholesale Customer
+                            </option>
+
+                            <option value="credit">
+                                Credit Customer
+                            </option>
+
+                        </select>
+
+                    </div>
+
+
+                    <div class="form-group">
+
+                        <label for="customerOpeningBalance">
+                            Opening Balance (GH₵)
+                        </label>
+
+                        <input
+                            type="number"
+                            id="customerOpeningBalance"
+                            class="form-control"
+                            min="0"
+                            step="0.01"
+                            value="0"
+                        >
+
+                    </div>
+
+
+                    <div class="form-group">
+
+                        <label for="customerCreditLimit">
+                            Credit Limit (GH₵)
+                        </label>
+
+                        <input
+                            type="number"
+                            id="customerCreditLimit"
+                            class="form-control"
+                            min="0"
+                            step="0.01"
+                            value="0"
+                        >
+
+                    </div>
+
+
+                    <div class="form-group">
+
+                        <label for="customerStatus">
+                            Status
+                        </label>
+
+                        <select
+                            id="customerStatus"
+                            class="form-control"
+                        >
+
+                            <option value="active">
+                                Active
+                            </option>
+
+                            <option value="inactive">
+                                Inactive
+                            </option>
+
+                        </select>
+
+                    </div>
+
+
+                    <div class="form-group">
+
+                        <label for="customerTaxNumber">
+                            Tax / TIN Number
+                        </label>
+
+                        <input
+                            type="text"
+                            id="customerTaxNumber"
+                            class="form-control"
+                            placeholder="Enter tax number"
+                        >
+
+                    </div>
+
+
+                    <div class="form-group full-width">
+
+                        <label for="customerAddress">
+                            Address
+                        </label>
+
+                        <textarea
+                            id="customerAddress"
+                            class="form-control"
+                            placeholder="Enter customer address"
+                        ></textarea>
+
+                    </div>
+
+
+                    <div class="form-group full-width">
+
+                        <label for="customerNotes">
+                            Notes
+                        </label>
+
+                        <textarea
+                            id="customerNotes"
+                            class="form-control"
+                            placeholder="Optional notes"
+                        ></textarea>
+
+                    </div>
+
+
+                    <div class="form-actions">
+
+                        <button
+                            type="button"
+                            id="clearCustomerButton"
+                            class="secondary-button"
+                        >
+                            Clear Form
+                        </button>
+
+                        <button
+                            type="submit"
+                            id="saveCustomerButton"
+                            class="primary-button"
+                        >
+                            Save Customer
+                        </button>
+
+                    </div>
+
+                </form>
+
+            </section>
+
+
+            <section class="customer-panel">
+
+                <div class="panel-header">
+
+                    <h2>Customer List</h2>
+
+                    <p>
+                        Search, filter, edit and manage saved customers.
+                    </p>
+
+                </div>
+
+
+                <div class="customer-toolbar">
+
+                    <input
+                        type="search"
+                        id="customerSearch"
+                        class="form-control"
+                        placeholder="Search by customer, phone, email or address"
+                    >
+
+
+                    <select
+                        id="customerTypeFilter"
+                        class="form-control"
+                    >
+
+                        <option value="">
+                            All Customer Types
+                        </option>
+
+                        <option value="retail">
+                            Retail
+                        </option>
+
+                        <option value="wholesale">
+                            Wholesale
+                        </option>
+
+                        <option value="credit">
+                            Credit
+                        </option>
+
+                    </select>
+
+
+                    <select
+                        id="customerStatusFilter"
+                        class="form-control"
+                    >
+
+                        <option value="">
+                            All Statuses
+                        </option>
+
+                        <option value="active">
+                            Active
+                        </option>
+
+                        <option value="inactive">
+                            Inactive
+                        </option>
+
+                    </select>
+
+                </div>
+
+
+                <div class="table-wrapper">
+
+                    <table class="customer-table">
+
+                        <thead>
+
+                            <tr>
+
+                                <th>Customer</th>
+                                <th>Phone</th>
+                                <th>Email</th>
+                                <th>Type</th>
+                                <th>Balance</th>
+                                <th>Credit Limit</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+
+                            </tr>
+
+                        </thead>
+
+                        <tbody id="customerTableBody">
+
+                            <tr>
+
+                                <td
+                                    colspan="8"
+                                    class="table-empty"
+                                >
+                                    No customers have been added.
+                                </td>
+
+                            </tr>
+
+                        </tbody>
+
+                    </table>
+
+                </div>
+
+            </section>
+
+        </div>
+
+    </main>
+
+
+<!-- STORAGE -->
+<script src="js/core/storage.js?v=150"></script>
+
+<!-- PERMISSIONS -->
+<script src="js/core/permissions.js?v=550"></script>
+
+<!-- THEME -->
+<script src="js/core/theme.js?v=580"></script>
+
+<!-- AUTH GUARD -->
+<script src="js/core/auth-guard.js?v=530"></script>
+
+<!-- COMPONENTS -->
+<script src="js/components/sidebar.js?v=610"></script>
+
+<script src="js/components/topbar.js?v=620"></script>
+
+<!-- CUSTOMERS MODULE -->
+<script src="js/modules/customers.js?v=200"></script>
+</body>
+</html>

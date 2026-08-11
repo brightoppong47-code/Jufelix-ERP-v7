@@ -1,0 +1,1287 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <meta
+        name="theme-color"
+        content="#0b5ed7"
+    >
+
+    <title>Inventory | Jufelix ERP v7.0</title>
+
+    <link
+        rel="stylesheet"
+        href="assets/css/variables.css"
+    >
+
+    <link
+        rel="stylesheet"
+        href="assets/css/base.css"
+    >
+
+    <link
+        rel="stylesheet"
+        href="assets/css/components.css"
+    >
+
+    <link
+        rel="stylesheet"
+        href="assets/css/style.css"
+    >
+
+    <style>
+
+        * {
+            box-sizing: border-box;
+        }
+
+        html,
+        body {
+            width: 100%;
+            max-width: 100%;
+            min-height: 100%;
+            margin: 0;
+            overflow-x: hidden;
+            font-family: Arial, Helvetica, sans-serif;
+        }
+
+        body {
+            background: #f5f7fb;
+            color: #1f2937;
+        }
+
+        .main-content {
+            min-height: 100vh;
+            margin-left: 270px;
+            overflow-x: hidden;
+        }
+
+        .inventory-page {
+            width: 100%;
+            max-width: 100%;
+            padding: 24px;
+        }
+
+        .page-heading {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 18px;
+            margin-bottom: 24px;
+        }
+
+        .page-heading h1 {
+            margin: 0 0 7px;
+            color: #1f2937;
+            font-size: 32px;
+        }
+
+        .page-heading p {
+            margin: 0;
+            color: #6b7280;
+            font-size: 15px;
+            line-height: 1.6;
+        }
+
+        .active-branch-box {
+            min-width: 200px;
+            padding: 13px 16px;
+            border: 1px solid #dce2ea;
+            border-radius: 11px;
+            background: #ffffff;
+            box-shadow:
+                0 3px 12px rgba(0, 0, 0, 0.05);
+        }
+
+        .active-branch-box span {
+            display: block;
+            margin-bottom: 5px;
+            color: #6b7280;
+            font-size: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+
+        .active-branch-box strong {
+            color: #0b5ed7;
+            font-size: 15px;
+        }
+
+        .inventory-summary {
+            display: grid;
+            grid-template-columns:
+                repeat(4, minmax(170px, 1fr));
+            gap: 17px;
+            margin-bottom: 24px;
+        }
+
+        .summary-card,
+        .inventory-panel {
+            border: 1px solid #edf0f4;
+            border-radius: 14px;
+            background: #ffffff;
+            box-shadow:
+                0 4px 14px rgba(0, 0, 0, 0.06);
+        }
+
+        .summary-card {
+            min-width: 0;
+            padding: 20px;
+        }
+
+        .summary-card h3 {
+            margin: 0 0 10px;
+            color: #6b7280;
+            font-size: 14px;
+        }
+
+        .summary-card p {
+            margin: 0;
+            color: #1f2937;
+            font-size: 26px;
+            font-weight: 800;
+            overflow-wrap: anywhere;
+        }
+
+        .summary-card small {
+            display: block;
+            margin-top: 7px;
+            color: #9ca3af;
+            font-size: 12px;
+        }
+
+        .inventory-panel {
+            width: 100%;
+            max-width: 100%;
+            margin-bottom: 24px;
+            padding: 22px;
+        }
+
+        .panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 15px;
+            margin-bottom: 19px;
+        }
+
+        .panel-header h2 {
+            margin: 0 0 6px;
+            color: #1f2937;
+            font-size: 22px;
+        }
+
+        .panel-header p {
+            margin: 0;
+            color: #6b7280;
+            font-size: 13px;
+            line-height: 1.6;
+        }
+
+        .product-form {
+            display: grid;
+            grid-template-columns:
+                repeat(2, minmax(0, 1fr));
+            gap: 17px;
+        }
+
+        .form-group {
+            min-width: 0;
+        }
+
+        .form-group.full-width {
+            grid-column: 1 / -1;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #374151;
+            font-size: 14px;
+            font-weight: 700;
+        }
+
+        .form-control {
+            width: 100%;
+            max-width: 100%;
+            min-height: 49px;
+            padding: 0 14px;
+            border: 1px solid #d7dce5;
+            border-radius: 9px;
+            outline: none;
+            background: #ffffff;
+            color: #1f2937;
+            font-size: 16px;
+        }
+
+        textarea.form-control {
+            min-height: 95px;
+            padding: 12px 14px;
+            resize: vertical;
+        }
+
+        .form-control:focus {
+            border-color: #0b5ed7;
+            box-shadow:
+                0 0 0 3px rgba(11, 94, 215, 0.12);
+        }
+
+        .form-control[readonly] {
+            background: #f8fafc;
+        }
+
+        .branch-quantity-note {
+            display: block;
+            margin-top: 6px;
+            color: #6b7280;
+            font-size: 12px;
+            line-height: 1.5;
+        }
+
+        .form-actions {
+            grid-column: 1 / -1;
+            display: flex;
+            justify-content: flex-end;
+            gap: 11px;
+        }
+
+        .primary-button,
+        .secondary-button {
+            min-height: 48px;
+            padding: 0 19px;
+            border-radius: 9px;
+            font-size: 15px;
+            font-weight: 700;
+            cursor: pointer;
+        }
+
+        .primary-button {
+            border: none;
+            background: #0b5ed7;
+            color: #ffffff;
+        }
+
+        .primary-button:hover {
+            background: #084298;
+        }
+
+        .secondary-button {
+            border: 1px solid #cfd5df;
+            background: #ffffff;
+            color: #374151;
+        }
+
+        .inventory-toolbar {
+            display: grid;
+            grid-template-columns:
+                minmax(250px, 1fr)
+                repeat(3, minmax(145px, 0.28fr));
+            gap: 13px;
+            margin-bottom: 18px;
+        }
+
+        .branch-toolbar {
+            display: grid;
+            grid-template-columns:
+                minmax(220px, 1fr)
+                minmax(170px, 0.3fr)
+                minmax(150px, 0.25fr);
+            gap: 13px;
+            margin-bottom: 18px;
+        }
+
+        .table-wrapper {
+            width: 100%;
+            max-width: 100%;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .inventory-table,
+        .branch-stock-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .inventory-table {
+            min-width: 1100px;
+        }
+
+        .branch-stock-table {
+            min-width: 900px;
+        }
+
+        .inventory-table th,
+        .inventory-table td,
+        .branch-stock-table th,
+        .branch-stock-table td {
+            padding: 13px 12px;
+            border-bottom: 1px solid #edf0f4;
+            text-align: left;
+            vertical-align: middle;
+            font-size: 13px;
+        }
+
+        .inventory-table th,
+        .branch-stock-table th {
+            background: #f8fafc;
+            color: #4b5563;
+            white-space: nowrap;
+        }
+
+        .inventory-table td,
+        .branch-stock-table td {
+            color: #374151;
+        }
+
+        .product-cell {
+            display: flex;
+            align-items: center;
+            gap: 11px;
+            min-width: 190px;
+        }
+
+        .product-thumbnail-fallback {
+            width: 42px;
+            height: 42px;
+            min-width: 42px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 9px;
+            background: #eaf2ff;
+            font-size: 20px;
+        }
+
+        .product-name {
+            color: #1f2937;
+            font-weight: 700;
+        }
+
+        .product-sku {
+            margin-top: 4px;
+            color: #9ca3af;
+            font-size: 11px;
+        }
+
+        .stock-status,
+        .branch-status {
+            display: inline-block;
+            padding: 5px 9px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 700;
+            white-space: nowrap;
+        }
+
+        .stock-good,
+        .branch-stock-good {
+            background: #d1e7dd;
+            color: #0f5132;
+        }
+
+        .stock-low,
+        .branch-stock-low {
+            background: #fff3cd;
+            color: #664d03;
+        }
+
+        .stock-out,
+        .branch-stock-out {
+            background: #f8d7da;
+            color: #842029;
+        }
+
+        .small-button {
+            min-height: 34px;
+            padding: 0 11px;
+            border: none;
+            border-radius: 7px;
+            font-size: 12px;
+            font-weight: 700;
+            cursor: pointer;
+        }
+
+        .edit-button {
+            background: #e7f1ff;
+            color: #084298;
+        }
+
+        .delete-button {
+            background: #f8d7da;
+            color: #842029;
+        }
+
+        .table-empty {
+            padding: 34px 15px !important;
+            text-align: center !important;
+            color: #9ca3af !important;
+        }
+
+        .branch-stock-message {
+            padding: 15px;
+            border: 1px solid #cfe2ff;
+            border-radius: 10px;
+            background: #e7f1ff;
+            color: #084298;
+            font-size: 13px;
+            line-height: 1.6;
+            margin-bottom: 17px;
+        }
+
+        .branch-stock-total {
+            margin-top: 18px;
+            display: flex;
+            justify-content: flex-end;
+        }
+
+        .branch-stock-total-box {
+            min-width: 230px;
+            padding: 16px;
+            border-radius: 11px;
+            background: #0b5ed7;
+            color: #ffffff;
+            text-align: center;
+        }
+
+        .branch-stock-total-box span {
+            display: block;
+            margin-bottom: 7px;
+            font-size: 12px;
+            opacity: 0.8;
+            text-transform: uppercase;
+        }
+
+        .branch-stock-total-box strong {
+            font-size: 24px;
+        }
+
+        @media screen and (max-width: 1150px) {
+
+            .inventory-summary {
+                grid-template-columns:
+                    repeat(2, minmax(170px, 1fr));
+            }
+
+            .inventory-toolbar {
+                grid-template-columns:
+                    repeat(2, minmax(0, 1fr));
+            }
+        }
+
+        @media screen and (max-width: 900px) {
+
+            .main-content {
+                width: 100%;
+                max-width: 100%;
+                margin-left: 0;
+            }
+
+            .inventory-page {
+                padding: 16px;
+            }
+
+            .product-form {
+                grid-template-columns: 1fr;
+            }
+
+            .form-group.full-width,
+            .form-actions {
+                grid-column: auto;
+            }
+        }
+
+        @media screen and (max-width: 700px) {
+
+            .page-heading {
+                flex-direction: column;
+            }
+
+            .active-branch-box {
+                width: 100%;
+            }
+
+            .inventory-summary,
+            .inventory-toolbar,
+            .branch-toolbar {
+                grid-template-columns: 1fr;
+            }
+
+            .inventory-panel {
+                padding: 16px;
+            }
+
+            .form-actions {
+                flex-direction: column-reverse;
+            }
+
+            .form-actions button {
+                width: 100%;
+            }
+
+            .branch-stock-total {
+                justify-content: stretch;
+            }
+
+            .branch-stock-total-box {
+                width: 100%;
+            }
+        }
+
+        @media screen and (max-width: 480px) {
+
+            .inventory-page {
+                padding: 12px;
+            }
+
+            .page-heading h1 {
+                font-size: 29px;
+            }
+
+            .summary-card {
+                padding: 18px;
+            }
+
+            .summary-card p {
+                font-size: 24px;
+            }
+        }
+
+    </style>
+
+</head>
+
+<body>
+
+    <aside
+        id="sidebar"
+        class="sidebar"
+    ></aside>
+
+
+    <main class="main-content">
+
+        <header
+            id="topbar"
+            class="topbar"
+        ></header>
+
+
+        <div class="inventory-page">
+
+            <section class="page-heading">
+
+                <div>
+
+                    <h1>Inventory Management</h1>
+
+                    <p>
+                        Manage products and view stock separately for every branch.
+                    </p>
+
+                </div>
+
+
+                <div class="active-branch-box">
+
+                    <span>Currently viewing</span>
+
+                    <strong id="inventoryActiveBranchName">
+                        Head Office
+                    </strong>
+
+                </div>
+
+            </section>
+
+
+            <section class="inventory-summary">
+
+                <article class="summary-card">
+
+                    <h3>Total Products</h3>
+
+                    <p id="inventoryTotalProducts">
+                        0
+                    </p>
+
+                    <small>
+                        Registered product records
+                    </small>
+
+                </article>
+
+
+                <article class="summary-card">
+
+                    <h3>Branch Stock Quantity</h3>
+
+                    <p id="inventoryTotalQuantity">
+                        0
+                    </p>
+
+                    <small>
+                        Units at the active branch
+                    </small>
+
+                </article>
+
+
+                <article class="summary-card">
+
+                    <h3>Branch Stock Value</h3>
+
+                    <p id="inventoryStockValue">
+                        GH₵0.00
+                    </p>
+
+                    <small>
+                        Cost value at the active branch
+                    </small>
+
+                </article>
+
+
+                <article class="summary-card">
+
+                    <h3>Low-Stock Products</h3>
+
+                    <p id="inventoryLowStock">
+                        0
+                    </p>
+
+                    <small>
+                        Low or out of stock
+                    </small>
+
+                </article>
+
+            </section>
+
+
+            <section
+                id="productFormPanel"
+                class="inventory-panel"
+            >
+
+                <div class="panel-header">
+
+                    <div>
+
+                        <h2 id="productFormTitle">
+                            Add New Product
+                        </h2>
+
+                        <p>
+                            The opening quantity will be assigned to the currently active branch.
+                        </p>
+
+                    </div>
+
+                </div>
+
+
+                <form
+                    id="productForm"
+                    class="product-form"
+                >
+
+                    <input
+                        type="hidden"
+                        id="productId"
+                    >
+
+
+                    <div class="form-group">
+
+                        <label for="productName">
+                            Product Name *
+                        </label>
+
+                        <input
+                            type="text"
+                            id="productName"
+                            class="form-control"
+                            placeholder="Enter product name"
+                            required
+                        >
+
+                    </div>
+
+
+                    <div class="form-group">
+
+                        <label for="productSku">
+                            SKU
+                        </label>
+
+                        <input
+                            type="text"
+                            id="productSku"
+                            class="form-control"
+                            placeholder="Leave blank to generate automatically"
+                        >
+
+                    </div>
+
+
+                    <div class="form-group">
+
+                        <label for="productBarcode">
+                            Barcode
+                        </label>
+
+                        <input
+                            type="text"
+                            id="productBarcode"
+                            class="form-control"
+                            placeholder="Enter barcode"
+                        >
+
+                    </div>
+
+
+                    <div class="form-group">
+
+                        <label for="productCategory">
+                            Category *
+                        </label>
+
+                        <input
+                            type="text"
+                            id="productCategory"
+                            class="form-control"
+                            placeholder="Example: Clothing, Drinks, Cement"
+                            required
+                        >
+
+                    </div>
+
+
+                    <div class="form-group">
+
+                        <label for="productBrand">
+                            Brand
+                        </label>
+
+                        <input
+                            type="text"
+                            id="productBrand"
+                            class="form-control"
+                            placeholder="Enter product brand"
+                        >
+
+                    </div>
+
+
+                    <div class="form-group">
+
+                        <label for="productUnit">
+                            Unit *
+                        </label>
+
+                        <select
+                            id="productUnit"
+                            class="form-control"
+                            required
+                        >
+
+                            <option value="">
+                                Select unit
+                            </option>
+
+                            <option value="Piece">
+                                Piece
+                            </option>
+
+                            <option value="Box">
+                                Box
+                            </option>
+
+                            <option value="Bag">
+                                Bag
+                            </option>
+
+                            <option value="Bottle">
+                                Bottle
+                            </option>
+
+                            <option value="Pack">
+                                Pack
+                            </option>
+
+                            <option value="Carton">
+                                Carton
+                            </option>
+
+                            <option value="Kilogram">
+                                Kilogram
+                            </option>
+
+                            <option value="Litre">
+                                Litre
+                            </option>
+
+                            <option value="Metre">
+                                Metre
+                            </option>
+
+                            <option value="Set">
+                                Set
+                            </option>
+
+                            <option value="Roll">
+                                Roll
+                            </option>
+
+                        </select>
+
+                    </div>
+
+
+                    <div class="form-group">
+
+                        <label for="productCostPrice">
+                            Cost Price (GH₵) *
+                        </label>
+
+                        <input
+                            type="number"
+                            id="productCostPrice"
+                            class="form-control"
+                            min="0"
+                            step="0.01"
+                            placeholder="0.00"
+                            required
+                        >
+
+                    </div>
+
+
+                    <div class="form-group">
+
+                        <label for="productSellingPrice">
+                            Selling Price (GH₵) *
+                        </label>
+
+                        <input
+                            type="number"
+                            id="productSellingPrice"
+                            class="form-control"
+                            min="0"
+                            step="0.01"
+                            placeholder="0.00"
+                            required
+                        >
+
+                    </div>
+
+
+                    <div class="form-group">
+
+                        <label for="productQuantity">
+                            Branch Quantity *
+                        </label>
+
+                        <input
+                            type="number"
+                            id="productQuantity"
+                            class="form-control"
+                            min="0"
+                            step="1"
+                            placeholder="0"
+                            required
+                        >
+
+                        <small class="branch-quantity-note">
+                            This quantity belongs only to the active branch. Other branch quantities are not overwritten.
+                        </small>
+
+                    </div>
+
+
+                    <div class="form-group">
+
+                        <label for="productLowStock">
+                            Low-Stock Level
+                        </label>
+
+                        <input
+                            type="number"
+                            id="productLowStock"
+                            class="form-control"
+                            min="0"
+                            step="1"
+                            value="5"
+                        >
+
+                    </div>
+
+
+                    <div class="form-group">
+
+                        <label for="productTax">
+                            Tax Percentage
+                        </label>
+
+                        <input
+                            type="number"
+                            id="productTax"
+                            class="form-control"
+                            min="0"
+                            step="0.01"
+                            value="0"
+                        >
+
+                    </div>
+
+
+                    <div class="form-group">
+
+                        <label for="productStatus">
+                            Product Status
+                        </label>
+
+                        <select
+                            id="productStatus"
+                            class="form-control"
+                        >
+
+                            <option value="active">
+                                Active
+                            </option>
+
+                            <option value="inactive">
+                                Inactive
+                            </option>
+
+                        </select>
+
+                    </div>
+
+
+                    <div class="form-group full-width">
+
+                        <label for="productDescription">
+                            Description
+                        </label>
+
+                        <textarea
+                            id="productDescription"
+                            class="form-control"
+                            placeholder="Enter an optional product description"
+                        ></textarea>
+
+                    </div>
+
+
+                    <div class="form-actions">
+
+                        <button
+                            type="button"
+                            id="cancelProductButton"
+                            class="secondary-button"
+                        >
+                            Clear Form
+                        </button>
+
+                        <button
+                            type="submit"
+                            id="saveProductButton"
+                            class="primary-button"
+                        >
+                            Save Product
+                        </button>
+
+                    </div>
+
+                </form>
+
+            </section>
+
+
+            <section class="inventory-panel">
+
+                <div class="panel-header">
+
+                    <div>
+
+                        <h2>Active Branch Inventory</h2>
+
+                        <p>
+                            Products and quantities for the currently active branch.
+                        </p>
+
+                    </div>
+
+                </div>
+
+
+                <div class="inventory-toolbar">
+
+                    <input
+                        type="search"
+                        id="inventorySearch"
+                        class="form-control"
+                        placeholder="Search by product, SKU, barcode, brand or category"
+                    >
+
+
+                    <select
+                        id="inventoryCategoryFilter"
+                        class="form-control"
+                    >
+
+                        <option value="">
+                            All Categories
+                        </option>
+
+                    </select>
+
+
+                    <select
+                        id="inventoryStockFilter"
+                        class="form-control"
+                    >
+
+                        <option value="">
+                            All Stock Levels
+                        </option>
+
+                        <option value="available">
+                            Available
+                        </option>
+
+                        <option value="low">
+                            Low Stock
+                        </option>
+
+                        <option value="out">
+                            Out of Stock
+                        </option>
+
+                    </select>
+
+
+                    <select
+                        id="inventoryStatusFilter"
+                        class="form-control"
+                    >
+
+                        <option value="">
+                            All Product Statuses
+                        </option>
+
+                        <option value="active">
+                            Active
+                        </option>
+
+                        <option value="inactive">
+                            Inactive
+                        </option>
+
+                    </select>
+
+                </div>
+
+
+                <div class="table-wrapper">
+
+                    <table class="inventory-table">
+
+                        <thead>
+
+                            <tr>
+
+                                <th>Product</th>
+                                <th>Category</th>
+                                <th>Brand</th>
+                                <th>Cost Price</th>
+                                <th>Selling Price</th>
+                                <th>Branch Quantity</th>
+                                <th>Stock Status</th>
+                                <th>Product Status</th>
+                                <th>Actions</th>
+
+                            </tr>
+
+                        </thead>
+
+                        <tbody id="inventoryTableBody">
+
+                            <tr>
+
+                                <td
+                                    colspan="9"
+                                    class="table-empty"
+                                >
+                                    No products have been added.
+                                </td>
+
+                            </tr>
+
+                        </tbody>
+
+                    </table>
+
+                </div>
+
+            </section>
+
+
+            <section class="inventory-panel">
+
+                <div class="panel-header">
+
+                    <div>
+
+                        <h2>Branch Stock Viewer</h2>
+
+                        <p>
+                            Confirm how much stock each branch currently holds.
+                        </p>
+
+                    </div>
+
+                </div>
+
+
+                <div class="branch-stock-message">
+                    Use this section after purchases, sales, or transfers to confirm the exact stock held by every branch.
+                </div>
+
+
+                <div class="branch-toolbar">
+
+                    <input
+                        type="search"
+                        id="branchStockSearch"
+                        class="form-control"
+                        placeholder="Search product or branch"
+                    >
+
+
+                    <select
+                        id="inventoryBranchFilter"
+                        class="form-control"
+                    >
+
+                        <option value="">
+                            All Branches
+                        </option>
+
+                    </select>
+
+
+                    <select
+                        id="branchStockLevelFilter"
+                        class="form-control"
+                    >
+
+                        <option value="">
+                            All Stock Levels
+                        </option>
+
+                        <option value="available">
+                            Available
+                        </option>
+
+                        <option value="low">
+                            Low Stock
+                        </option>
+
+                        <option value="out">
+                            Out of Stock
+                        </option>
+
+                    </select>
+
+                </div>
+
+
+                <div class="table-wrapper">
+
+                    <table class="branch-stock-table">
+
+                        <thead>
+
+                            <tr>
+
+                                <th>Product</th>
+                                <th>SKU</th>
+                                <th>Branch</th>
+                                <th>Stock Quantity</th>
+                                <th>Low-Stock Level</th>
+                                <th>Unit</th>
+                                <th>Stock Status</th>
+
+                            </tr>
+
+                        </thead>
+
+                        <tbody id="branchStockTableBody">
+
+                            <tr>
+
+                                <td
+                                    colspan="7"
+                                    class="table-empty"
+                                >
+                                    Branch stock information will appear here.
+                                </td>
+
+                            </tr>
+
+                        </tbody>
+
+                    </table>
+
+                </div>
+
+
+                <div class="branch-stock-total">
+
+                    <div class="branch-stock-total-box">
+
+                        <span>
+                            Total Stock Across All Branches
+                        </span>
+
+                        <strong id="totalAllBranchesStock">
+                            0
+                        </strong>
+
+                    </div>
+
+                </div>
+
+            </section>
+
+        </div>
+
+    </main>
+
+
+<script src="js/core/storage.js?v=501"></script>
+
+<script src="js/core/permissions.js?v=501"></script>
+<script src="js/core/auth-guard.js?v=650"></script>
+<script src="js/core/theme.js?v=580"></script>
+<script src="js/components/sidebar.js?v=610"></script>
+<script src="js/components/topbar.js?v=620"></script>
+
+<script src="js/modules/inventory.js?v=501"></script>
+<script src="js/modules/inventory-branch-viewer.js?v=501"></script>
+
+<script type="module" src="js/core/firebase.js?v=501"></script>
+<script type="module" src="js/cloud/inventory-cloud.js?v=501"></script>
+</body>
+</html>

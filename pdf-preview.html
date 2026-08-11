@@ -1,0 +1,1767 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <meta
+        name="theme-color"
+        content="#0b5ed7"
+    >
+
+    <title>
+        PDF Preview | Jufelix ERP v7.0
+    </title>
+
+
+    <style>
+
+        * {
+            box-sizing: border-box;
+        }
+
+
+        html,
+        body {
+            width: 100%;
+            max-width: 100%;
+            margin: 0;
+            overflow-x: hidden;
+        }
+
+
+        body {
+            background: #f4f7fb;
+            color: #172033;
+            font-family: Arial, Helvetica, sans-serif;
+        }
+
+
+        .preview-page {
+            width: 100%;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 18px;
+        }
+
+
+        /* =====================================
+           HEADER
+        ===================================== */
+
+        .preview-header {
+
+            padding: 28px 24px;
+
+            border-radius:
+                22px 22px 0 0;
+
+            background:
+                linear-gradient(
+                    135deg,
+                    #0b5ed7,
+                    #6f42c1
+                );
+
+            color: #ffffff;
+        }
+
+
+        .preview-header h1 {
+
+            margin: 0;
+
+            font-size: 32px;
+        }
+
+
+        .preview-header p {
+
+            margin:
+                12px 0 0;
+
+            font-size: 17px;
+
+            opacity: .9;
+        }
+
+
+        /* =====================================
+           CARD
+        ===================================== */
+
+        .preview-card {
+
+            background: #ffffff;
+
+            border-radius:
+                0 0 22px 22px;
+
+            overflow: hidden;
+
+            box-shadow:
+                0 10px 35px
+                rgba(15,23,42,.10);
+        }
+
+
+        /* =====================================
+           STATUS
+        ===================================== */
+
+        .preview-status {
+
+            padding: 17px 20px;
+
+            background: #eef6ff;
+
+            border-bottom:
+                1px solid #dbe7f5;
+
+            color: #344054;
+
+            font-size: 14px;
+
+            font-weight: 800;
+        }
+
+
+        .preview-status.success {
+
+            background: #ecfdf3;
+
+            color: #027a48;
+        }
+
+
+        .preview-status.error {
+
+            background: #fff1f2;
+
+            color: #b42318;
+        }
+
+
+        /* =====================================
+           PDF AREA
+        ===================================== */
+
+        .pdf-container {
+
+            width: 100%;
+
+            min-height: 500px;
+
+            padding: 12px;
+
+            overflow-x: hidden;
+
+            background: #e9edf3;
+        }
+
+
+        .pdf-page-wrapper {
+
+            width: 100%;
+
+            margin:
+                0 auto 16px;
+
+            display: flex;
+
+            justify-content: center;
+        }
+
+
+        .pdf-page-wrapper:last-child {
+
+            margin-bottom: 0;
+        }
+
+
+        .pdf-canvas {
+
+            display: block;
+
+            max-width: 100%;
+
+            height: auto;
+
+            background: #ffffff;
+
+            border-radius: 3px;
+
+            box-shadow:
+                0 4px 18px
+                rgba(15,23,42,.18);
+        }
+
+
+        /* =====================================
+           LOADING
+        ===================================== */
+
+        .loading-box {
+
+            min-height: 450px;
+
+            display: flex;
+
+            flex-direction: column;
+
+            align-items: center;
+
+            justify-content: center;
+
+            padding: 30px;
+
+            text-align: center;
+
+            color: #667085;
+        }
+
+
+        .spinner {
+
+            width: 46px;
+
+            height: 46px;
+
+            margin-bottom: 18px;
+
+            border:
+                5px solid #dbe7f5;
+
+            border-top-color:
+                #0b5ed7;
+
+            border-radius: 50%;
+
+            animation:
+                loadingSpin .8s linear infinite;
+        }
+
+
+        @keyframes loadingSpin {
+
+            to {
+                transform:
+                    rotate(360deg);
+            }
+
+        }
+
+
+        .loading-box strong {
+
+            font-size: 18px;
+
+            color: #344054;
+        }
+
+
+        .loading-box p {
+
+            margin:
+                10px 0 0;
+
+            line-height: 1.5;
+        }
+
+
+        /* =====================================
+           ERROR
+        ===================================== */
+
+        .error-box {
+
+            min-height: 400px;
+
+            display: flex;
+
+            flex-direction: column;
+
+            align-items: center;
+
+            justify-content: center;
+
+            padding: 30px;
+
+            text-align: center;
+
+            color: #b42318;
+        }
+
+
+        .error-box h2 {
+
+            margin:
+                0 0 12px;
+
+            font-size: 27px;
+        }
+
+
+        .error-box p {
+
+            max-width: 560px;
+
+            margin: 0;
+
+            line-height: 1.6;
+        }
+
+
+        /* =====================================
+           ACTIONS
+        ===================================== */
+
+        .preview-actions {
+
+            display: grid;
+
+            gap: 12px;
+
+            padding: 20px;
+
+            background: #ffffff;
+        }
+
+
+        .preview-button {
+
+            width: 100%;
+
+            min-height: 58px;
+
+            padding:
+                14px 18px;
+
+            border: none;
+
+            border-radius: 13px;
+
+            font-size: 17px;
+
+            font-weight: 800;
+
+            cursor: pointer;
+        }
+
+
+        .save-button {
+
+            background: #0b5ed7;
+
+            color: #ffffff;
+        }
+
+
+        .share-button {
+
+            background: #198754;
+
+            color: #ffffff;
+        }
+
+
+        .back-button {
+
+            background: #ffffff;
+
+            color: #344054;
+
+            border:
+                1px solid #d0d5dd;
+        }
+
+
+        .preview-button:disabled {
+
+            opacity: .5;
+
+            cursor: not-allowed;
+        }
+
+
+        .preview-note {
+
+            margin:
+                0 20px 20px;
+
+            padding: 14px;
+
+            border:
+                1px solid #e4e7ec;
+
+            border-radius: 10px;
+
+            background: #f8fafc;
+
+            color: #667085;
+
+            font-size: 13px;
+
+            line-height: 1.6;
+        }
+
+
+        /* =====================================
+           MOBILE
+        ===================================== */
+
+        @media screen and
+        (max-width: 600px) {
+
+            .preview-page {
+
+                padding: 10px;
+            }
+
+
+            .preview-header {
+
+                padding:
+                    24px 18px;
+            }
+
+
+            .preview-header h1 {
+
+                font-size: 28px;
+            }
+
+
+            .preview-header p {
+
+                font-size: 15px;
+            }
+
+
+            .pdf-container {
+
+                padding: 7px;
+
+                min-height: 430px;
+            }
+
+
+            .preview-actions {
+
+                padding: 15px;
+            }
+
+
+            .preview-button {
+
+                min-height: 56px;
+            }
+
+        }
+
+    </style>
+
+</head>
+
+
+<body>
+
+
+<div class="preview-page">
+
+
+    <section class="preview-card">
+
+
+        <!-- =====================================
+             HEADER
+        ====================================== -->
+
+        <header class="preview-header">
+
+            <h1>
+                PDF Preview
+            </h1>
+
+            <p>
+                Jufelix ERP v7.0 Professional
+            </p>
+
+        </header>
+
+
+
+        <!-- =====================================
+             STATUS
+        ====================================== -->
+
+        <div
+            id="previewStatus"
+            class="preview-status"
+        >
+            Preparing report preview...
+        </div>
+
+
+
+        <!-- =====================================
+             PDF
+        ====================================== -->
+
+        <main
+            id="pdfContainer"
+            class="pdf-container"
+        >
+
+            <div class="loading-box">
+
+                <div class="spinner"></div>
+
+                <strong>
+                    Loading report...
+                </strong>
+
+                <p>
+                    Please wait while the PDF is prepared.
+                </p>
+
+            </div>
+
+        </main>
+
+
+
+        <!-- =====================================
+             BUTTONS
+        ====================================== -->
+
+        <div class="preview-actions">
+
+
+            <button
+                type="button"
+                id="savePdfButton"
+                class="
+                    preview-button
+                    save-button
+                "
+                disabled
+            >
+                Save / Export PDF
+            </button>
+
+
+            <button
+                type="button"
+                id="sharePdfButton"
+                class="
+                    preview-button
+                    share-button
+                "
+                disabled
+            >
+                Share PDF
+            </button>
+
+
+            <button
+                type="button"
+                id="backButton"
+                class="
+                    preview-button
+                    back-button
+                "
+            >
+                ← Back to Reports
+            </button>
+
+
+        </div>
+
+
+
+        <div class="preview-note">
+
+            The PDF is displayed directly
+            inside Jufelix ERP.
+
+            The Save and Share buttons use
+            Android's supported file-sharing
+            system instead of opening a
+            temporary blob page.
+
+        </div>
+
+
+    </section>
+
+
+</div>
+
+
+
+<!-- =========================================
+     PDF.JS
+========================================= -->
+
+<script
+    src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"
+></script>
+
+
+
+<script>
+
+(function () {
+
+    "use strict";
+
+
+    /* =========================================
+       STORAGE KEYS
+
+       MUST MATCH reports.js
+    ========================================= */
+
+    const PDF_STORAGE_KEY =
+        "jufelix_v7_pdf_preview";
+
+
+    const PDF_FILENAME_KEY =
+        "jufelix_v7_pdf_filename";
+
+
+    /* =========================================
+       STATE
+    ========================================= */
+
+    let pdfBase64 =
+        "";
+
+
+    let pdfBytes =
+        null;
+
+
+    let pdfBlob =
+        null;
+
+
+    let pdfFileName =
+        "Jufelix_Report.pdf";
+
+
+    /* =========================================
+       ELEMENTS
+    ========================================= */
+
+    const pdfContainer =
+        document.getElementById(
+            "pdfContainer"
+        );
+
+
+    const statusElement =
+        document.getElementById(
+            "previewStatus"
+        );
+
+
+    const saveButton =
+        document.getElementById(
+            "savePdfButton"
+        );
+
+
+    const shareButton =
+        document.getElementById(
+            "sharePdfButton"
+        );
+
+
+    const backButton =
+        document.getElementById(
+            "backButton"
+        );
+
+
+    /* =========================================
+       INITIALIZE
+    ========================================= */
+
+    if (
+        document.readyState ===
+        "loading"
+    ) {
+
+        document.addEventListener(
+            "DOMContentLoaded",
+            initializePreview
+        );
+
+    } else {
+
+        initializePreview();
+
+    }
+
+
+    async function initializePreview() {
+
+        try {
+
+            setStatus(
+                "Reading generated report..."
+            );
+
+
+            /* =================================
+               READ SAVED PDF
+            ================================= */
+
+            pdfBase64 =
+                sessionStorage.getItem(
+                    PDF_STORAGE_KEY
+                ) ||
+                localStorage.getItem(
+                    PDF_STORAGE_KEY
+                ) ||
+                "";
+
+
+            const savedName =
+                sessionStorage.getItem(
+                    PDF_FILENAME_KEY
+                ) ||
+                localStorage.getItem(
+                    PDF_FILENAME_KEY
+                ) ||
+                "";
+
+
+            if (savedName) {
+
+                pdfFileName =
+                    sanitizeFileName(
+                        savedName
+                    );
+
+            }
+
+
+            if (!pdfBase64) {
+
+                showError(
+
+                    "No generated PDF was found.",
+
+                    "Return to Reports and tap Download PDF again."
+
+                );
+
+
+                return;
+
+            }
+
+
+            /* =================================
+               CLEAN BASE64
+            ================================= */
+
+            pdfBase64 =
+                cleanBase64(
+                    pdfBase64
+                );
+
+
+            setStatus(
+                "Preparing PDF data..."
+            );
+
+
+            pdfBytes =
+                base64ToBytes(
+                    pdfBase64
+                );
+
+
+            if (
+                !pdfBytes ||
+                pdfBytes.length ===
+                0
+            ) {
+
+                throw new Error(
+                    "The generated PDF is empty."
+                );
+
+            }
+
+
+            /*
+             * Blob exists only so Android
+             * can share the actual file.
+             *
+             * We DO NOT navigate to blob URL.
+             */
+
+            pdfBlob =
+                new Blob(
+                    [
+                        pdfBytes
+                    ],
+                    {
+                        type:
+                            "application/pdf"
+                    }
+                );
+
+
+            setStatus(
+                "Rendering PDF..."
+            );
+
+
+            await renderPdfSafely(
+                pdfBytes
+            );
+
+
+            saveButton.disabled =
+                false;
+
+
+            shareButton.disabled =
+                false;
+
+
+            setStatus(
+                "PDF ready.",
+                "success"
+            );
+
+
+        } catch (error) {
+
+            console.error(
+                "PDF preview error:",
+                error
+            );
+
+
+            showError(
+
+                "Unable to display the PDF.",
+
+                error &&
+                error.message
+
+                    ? error.message
+
+                    : "The generated PDF could not be rendered."
+
+            );
+
+        }
+
+    }
+
+
+    /* =========================================
+       RENDER PDF - ACODE SAFE
+    ========================================= */
+
+    async function renderPdfSafely(
+        sourceBytes
+    ) {
+
+        if (!window.pdfjsLib) {
+
+            throw new Error(
+                "PDF.js did not load. Check your internet connection and reload the page."
+            );
+
+        }
+
+
+        /*
+         * IMPORTANT FOR ACODE:
+         *
+         * Disable Web Worker.
+         *
+         * This keeps PDF rendering inside
+         * the current page instead of trying
+         * to start a worker that can hang
+         * inside Android WebView.
+         */
+
+        const pdfData =
+            new Uint8Array(
+                sourceBytes
+            );
+
+
+        const loadingTask =
+            pdfjsLib.getDocument({
+
+                data:
+                    pdfData,
+
+                disableWorker:
+                    true,
+
+                disableAutoFetch:
+                    true,
+
+                disableStream:
+                    true
+
+            });
+
+
+        /*
+         * Prevent endless loading.
+         *
+         * If PDF.js fails, show an error
+         * instead of spinning forever.
+         */
+
+        const pdf =
+            await promiseWithTimeout(
+
+                loadingTask.promise,
+
+                20000,
+
+                "PDF loading took too long."
+
+            );
+
+
+        if (!pdf) {
+
+            throw new Error(
+                "PDF document could not be opened."
+            );
+
+        }
+
+
+        if (
+            !pdf.numPages ||
+            pdf.numPages < 1
+        ) {
+
+            throw new Error(
+                "The generated PDF has no pages."
+            );
+
+        }
+
+
+        pdfContainer.innerHTML =
+            "";
+
+
+        for (
+            let pageNumber = 1;
+            pageNumber <= pdf.numPages;
+            pageNumber++
+        ) {
+
+            setStatus(
+
+                "Rendering page " +
+                pageNumber +
+                " of " +
+                pdf.numPages +
+                "..."
+
+            );
+
+
+            const page =
+                await promiseWithTimeout(
+
+                    pdf.getPage(
+                        pageNumber
+                    ),
+
+                    15000,
+
+                    "Page " +
+                    pageNumber +
+                    " could not be loaded."
+
+                );
+
+
+            await renderOnePage(
+                page,
+                pageNumber
+            );
+
+        }
+
+    }
+
+
+    /* =========================================
+       RENDER ONE PAGE
+    ========================================= */
+
+    async function renderOnePage(
+        page,
+        pageNumber
+    ) {
+
+        const wrapper =
+            document.createElement(
+                "div"
+            );
+
+
+        wrapper.className =
+            "pdf-page-wrapper";
+
+
+        const canvas =
+            document.createElement(
+                "canvas"
+            );
+
+
+        canvas.className =
+            "pdf-canvas";
+
+
+        canvas.setAttribute(
+            "aria-label",
+            "PDF page " +
+            pageNumber
+        );
+
+
+        wrapper.appendChild(
+            canvas
+        );
+
+
+        pdfContainer.appendChild(
+            wrapper
+        );
+
+
+        /*
+         * Basic PDF size.
+         */
+
+        const baseViewport =
+            page.getViewport({
+                scale:
+                    1
+            });
+
+
+        /*
+         * Fit page inside phone width.
+         */
+
+        const availableWidth =
+            Math.max(
+
+                260,
+
+                pdfContainer.clientWidth -
+                16
+
+            );
+
+
+        let displayScale =
+            availableWidth /
+            baseViewport.width;
+
+
+        /*
+         * Don't enlarge excessively.
+         */
+
+        displayScale =
+            Math.min(
+                displayScale,
+                1.5
+            );
+
+
+        /*
+         * Moderate render resolution.
+         * Keeping this reasonable prevents
+         * Android memory crashes.
+         */
+
+        const pixelRatio =
+            Math.min(
+
+                window.devicePixelRatio ||
+                1,
+
+                1.7
+
+            );
+
+
+        const renderScale =
+            displayScale *
+            pixelRatio;
+
+
+        const renderViewport =
+            page.getViewport({
+
+                scale:
+                    renderScale
+
+            });
+
+
+        canvas.width =
+            Math.max(
+
+                1,
+
+                Math.floor(
+                    renderViewport.width
+                )
+
+            );
+
+
+        canvas.height =
+            Math.max(
+
+                1,
+
+                Math.floor(
+                    renderViewport.height
+                )
+
+            );
+
+
+        canvas.style.width =
+            Math.floor(
+                baseViewport.width *
+                displayScale
+            ) +
+            "px";
+
+
+        canvas.style.height =
+            Math.floor(
+                baseViewport.height *
+                displayScale
+            ) +
+            "px";
+
+
+        const context =
+            canvas.getContext(
+                "2d",
+                {
+                    alpha:
+                        false
+                }
+            );
+
+
+        if (!context) {
+
+            throw new Error(
+                "Canvas could not be created."
+            );
+
+        }
+
+
+        /*
+         * White PDF background.
+         */
+
+        context.save();
+
+        context.fillStyle =
+            "#ffffff";
+
+        context.fillRect(
+            0,
+            0,
+            canvas.width,
+            canvas.height
+        );
+
+        context.restore();
+
+
+        const renderTask =
+            page.render({
+
+                canvasContext:
+                    context,
+
+                viewport:
+                    renderViewport
+
+            });
+
+
+        await promiseWithTimeout(
+
+            renderTask.promise,
+
+            20000,
+
+            "Page " +
+            pageNumber +
+            " took too long to render."
+
+        );
+
+    }
+
+
+    /* =========================================
+       SAVE / EXPORT
+    ========================================= */
+
+    saveButton.addEventListener(
+        "click",
+        async function () {
+
+            await sharePdfFile(
+                "Save Jufelix Report"
+            );
+
+        }
+    );
+
+
+    /* =========================================
+       SHARE
+    ========================================= */
+
+    shareButton.addEventListener(
+        "click",
+        async function () {
+
+            await sharePdfFile(
+                "Share Jufelix Report"
+            );
+
+        }
+    );
+
+
+    async function sharePdfFile(
+        title
+    ) {
+
+        if (
+            !pdfBlob ||
+            !pdfBytes
+        ) {
+
+            alert(
+                "The PDF is not ready yet."
+            );
+
+            return;
+
+        }
+
+
+        try {
+
+            const file =
+                new File(
+
+                    [
+                        pdfBlob
+                    ],
+
+                    pdfFileName,
+
+                    {
+                        type:
+                            "application/pdf"
+                    }
+
+                );
+
+
+            /*
+             * Preferred Android method.
+             */
+
+            if (
+                navigator.share &&
+                navigator.canShare
+            ) {
+
+                const canShareFile =
+                    navigator.canShare({
+
+                        files:
+                            [file]
+
+                    });
+
+
+                if (canShareFile) {
+
+                    await navigator.share({
+
+                        title:
+                            title,
+
+                        text:
+                            "Jufelix ERP v7.0 Professional Report",
+
+                        files:
+                            [file]
+
+                    });
+
+
+                    return;
+
+                }
+
+            }
+
+
+            /*
+             * IMPORTANT:
+             *
+             * Do not fall back to Blob download.
+             * That is what was freezing Acode.
+             */
+
+            alert(
+                "This Acode preview browser cannot directly save PDF files. Use Chrome or the installed Jufelix PWA to export this report."
+            );
+
+
+        } catch (error) {
+
+            if (
+                error &&
+                error.name ===
+                "AbortError"
+            ) {
+
+                return;
+
+            }
+
+
+            console.error(
+                "PDF share error:",
+                error
+            );
+
+
+            alert(
+                "The Android file/share menu could not be opened."
+            );
+
+        }
+
+    }
+
+
+    /* =========================================
+       BACK
+    ========================================= */
+
+    backButton.addEventListener(
+        "click",
+        function () {
+
+            window.location.href =
+                "reports.html";
+
+        }
+    );
+
+
+    /* =========================================
+       BASE64
+    ========================================= */
+
+    function cleanBase64(
+        value
+    ) {
+
+        let text =
+            String(
+                value ||
+                ""
+            )
+                .trim();
+
+
+        /*
+         * Supports accidentally stored:
+         *
+         * data:application/pdf;base64,...
+         *
+         * and:
+         *
+         * data:application/pdf;
+         * filename=generated.pdf;
+         * base64,...
+         */
+
+        const marker =
+            "base64,";
+
+
+        const markerPosition =
+            text.indexOf(
+                marker
+            );
+
+
+        if (
+            markerPosition !==
+            -1
+        ) {
+
+            text =
+                text.substring(
+                    markerPosition +
+                    marker.length
+                );
+
+        }
+
+
+        return text.replace(
+            /\s/g,
+            ""
+        );
+
+    }
+
+
+    function base64ToBytes(
+        base64
+    ) {
+
+        let binary;
+
+
+        try {
+
+            binary =
+                atob(
+                    base64
+                );
+
+        } catch (error) {
+
+            throw new Error(
+                "Stored PDF data is invalid."
+            );
+
+        }
+
+
+        const bytes =
+            new Uint8Array(
+                binary.length
+            );
+
+
+        for (
+            let index = 0;
+            index < binary.length;
+            index++
+        ) {
+
+            bytes[index] =
+                binary.charCodeAt(
+                    index
+                );
+
+        }
+
+
+        return bytes;
+
+    }
+
+
+    /* =========================================
+       TIMEOUT PROTECTION
+    ========================================= */
+
+    function promiseWithTimeout(
+        promise,
+        milliseconds,
+        message
+    ) {
+
+        return new Promise(
+            function (
+                resolve,
+                reject
+            ) {
+
+                let finished =
+                    false;
+
+
+                const timer =
+                    setTimeout(
+                        function () {
+
+                            if (finished) {
+                                return;
+                            }
+
+
+                            finished =
+                                true;
+
+
+                            reject(
+                                new Error(
+                                    message
+                                )
+                            );
+
+                        },
+                        milliseconds
+                    );
+
+
+                Promise.resolve(
+                    promise
+                )
+                    .then(
+                        function (result) {
+
+                            if (finished) {
+                                return;
+                            }
+
+
+                            finished =
+                                true;
+
+
+                            clearTimeout(
+                                timer
+                            );
+
+
+                            resolve(
+                                result
+                            );
+
+                        }
+                    )
+                    .catch(
+                        function (error) {
+
+                            if (finished) {
+                                return;
+                            }
+
+
+                            finished =
+                                true;
+
+
+                            clearTimeout(
+                                timer
+                            );
+
+
+                            reject(
+                                error
+                            );
+
+                        }
+                    );
+
+            }
+        );
+
+    }
+
+
+    /* =========================================
+       UI HELPERS
+    ========================================= */
+
+    function setStatus(
+        message,
+        type
+    ) {
+
+        if (!statusElement) {
+            return;
+        }
+
+
+        statusElement.textContent =
+            message;
+
+
+        statusElement.className =
+            "preview-status";
+
+
+        if (type) {
+
+            statusElement.classList.add(
+                type
+            );
+
+        }
+
+    }
+
+
+    function showError(
+        title,
+        message
+    ) {
+
+        setStatus(
+            "PDF preview unavailable.",
+            "error"
+        );
+
+
+        pdfContainer.innerHTML = `
+
+            <div class="error-box">
+
+                <h2>
+                    ${escapeHTML(
+                        title
+                    )}
+                </h2>
+
+                <p>
+                    ${escapeHTML(
+                        message
+                    )}
+                </p>
+
+            </div>
+
+        `;
+
+
+        saveButton.disabled =
+            true;
+
+
+        shareButton.disabled =
+            true;
+
+    }
+
+
+    function sanitizeFileName(
+        value
+    ) {
+
+        let name =
+            String(
+                value ||
+                "Jufelix_Report.pdf"
+            );
+
+
+        name =
+            name.replace(
+                /[\\/:*?"<>|]/g,
+                "_"
+            );
+
+
+        if (
+            !name
+                .toLowerCase()
+                .endsWith(
+                    ".pdf"
+                )
+        ) {
+
+            name +=
+                ".pdf";
+
+        }
+
+
+        return name;
+
+    }
+
+
+    function escapeHTML(
+        value
+    ) {
+
+        return String(
+            value ===
+                undefined ||
+            value ===
+                null
+                ? ""
+                : value
+        )
+            .replace(
+                /&/g,
+                "&amp;"
+            )
+            .replace(
+                /</g,
+                "&lt;"
+            )
+            .replace(
+                />/g,
+                "&gt;"
+            )
+            .replace(
+                /"/g,
+                "&quot;"
+            )
+            .replace(
+                /'/g,
+                "&#039;"
+            );
+
+    }
+
+})();
+
+</script>
+
+
+</body>
+
+</html>

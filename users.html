@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#0b5ed7">
+<title>Users | Jufelix ERP v7.0</title>
+<link rel="stylesheet" href="assets/css/variables.css">
+<link rel="stylesheet" href="assets/css/base.css">
+<link rel="stylesheet" href="assets/css/components.css">
+<link rel="stylesheet" href="assets/css/style.css">
+<style>
+*{box-sizing:border-box}html,body{margin:0;width:100%;overflow-x:hidden;font-family:Arial,sans-serif;background:#f5f7fb;color:#1f2937}
+.main-content{margin-left:270px;padding:24px;min-height:100vh}.page-header{margin-bottom:24px}.page-header h1{margin:0 0 8px;font-size:32px}.page-header p{margin:0;color:#6b7280}
+.summary-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-bottom:24px}.summary-card,.card{background:#fff;border:1px solid #edf0f4;border-radius:14px;box-shadow:0 4px 14px rgba(0,0,0,.06)}
+.summary-card{padding:20px}.summary-card h3{margin:0 0 10px;color:#6b7280;font-size:14px}.summary-card h2{margin:0;color:#0b5ed7;font-size:30px}.card{padding:22px;margin-bottom:24px}
+.card-header{margin-bottom:18px}.card-header h2{margin:0 0 6px}.card-header p{margin:0;color:#6b7280;font-size:13px}.user-form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:17px}
+.form-group label{display:block;margin-bottom:8px;font-size:14px;font-weight:700}.form-control{width:100%;min-height:49px;padding:0 14px;border:1px solid #d7dce5;border-radius:9px;font-size:16px;background:#fff}
+.form-actions{display:flex;justify-content:flex-end;gap:12px;margin-top:22px}.btn{min-height:48px;padding:0 18px;border-radius:9px;font-weight:700;cursor:pointer}.btn-primary{border:none;background:#0b5ed7;color:#fff}.btn-secondary{border:1px solid #cfd5df;background:#fff}
+.user-filters{display:grid;grid-template-columns:minmax(220px,1fr) repeat(2,minmax(150px,.3fr));gap:13px;margin-bottom:18px}.table-wrapper{overflow-x:auto}.users-table{width:100%;min-width:1050px;border-collapse:collapse}
+.users-table th,.users-table td{padding:13px 12px;border-bottom:1px solid #edf0f4;text-align:left;font-size:13px}.users-table th{background:#f8fafc;white-space:nowrap}.status-badge{padding:5px 9px;border-radius:20px;font-size:11px;font-weight:700}
+.status-active{background:#d1e7dd;color:#0f5132}.status-inactive{background:#f8d7da;color:#842029}.action-button{padding:7px 9px;border:1px solid #d7dce5;border-radius:7px;background:#fff;font-size:12px;font-weight:700;margin:2px;cursor:pointer}.table-empty{text-align:center!important;padding:30px!important;color:#9ca3af!important}
+.toast{position:fixed;right:16px;bottom:16px;z-index:9999;padding:13px 15px;border-radius:9px;background:#198754;color:#fff;font-weight:700}.toast.error{background:#dc3545}
+@media(max-width:900px){.main-content{margin-left:0;padding:16px}.summary-grid{grid-template-columns:1fr}}@media(max-width:700px){.user-form-grid,.user-filters{grid-template-columns:1fr}.form-actions{flex-direction:column-reverse}.form-actions .btn{width:100%}}
+</style>
+</head>
+<body>
+<aside id="sidebar" class="sidebar"></aside>
+<header id="topbar" class="topbar"></header>
+<main class="main-content">
+<div class="page-header"><h1>Users Management</h1><p>Manage ERP users, roles and branch access.</p></div>
+<section class="summary-grid">
+<div class="summary-card"><h3>Total Users</h3><h2 id="totalUsers">0</h2></div>
+<div class="summary-card"><h3>Active Users</h3><h2 id="activeUsers">0</h2></div>
+<div class="summary-card"><h3>Inactive Users</h3><h2 id="inactiveUsers">0</h2></div>
+</section>
+<section class="card">
+<div class="card-header"><h2 id="userFormTitle">Add New User</h2><p>Create a login account and assign branch access.</p></div>
+<form id="userForm">
+<input type="hidden" id="editingUserId">
+<div class="user-form-grid">
+<div class="form-group"><label for="fullName">Full Name *</label><input id="fullName" class="form-control" required></div>
+<div class="form-group"><label for="userEmail">Email Address *</label><input type="email" id="userEmail" class="form-control" required></div>
+<div class="form-group"><label for="userPhone">Phone Number</label><input type="tel" id="userPhone" class="form-control"></div>
+<div class="form-group"><label for="userBranch">Assigned Branch *</label><select id="userBranch" class="form-control" required><option value="">Select branch</option></select></div>
+<div class="form-group"><label for="userRole">Role *</label><select id="userRole" class="form-control" required><option value="">Select role</option><option value="admin">Admin</option><option value="manager">Manager</option><option value="sales-officer">Sales Officer</option><option value="store-keeper">Store Keeper</option><option value="accountant">Accountant</option></select></div>
+<div class="form-group"><label for="userStatus">Status *</label><select id="userStatus" class="form-control"><option value="active">Active</option><option value="inactive">Inactive</option></select></div>
+<div class="form-group"><label for="userPassword">Password *</label><input type="password" id="userPassword" class="form-control" minlength="6"></div>
+<div class="form-group"><label for="confirmPassword">Confirm Password *</label><input type="password" id="confirmPassword" class="form-control" minlength="6"></div>
+</div>
+<div class="form-actions"><button type="reset" class="btn btn-secondary">Reset</button><button type="submit" id="saveUserButton" class="btn btn-primary">💾 Save User</button></div>
+</form>
+</section>
+<section class="card">
+<div class="card-header"><h2>Users List</h2><p>Search and manage ERP users.</p></div>
+<div class="user-filters">
+<input type="search" id="userSearch" class="form-control" placeholder="Search users">
+<select id="roleFilter" class="form-control"><option value="">All Roles</option><option value="admin">Admin</option><option value="manager">Manager</option><option value="sales-officer">Sales Officer</option><option value="store-keeper">Store Keeper</option><option value="accountant">Accountant</option></select>
+<select id="branchFilter" class="form-control"><option value="">All Branches</option></select>
+</div>
+<div class="table-wrapper"><table class="users-table"><thead><tr><th>Full Name</th><th>Email</th><th>Phone</th><th>Branch</th><th>Role</th><th>Status</th><th>Last Login</th><th>Actions</th></tr></thead><tbody id="usersTableBody"><tr><td colspan="8" class="table-empty">No users found.</td></tr></tbody></table></div>
+</section>
+</main>
+<script type="module" src="js/core/firebase.js?v=510"></script>
+<script type="module" src="js/cloud/users-cloud.js?v=510"></script>
+<script src="js/core/storage.js?v=510"></script>
+<script src="js/core/permissions.js?v=501"></script>
+<script src="js/core/auth-guard.js?v=650"></script>
+<script src="js/core/theme.js?v=580"></script>
+<script src="js/components/sidebar.js?v=610"></script>
+<script src="js/components/topbar.js?v=620"></script>
+<script src="js/modules/users.js?v=510"></script>
+</body>
+</html>

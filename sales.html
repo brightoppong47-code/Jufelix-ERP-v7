@@ -1,0 +1,2363 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <meta
+        name="theme-color"
+        content="#0b5ed7"
+    >
+
+    <title>Sales & POS | Jufelix ERP v7.0</title>
+
+
+    <link
+        rel="stylesheet"
+        href="assets/css/variables.css"
+    >
+
+    <link
+        rel="stylesheet"
+        href="assets/css/base.css"
+    >
+
+    <link
+        rel="stylesheet"
+        href="assets/css/components.css"
+    >
+
+    <link
+        rel="stylesheet"
+        href="assets/css/style.css"
+    >
+
+
+    <style>
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+
+        html,
+        body {
+            width: 100%;
+            max-width: 100%;
+            min-height: 100%;
+            overflow-x: hidden;
+        }
+
+
+        body {
+
+            background:
+                var(
+                    --background,
+                    #f5f7fb
+                );
+
+            color:
+                var(
+                    --text-color,
+                    #1f2937
+                );
+
+            font-family:
+                Arial,
+                Helvetica,
+                sans-serif;
+        }
+
+
+        .main-content {
+
+            min-height: 100vh;
+
+            margin-left: 270px;
+
+            background:
+                var(
+                    --background,
+                    #f5f7fb
+                );
+
+            overflow-x: hidden;
+        }
+
+
+        .sales-page {
+
+            width: 100%;
+
+            padding: 24px;
+        }
+
+
+        /* ======================================
+           HEADER
+        ====================================== */
+
+        .sales-heading {
+
+            display: flex;
+
+            justify-content:
+                space-between;
+
+            align-items:
+                flex-start;
+
+            gap: 18px;
+
+            margin-bottom: 24px;
+        }
+
+
+        .sales-heading h1 {
+
+            margin:
+                0 0 8px;
+
+            color:
+                var(
+                    --text-color,
+                    #1f2937
+                );
+
+            font-size: 32px;
+        }
+
+
+        .sales-heading p {
+
+            margin: 0;
+
+            color:
+                var(
+                    --muted,
+                    #6b7280
+                );
+
+            font-size: 15px;
+
+            line-height: 1.6;
+        }
+
+
+        .sales-date {
+
+            padding:
+                13px 17px;
+
+            border:
+                1px solid
+                #e2e6ec;
+
+            border-radius: 11px;
+
+            background:
+                var(
+                    --surface,
+                    #ffffff
+                );
+
+            color:
+                var(
+                    --text-color,
+                    #4b5563
+                );
+
+            font-size: 14px;
+
+            box-shadow:
+                0 3px 12px
+                rgba(0,0,0,.05);
+        }
+
+
+        /* ======================================
+           SUMMARY
+        ====================================== */
+
+        .sales-summary {
+
+            display: grid;
+
+            grid-template-columns:
+                repeat(
+                    3,
+                    minmax(
+                        170px,
+                        1fr
+                    )
+                );
+
+            gap: 18px;
+
+            margin-bottom: 24px;
+        }
+
+
+        .summary-card,
+        .sales-panel {
+
+            background:
+                var(
+                    --surface,
+                    #ffffff
+                );
+
+            border:
+                1px solid
+                #edf0f4;
+
+            border-radius: 14px;
+
+            box-shadow:
+                0 4px 14px
+                rgba(0,0,0,.06);
+        }
+
+
+        .summary-card {
+
+            padding: 21px;
+        }
+
+
+        .summary-card h3 {
+
+            margin:
+                0 0 10px;
+
+            color:
+                var(
+                    --muted,
+                    #6b7280
+                );
+
+            font-size: 14px;
+        }
+
+
+        .summary-card p {
+
+            margin: 0;
+
+            color:
+                var(
+                    --text-color,
+                    #1f2937
+                );
+
+            font-size: 27px;
+
+            font-weight: 800;
+
+            overflow-wrap:
+                anywhere;
+        }
+
+
+        /* ======================================
+           POS LAYOUT
+        ====================================== */
+
+        .pos-layout {
+
+            display: grid;
+
+            grid-template-columns:
+                minmax(0,1fr)
+                minmax(330px,.48fr);
+
+            gap: 22px;
+
+            align-items: start;
+        }
+
+
+        .sales-panel {
+
+            min-width: 0;
+
+            padding: 22px;
+        }
+
+
+        .panel-header {
+
+            margin-bottom: 20px;
+        }
+
+
+        .panel-header h2 {
+
+            margin:
+                0 0 7px;
+
+            color:
+                var(
+                    --text-color,
+                    #1f2937
+                );
+
+            font-size: 22px;
+        }
+
+
+        .panel-header p {
+
+            margin: 0;
+
+            color:
+                var(
+                    --muted,
+                    #6b7280
+                );
+
+            font-size: 13px;
+
+            line-height: 1.6;
+        }
+
+
+        /* ======================================
+           FORMS
+        ====================================== */
+
+        .sales-form {
+
+            width: 100%;
+
+            display: grid;
+
+            gap: 18px;
+        }
+
+
+        .form-group {
+
+            width: 100%;
+
+            min-width: 0;
+        }
+
+
+        .form-group label {
+
+            display: block;
+
+            margin-bottom: 8px;
+
+            color:
+                var(
+                    --text-color,
+                    #374151
+                );
+
+            font-size: 14px;
+
+            font-weight: 700;
+        }
+
+
+        .form-control {
+
+            width: 100%;
+
+            min-height: 50px;
+
+            padding:
+                0 14px;
+
+            border:
+                1px solid
+                #d7dce5;
+
+            border-radius: 9px;
+
+            outline: none;
+
+            background:
+                var(
+                    --surface,
+                    #ffffff
+                );
+
+            color:
+                var(
+                    --text-color,
+                    #1f2937
+                );
+
+            font-size: 16px;
+        }
+
+
+        .form-control:focus {
+
+            border-color:
+                var(
+                    --primary,
+                    #0b5ed7
+                );
+
+            box-shadow:
+                0 0 0 3px
+                rgba(11,94,215,.12);
+        }
+
+
+        .form-control[readonly] {
+
+            background: #f8fafc;
+
+            color: #4b5563;
+        }
+
+
+        .form-row {
+
+            display: grid;
+
+            grid-template-columns:
+                repeat(
+                    2,
+                    minmax(0,1fr)
+                );
+
+            gap: 16px;
+        }
+
+
+        /* ======================================
+           PRODUCT PREVIEW
+        ====================================== */
+
+        .product-preview {
+
+            display: grid;
+
+            grid-template-columns:
+                85px
+                minmax(0,1fr);
+
+            gap: 15px;
+
+            padding: 15px;
+
+            border:
+                1px solid
+                #e4e8ee;
+
+            border-radius: 11px;
+
+            background: #f8fafc;
+        }
+
+
+        .product-image {
+
+            width: 85px;
+
+            height: 85px;
+
+            display: flex;
+
+            align-items: center;
+
+            justify-content: center;
+
+            overflow: hidden;
+
+            border-radius: 10px;
+
+            background: #eaf2ff;
+
+            font-size: 35px;
+        }
+
+
+        .product-image img {
+
+            width: 100%;
+
+            height: 100%;
+
+            object-fit: cover;
+        }
+
+
+        .product-details {
+
+            min-width: 0;
+        }
+
+
+        .product-details h3 {
+
+            margin:
+                3px 0 8px;
+
+            color: #1f2937;
+
+            font-size: 18px;
+
+            overflow-wrap:
+                anywhere;
+        }
+
+
+        .product-details p {
+
+            margin:
+                5px 0;
+
+            color: #6b7280;
+
+            font-size: 13px;
+        }
+
+
+        /* ======================================
+           ADD CART
+        ====================================== */
+
+        .add-cart-button {
+
+            width: 100%;
+
+            min-height: 52px;
+
+            padding:
+                12px 18px;
+
+            border: none;
+
+            border-radius: 10px;
+
+            background:
+                var(
+                    --primary,
+                    #0b5ed7
+                );
+
+            color: #ffffff;
+
+            font-size: 16px;
+
+            font-weight: 800;
+
+            cursor: pointer;
+        }
+
+
+        /* ======================================
+           CART
+        ====================================== */
+
+        .cart-panel {
+
+            margin-top: 22px;
+        }
+
+
+        .cart-header {
+
+            display: flex;
+
+            justify-content:
+                space-between;
+
+            align-items: center;
+
+            gap: 15px;
+
+            margin-bottom: 15px;
+        }
+
+
+        .cart-header h2 {
+
+            margin: 0;
+
+            color:
+                var(
+                    --text-color,
+                    #1f2937
+                );
+
+            font-size: 21px;
+        }
+
+
+        .cart-count {
+
+            padding:
+                6px 10px;
+
+            border-radius: 20px;
+
+            background:
+                var(
+                    --primary,
+                    #0b5ed7
+                );
+
+            color: #ffffff;
+
+            font-size: 12px;
+
+            font-weight: 800;
+        }
+
+
+        .table-wrapper {
+
+            width: 100%;
+
+            overflow-x: auto;
+
+            -webkit-overflow-scrolling:
+                touch;
+        }
+
+
+        .cart-table,
+        .sales-table {
+
+            width: 100%;
+
+            border-collapse:
+                collapse;
+        }
+
+
+        .cart-table {
+
+            min-width: 720px;
+        }
+
+
+        .sales-table {
+
+            min-width: 900px;
+        }
+
+
+        .cart-table th,
+        .cart-table td,
+        .sales-table th,
+        .sales-table td {
+
+            padding:
+                13px 12px;
+
+            border-bottom:
+                1px solid
+                #edf0f4;
+
+            text-align: left;
+
+            font-size: 13px;
+        }
+
+
+        .cart-table th,
+        .sales-table th {
+
+            background: #f8fafc;
+
+            color: #4b5563;
+
+            white-space: nowrap;
+        }
+
+
+        .cart-product {
+
+            display: flex;
+
+            align-items: center;
+
+            gap: 10px;
+        }
+
+
+        .cart-product-image {
+
+            width: 42px;
+
+            height: 42px;
+
+            min-width: 42px;
+
+            display: flex;
+
+            align-items: center;
+
+            justify-content: center;
+
+            overflow: hidden;
+
+            border-radius: 8px;
+
+            background: #eaf2ff;
+        }
+
+
+        .cart-product-image img {
+
+            width: 100%;
+
+            height: 100%;
+
+            object-fit: cover;
+        }
+
+
+        .cart-quantity-input {
+
+            width: 78px;
+
+            min-height: 40px;
+
+            padding:
+                0 8px;
+
+            border:
+                1px solid
+                #d7dce5;
+
+            border-radius: 7px;
+
+            text-align: center;
+
+            font-size: 15px;
+        }
+
+
+        .remove-cart-button {
+
+            min-height: 38px;
+
+            padding:
+                0 12px;
+
+            border: none;
+
+            border-radius: 7px;
+
+            background: #dc3545;
+
+            color: #ffffff;
+
+            font-weight: 700;
+
+            cursor: pointer;
+        }
+
+
+        .table-empty {
+
+            padding:
+                34px 15px !important;
+
+            text-align:
+                center !important;
+
+            color:
+                #9ca3af !important;
+        }
+
+
+        /* ======================================
+           CHECKOUT
+        ====================================== */
+
+        .checkout-panel {
+
+            position: sticky;
+
+            top: 16px;
+        }
+
+
+        .sale-total-box {
+
+            width: 100%;
+
+            padding:
+                25px 18px;
+
+            border-radius: 13px;
+
+            background:
+                linear-gradient(
+                    135deg,
+                    var(
+                        --primary,
+                        #0b5ed7
+                    ),
+                    var(
+                        --primary-dark,
+                        #084298
+                    )
+                );
+
+            color: #ffffff;
+
+            text-align: center;
+        }
+
+
+        .sale-total-box span {
+
+            display: block;
+
+            margin-bottom: 9px;
+
+            color:
+                rgba(
+                    255,
+                    255,
+                    255,
+                    .78
+                );
+
+            font-size: 13px;
+
+            font-weight: 700;
+
+            letter-spacing: .8px;
+        }
+
+
+        .sale-total-box strong {
+
+            display: block;
+
+            font-size: 34px;
+
+            overflow-wrap:
+                anywhere;
+        }
+
+
+        .checkout-statistics {
+
+            margin-top: 16px;
+
+            display: grid;
+
+            gap: 10px;
+        }
+
+
+        .checkout-row {
+
+            display: flex;
+
+            justify-content:
+                space-between;
+
+            gap: 15px;
+
+            padding:
+                11px 0;
+
+            border-bottom:
+                1px solid
+                #edf0f4;
+
+            font-size: 14px;
+        }
+
+
+        .checkout-row span {
+
+            color:
+                var(
+                    --muted,
+                    #6b7280
+                );
+        }
+
+
+        /* ======================================
+           CUSTOMER CHECKOUT
+        ====================================== */
+
+        .customer-checkout {
+
+            margin-top: 20px;
+
+            padding:
+                15px;
+
+            border:
+                1px solid
+                #e2e8f0;
+
+            border-radius: 11px;
+
+            background: #f8fafc;
+        }
+
+
+        .customer-checkout-title {
+
+            margin-bottom: 12px;
+
+            color: #374151;
+
+            font-size: 14px;
+
+            font-weight: 800;
+        }
+
+
+        .customer-info-box {
+
+            display: none;
+
+            margin-top: 12px;
+
+            padding:
+                12px;
+
+            border-radius: 9px;
+
+            background: #ffffff;
+
+            border:
+                1px solid
+                #e5e7eb;
+        }
+
+
+        .customer-info-box.show {
+
+            display: block;
+        }
+
+
+        .customer-info-row {
+
+            display: flex;
+
+            justify-content:
+                space-between;
+
+            gap: 12px;
+
+            padding:
+                5px 0;
+
+            font-size: 12px;
+        }
+
+
+        .customer-info-row span {
+
+            color: #6b7280;
+        }
+
+
+        .customer-info-row strong {
+
+            text-align: right;
+
+            color: #1f2937;
+        }
+
+
+        .credit-warning {
+
+            display: none;
+
+            margin-top: 10px;
+
+            padding: 10px;
+
+            border-radius: 8px;
+
+            background: #fff3cd;
+
+            color: #664d03;
+
+            font-size: 12px;
+
+            line-height: 1.5;
+        }
+
+
+        .credit-warning.show {
+
+            display: block;
+        }
+
+
+        .payment-title {
+
+            display: block;
+
+            margin:
+                21px 0 10px;
+
+            color:
+                var(
+                    --text-color,
+                    #374151
+                );
+
+            font-size: 15px;
+        }
+
+
+        .complete-sale-button {
+
+            width: 100%;
+
+            min-height: 54px;
+
+            margin-top: 18px;
+
+            border: none;
+
+            border-radius: 10px;
+
+            background:
+                linear-gradient(
+                    135deg,
+                    var(
+                        --primary,
+                        #0b5ed7
+                    ),
+                    var(
+                        --primary-dark,
+                        #084298
+                    )
+                );
+
+            color: #ffffff;
+
+            font-size: 17px;
+
+            font-weight: 800;
+
+            cursor: pointer;
+        }
+
+
+        .complete-sale-button:disabled {
+
+            cursor: not-allowed;
+
+            opacity: .55;
+        }
+
+
+        .clear-cart-button {
+
+            width: 100%;
+
+            min-height: 46px;
+
+            margin-top: 10px;
+
+            border:
+                1px solid
+                #dc3545;
+
+            border-radius: 9px;
+
+            background: transparent;
+
+            color: #dc3545;
+
+            font-size: 14px;
+
+            font-weight: 700;
+
+            cursor: pointer;
+        }
+
+
+        .sales-note {
+
+            margin-top: 18px;
+
+            padding: 14px;
+
+            border-radius: 9px;
+
+            background: #fff8e1;
+
+            color: #6b5700;
+
+            font-size: 13px;
+
+            line-height: 1.6;
+        }
+
+
+        .sales-history-panel {
+
+            margin-top: 24px;
+        }
+
+
+        /* ======================================
+           RESPONSIVE
+        ====================================== */
+
+        @media screen and
+        (max-width: 1100px) {
+
+            .pos-layout {
+
+                grid-template-columns:
+                    1fr;
+            }
+
+
+            .checkout-panel {
+
+                position: static;
+            }
+        }
+
+
+        @media screen and
+        (max-width: 900px) {
+
+            .main-content {
+
+                width: 100% !important;
+
+                margin-left:
+                    0 !important;
+            }
+
+
+            .sales-page {
+
+                padding: 16px;
+            }
+        }
+
+
+        @media screen and
+        (max-width: 700px) {
+
+            .sales-heading {
+
+                flex-direction:
+                    column;
+            }
+
+
+            .sales-heading h1 {
+
+                font-size: 29px;
+            }
+
+
+            .sales-date {
+
+                width: 100%;
+            }
+
+
+            .sales-summary {
+
+                grid-template-columns:
+                    1fr;
+            }
+
+
+            .form-row {
+
+                grid-template-columns:
+                    1fr;
+            }
+
+
+            .sales-panel {
+
+                padding: 17px;
+            }
+        }
+
+
+        @media screen and
+        (max-width: 480px) {
+
+            .sales-page {
+
+                padding: 12px;
+            }
+
+
+            .sales-panel {
+
+                padding: 14px;
+            }
+
+
+            .product-preview {
+
+                grid-template-columns:
+                    70px
+                    minmax(0,1fr);
+            }
+
+
+            .product-image {
+
+                width: 70px;
+
+                height: 70px;
+            }
+
+
+            .sale-total-box strong {
+
+                font-size: 29px;
+            }
+        }
+/* ======================================
+   FINAL MOBILE OVERFLOW FIX
+====================================== */
+
+.sales-page,
+.pos-layout,
+.pos-layout > div,
+.sales-panel,
+.checkout-panel,
+.customer-checkout,
+.product-preview,
+.form-row,
+.form-group,
+.table-wrapper {
+    min-width: 0 !important;
+    max-width: 100% !important;
+}
+
+.sales-page {
+    overflow-x: hidden !important;
+}
+
+.pos-layout {
+    width: 100% !important;
+    max-width: 100% !important;
+}
+
+.sales-panel {
+    width: 100% !important;
+    overflow: hidden;
+}
+
+.form-control,
+.add-cart-button,
+.complete-sale-button,
+.clear-cart-button,
+.sale-total-box {
+    width: 100% !important;
+    max-width: 100% !important;
+}
+
+.sale-total-box {
+    min-width: 0 !important;
+    overflow: hidden;
+}
+
+.sale-total-box strong {
+    max-width: 100%;
+    white-space: normal;
+    word-break: break-word;
+}
+
+.panel-header,
+.panel-header h2,
+.panel-header p,
+.sales-note {
+    max-width: 100%;
+    overflow-wrap: anywhere;
+}
+
+
+/* ======================================
+   MOBILE TABLES
+====================================== */
+
+@media screen and (max-width: 700px) {
+
+    .main-content {
+        width: 100% !important;
+        max-width: 100vw !important;
+        margin-left: 0 !important;
+        overflow-x: hidden !important;
+    }
+
+    .sales-page {
+        width: 100% !important;
+        max-width: 100vw !important;
+        padding: 12px !important;
+        overflow-x: hidden !important;
+    }
+
+    .pos-layout {
+        display: block !important;
+        width: 100% !important;
+    }
+
+    .sales-panel {
+        width: 100% !important;
+        max-width: 100% !important;
+        padding: 14px !important;
+        margin-left: 0 !important;
+        margin-right: 0 !important;
+    }
+
+    .checkout-panel {
+        position: static !important;
+        width: 100% !important;
+    }
+
+    .form-row {
+        grid-template-columns: 1fr !important;
+        width: 100% !important;
+    }
+
+    .form-control {
+        width: 100% !important;
+        min-width: 0 !important;
+        max-width: 100% !important;
+    }
+
+    .product-preview {
+        width: 100% !important;
+        grid-template-columns: 70px minmax(0, 1fr) !important;
+    }
+
+    .product-details {
+        min-width: 0 !important;
+        overflow: hidden;
+    }
+
+    .product-details h3,
+    .product-details p {
+        overflow-wrap: anywhere !important;
+        word-break: break-word;
+    }
+
+    .customer-checkout {
+        width: 100% !important;
+        padding: 12px !important;
+    }
+
+    .customer-info-row {
+        width: 100%;
+        align-items: flex-start;
+    }
+
+    .customer-info-row span,
+    .customer-info-row strong {
+        min-width: 0;
+        max-width: 55%;
+        overflow-wrap: anywhere;
+    }
+
+    .sale-total-box {
+        width: 100% !important;
+        padding: 22px 12px !important;
+    }
+
+    .sale-total-box strong {
+        font-size: 28px !important;
+    }
+
+    .add-cart-button,
+    .complete-sale-button,
+    .clear-cart-button {
+        display: block !important;
+        width: 100% !important;
+        max-width: 100% !important;
+    }
+
+
+    /* CART TABLE SCROLLS INSIDE ITS CARD */
+
+    .table-wrapper {
+        display: block !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        overflow-x: auto !important;
+        overflow-y: hidden !important;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .cart-table {
+        width: 650px !important;
+        min-width: 650px !important;
+        max-width: none !important;
+    }
+
+    .sales-table {
+        width: 850px !important;
+        min-width: 850px !important;
+        max-width: none !important;
+    }
+
+    .cart-table th,
+    .cart-table td,
+    .sales-table th,
+    .sales-table td {
+        white-space: nowrap;
+    }
+
+
+    /* Prevent tables from stretching page */
+
+    .cart-panel,
+    .sales-history-panel {
+        overflow: hidden !important;
+    }
+}
+
+
+/* ======================================
+   EXTRA SMALL PHONES
+====================================== */
+
+@media screen and (max-width: 480px) {
+
+    .sales-page {
+        padding: 10px !important;
+    }
+
+    .sales-panel {
+        padding: 12px !important;
+        border-radius: 12px;
+    }
+
+    .sales-heading h1 {
+        font-size: 27px !important;
+    }
+
+    .sale-total-box strong {
+        font-size: 26px !important;
+    }
+
+    .customer-info-row {
+        gap: 8px;
+    }
+}
+    </style>
+
+</head>
+
+
+<body>
+
+
+<aside
+    id="sidebar"
+    class="sidebar"
+></aside>
+
+
+<main class="main-content">
+
+
+<header
+    id="topbar"
+    class="topbar"
+></header>
+
+
+<div class="sales-page">
+
+
+    <!-- ======================================
+         HEADER
+    ======================================= -->
+
+    <section class="sales-heading">
+
+        <div>
+
+            <h1>
+                Sales & POS
+            </h1>
+
+            <p>
+                Process multi-item sales,
+                select customers and manage
+                branch inventory automatically.
+            </p>
+
+        </div>
+
+
+        <div
+            id="salesDate"
+            class="sales-date"
+        >
+            Loading date...
+        </div>
+
+    </section>
+
+
+
+    <!-- ======================================
+         TODAY SUMMARY
+    ======================================= -->
+
+    <section class="sales-summary">
+
+
+        <article class="summary-card">
+
+            <h3>
+                Today's Transactions
+            </h3>
+
+            <p id="todayTransactionCount">
+                0
+            </p>
+
+        </article>
+
+
+        <article class="summary-card">
+
+            <h3>
+                Today's Sales
+            </h3>
+
+            <p id="todaySalesTotal">
+                GH₵0.00
+            </p>
+
+        </article>
+
+
+        <article class="summary-card">
+
+            <h3>
+                Items Sold Today
+            </h3>
+
+            <p id="todayItemsSold">
+                0
+            </p>
+
+        </article>
+
+
+    </section>
+
+
+
+    <!-- ======================================
+         POS AREA
+    ======================================= -->
+
+    <section class="pos-layout">
+
+
+        <!-- LEFT -->
+
+        <div>
+
+
+            <!-- PRODUCT -->
+
+            <article class="sales-panel">
+
+                <div class="panel-header">
+
+                    <h2>
+                        Add Product
+                    </h2>
+
+                    <p>
+                        Select a product and quantity,
+                        then add it to the current cart.
+                    </p>
+
+                </div>
+
+
+                <form
+                    id="salesForm"
+                    class="sales-form"
+                >
+
+
+                    <div class="form-group">
+
+                        <label for="saleProduct">
+                            Select Product
+                        </label>
+
+                        <select
+                            id="saleProduct"
+                            class="form-control"
+                            required
+                        >
+
+                            <option value="">
+                                Select Product
+                            </option>
+
+                        </select>
+
+                    </div>
+
+
+
+                    <div class="product-preview">
+
+
+                        <div
+                            id="saleProductImage"
+                            class="product-image"
+                        >
+                            📦
+                        </div>
+
+
+                        <div class="product-details">
+
+                            <h3 id="selectedProductName">
+                                No product selected
+                            </h3>
+
+                            <p id="selectedProductCategory">
+                                Category: —
+                            </p>
+
+                            <p id="selectedProductUnit">
+                                Unit: —
+                            </p>
+
+                        </div>
+
+
+                    </div>
+
+
+
+                    <div class="form-row">
+
+
+                        <div class="form-group">
+
+                            <label for="availableStock">
+                                Available Stock
+                            </label>
+
+                            <input
+                                type="text"
+                                id="availableStock"
+                                class="form-control"
+                                readonly
+                            >
+
+                        </div>
+
+
+                        <div class="form-group">
+
+                            <label for="sellingPrice">
+                                Selling Price
+                            </label>
+
+                            <input
+                                type="number"
+                                id="sellingPrice"
+                                class="form-control"
+                                readonly
+                            >
+
+                        </div>
+
+
+                    </div>
+
+
+
+                    <div class="form-row">
+
+
+                        <div class="form-group">
+
+                            <label for="saleQuantity">
+                                Quantity
+                            </label>
+
+                            <input
+                                type="number"
+                                id="saleQuantity"
+                                class="form-control"
+                                min="1"
+                                step="1"
+                                placeholder="Enter quantity"
+                                required
+                            >
+
+                        </div>
+
+
+                        <div class="form-group">
+
+                            <label for="saleTotal">
+                                Item Total
+                            </label>
+
+                            <input
+                                type="text"
+                                id="saleTotal"
+                                class="form-control"
+                                readonly
+                            >
+
+                        </div>
+
+
+                    </div>
+
+
+
+                    <button
+                        type="submit"
+                        id="addToCartButton"
+                        class="add-cart-button"
+                    >
+                        ➕ Add to Cart
+                    </button>
+
+
+                </form>
+
+            </article>
+
+
+
+            <!-- CART -->
+
+            <article
+                class="sales-panel cart-panel"
+            >
+
+
+                <div class="cart-header">
+
+                    <h2>
+                        Current Cart
+                    </h2>
+
+
+                    <span
+                        id="cartItemCountBadge"
+                        class="cart-count"
+                    >
+                        0 items
+                    </span>
+
+                </div>
+
+
+                <div class="table-wrapper">
+
+
+                    <table class="cart-table">
+
+
+                        <thead>
+
+                            <tr>
+
+                                <th>
+                                    Product
+                                </th>
+
+                                <th>
+                                    Price
+                                </th>
+
+                                <th>
+                                    Qty
+                                </th>
+
+                                <th>
+                                    Total
+                                </th>
+
+                                <th>
+                                    Action
+                                </th>
+
+                            </tr>
+
+                        </thead>
+
+
+                        <tbody id="cartTableBody">
+
+                            <tr>
+
+                                <td
+                                    colspan="5"
+                                    class="table-empty"
+                                >
+                                    Your cart is empty.
+                                </td>
+
+                            </tr>
+
+                        </tbody>
+
+
+                    </table>
+
+
+                </div>
+
+
+            </article>
+
+
+        </div>
+
+
+
+        <!-- ======================================
+             CHECKOUT
+        ======================================= -->
+
+        <aside
+            class="sales-panel checkout-panel"
+        >
+
+
+            <div class="panel-header">
+
+                <h2>
+                    Checkout
+                </h2>
+
+                <p>
+                    Select the customer,
+                    payment method and complete
+                    the transaction.
+                </p>
+
+            </div>
+
+
+
+            <div class="sale-total-box">
+
+                <span>
+                    AMOUNT PAYABLE
+                </span>
+
+                <strong id="saleSummaryTotal">
+                    GH₵0.00
+                </strong>
+
+            </div>
+
+
+
+            <div class="checkout-statistics">
+
+
+                <div class="checkout-row">
+
+                    <span>
+                        Different Products
+                    </span>
+
+                    <strong id="cartProductCount">
+                        0
+                    </strong>
+
+                </div>
+
+
+                <div class="checkout-row">
+
+                    <span>
+                        Total Quantity
+                    </span>
+
+                    <strong id="cartTotalQuantity">
+                        0
+                    </strong>
+
+                </div>
+
+
+            </div>
+
+
+
+            <!-- ==================================
+                 CUSTOMER
+            =================================== -->
+
+            <div class="customer-checkout">
+
+
+                <div class="customer-checkout-title">
+                    👤 Customer
+                </div>
+
+
+                <div class="form-group">
+
+                    <label for="saleCustomer">
+                        Select Customer
+                    </label>
+
+
+                    <select
+                        id="saleCustomer"
+                        class="form-control"
+                    >
+
+                        <option value="">
+                            Walk-in Customer
+                        </option>
+
+                    </select>
+
+                </div>
+
+
+
+                <div
+                    id="selectedCustomerInfo"
+                    class="customer-info-box"
+                >
+
+
+                    <div class="customer-info-row">
+
+                        <span>
+                            Customer
+                        </span>
+
+                        <strong id="checkoutCustomerName">
+                            —
+                        </strong>
+
+                    </div>
+
+
+                    <div class="customer-info-row">
+
+                        <span>
+                            Type
+                        </span>
+
+                        <strong id="checkoutCustomerType">
+                            —
+                        </strong>
+
+                    </div>
+
+
+                    <div class="customer-info-row">
+
+                        <span>
+                            Phone
+                        </span>
+
+                        <strong id="checkoutCustomerPhone">
+                            —
+                        </strong>
+
+                    </div>
+
+
+                    <div class="customer-info-row">
+
+                        <span>
+                            Current Balance
+                        </span>
+
+                        <strong id="checkoutCustomerBalance">
+                            GH₵0.00
+                        </strong>
+
+                    </div>
+
+
+                    <div class="customer-info-row">
+
+                        <span>
+                            Credit Limit
+                        </span>
+
+                        <strong id="checkoutCustomerCreditLimit">
+                            GH₵0.00
+                        </strong>
+
+                    </div>
+
+
+                    <div class="customer-info-row">
+
+                        <span>
+                            Available Credit
+                        </span>
+
+                        <strong id="checkoutCustomerAvailableCredit">
+                            GH₵0.00
+                        </strong>
+
+                    </div>
+
+
+                </div>
+
+
+
+                <div
+                    id="creditSaleWarning"
+                    class="credit-warning"
+                >
+                    Credit sale selected.
+                    The customer's outstanding
+                    balance will increase after
+                    this transaction.
+                </div>
+
+
+            </div>
+
+
+
+            <!-- ==================================
+                 PAYMENT
+            =================================== -->
+
+            <div class="form-group">
+
+
+                <strong class="payment-title">
+                    Payment Method
+                </strong>
+
+
+                <select
+                    id="paymentMethod"
+                    class="form-control"
+                >
+
+                    <option value="Cash">
+                        💵 Cash
+                    </option>
+
+                    <option value="Mobile Money">
+                        📱 Mobile Money
+                    </option>
+
+                    <option value="Card">
+                        💳 Card
+                    </option>
+
+                    <option value="Bank">
+                        🏦 Bank
+                    </option>
+
+                    <option value="Credit">
+                        🧾 Credit
+                    </option>
+
+                </select>
+
+
+            </div>
+
+
+
+            <button
+                type="button"
+                id="completeSaleButton"
+                class="complete-sale-button"
+                disabled
+            >
+                Complete Sale
+            </button>
+
+
+
+            <button
+                type="button"
+                id="clearCartButton"
+                class="clear-cart-button"
+                disabled
+            >
+                Clear Cart
+            </button>
+
+
+
+            <div class="sales-note">
+
+                All products in the cart
+                will be recorded under one
+                receipt.
+
+                <br><br>
+
+                Walk-in Customer can use
+                Cash, Mobile Money, Card or
+                Bank.
+
+                <br><br>
+
+                Credit payment requires a
+                registered active customer
+                with enough available credit.
+
+            </div>
+
+
+        </aside>
+
+
+    </section>
+
+
+
+    <!-- ======================================
+         RECENT SALES
+    ======================================= -->
+
+    <section
+        class="sales-panel sales-history-panel"
+    >
+
+
+        <div class="panel-header">
+
+            <h2>
+                Recent Sales
+            </h2>
+
+            <p>
+                Latest completed transactions.
+            </p>
+
+        </div>
+
+
+        <div class="table-wrapper">
+
+
+            <table class="sales-table">
+
+
+                <thead>
+
+                    <tr>
+
+                        <th>
+                            Receipt
+                        </th>
+
+                        <th>
+                            Date
+                        </th>
+
+                        <th>
+                            Customer
+                        </th>
+
+                        <th>
+                            Items
+                        </th>
+
+                        <th>
+                            Quantity
+                        </th>
+
+                        <th>
+                            Payment
+                        </th>
+
+                        <th>
+                            Total
+                        </th>
+
+                    </tr>
+
+                </thead>
+
+
+                <tbody id="salesHistoryTable">
+
+                    <tr>
+
+                        <td
+                            colspan="7"
+                            class="table-empty"
+                        >
+                            No sales have been recorded.
+                        </td>
+
+                    </tr>
+
+                </tbody>
+
+
+            </table>
+
+
+        </div>
+
+
+    </section>
+
+
+</div>
+
+
+</main>
+
+
+
+<!-- =========================================
+     DATE
+========================================= -->
+
+<script>
+
+document.addEventListener(
+    "DOMContentLoaded",
+    function () {
+
+        const dateElement =
+            document.getElementById(
+                "salesDate"
+            );
+
+
+        if (dateElement) {
+
+            dateElement.textContent =
+                new Date()
+                    .toLocaleDateString(
+                        "en-GH",
+                        {
+
+                            weekday:
+                                "long",
+
+                            day:
+                                "2-digit",
+
+                            month:
+                                "long",
+
+                            year:
+                                "numeric"
+                        }
+                    );
+        }
+    }
+);
+
+</script>
+
+
+
+<!-- =========================================
+     FIREBASE
+========================================= -->
+
+<script
+    type="module"
+    src="js/core/firebase.js?v=500"
+></script>
+
+
+<script
+    type="module"
+    src="js/cloud/sales-cloud.js?v=500"
+></script>
+
+
+
+<!-- =========================================
+     CORE
+========================================= -->
+
+<script src="js/core/storage.js?v=500"></script>
+
+<script src="js/core/permissions.js?v=501"></script>
+
+<script src="js/core/auth-guard.js?v=650"></script>
+
+<script src="js/core/theme.js?v=580"></script>
+
+
+
+<!-- =========================================
+     COMPONENTS
+========================================= -->
+
+<script src="js/components/sidebar.js?v=610"></script>
+
+<script src="js/components/topbar.js?v=620"></script>
+
+
+
+<!-- =========================================
+     PDF LIBRARY
+========================================= -->
+
+<script
+    src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"
+></script>
+
+
+
+<!-- =========================================
+     RECEIPT
+========================================= -->
+
+<script src="js/modules/receipt.js?v=900"></script>
+
+
+
+<!-- =========================================
+     SALES
+========================================= -->
+
+<script src="js/modules/sales.js?v=1001"></script>
+
+
+</body>
+
+</html>

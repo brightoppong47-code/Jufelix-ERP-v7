@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#0b5ed7">
+    <title>Reports | Jufelix ERP v7.0</title>
+
+    <link rel="stylesheet" href="assets/css/style.css?v=40">
+
+    <style>
+        :root {
+            --report-primary: #0b5ed7;
+            --report-primary-dark: #084298;
+            --report-success: #198754;
+            --report-danger: #dc3545;
+            --report-warning: #ffc107;
+            --report-info: #0dcaf0;
+            --report-purple: #6f42c1;
+            --report-bg: #f4f7fb;
+            --report-card: #ffffff;
+            --report-text: #172033;
+            --report-muted: #667085;
+            --report-border: #e5eaf1;
+            --report-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+        }
+
+        * { box-sizing: border-box; }
+        body { margin: 0; background: var(--report-bg); color: var(--report-text); }
+        .main-content { min-height: 100vh; }
+        .reports-page { width: 100%; max-width: 1600px; margin: 0 auto; padding: 24px; }
+
+        .reports-hero {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 20px;
+            padding: 26px;
+            margin-bottom: 22px;
+            color: #fff;
+            background: linear-gradient(135deg, #0b5ed7, #6f42c1);
+            border-radius: 22px;
+            box-shadow: var(--report-shadow);
+        }
+        .reports-hero h1 { margin: 0 0 7px; font-size: clamp(26px, 4vw, 38px); }
+        .reports-hero p { margin: 0; opacity: .9; }
+        .hero-badge { white-space: nowrap; padding: 10px 15px; border: 1px solid rgba(255,255,255,.3); border-radius: 999px; background: rgba(255,255,255,.15); font-weight: 700; }
+
+        .report-panel { background: var(--report-card); border: 1px solid var(--report-border); border-radius: 18px; box-shadow: var(--report-shadow); padding: 20px; margin-bottom: 22px; }
+        .filter-grid { display: grid; grid-template-columns: repeat(4, minmax(160px, 1fr)); gap: 15px; }
+        .field-group label { display: block; margin-bottom: 7px; font-size: 13px; font-weight: 800; color: #344054; }
+        .field-group input, .field-group select { width: 100%; min-height: 46px; padding: 10px 12px; border: 1px solid #d0d5dd; border-radius: 11px; background: #fff; font: inherit; color: var(--report-text); }
+        .field-group input:focus, .field-group select:focus { outline: 3px solid rgba(11,94,215,.13); border-color: var(--report-primary); }
+        .filter-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10px; margin-top: 16px; }
+        .report-btn { border: 0; border-radius: 11px; padding: 12px 16px; font-weight: 800; cursor: pointer; font: inherit; }
+        .btn-primary { color: #fff; background: var(--report-primary); }
+        .btn-primary:hover { background: var(--report-primary-dark); }
+        .btn-success { color: #fff; background: var(--report-success); }
+
+        .summary-grid { display: grid; grid-template-columns: repeat(4, minmax(190px, 1fr)); gap: 16px; margin-bottom: 22px; }
+        .summary-card { position: relative; overflow: hidden; min-height: 128px; padding: 20px; background: #fff; border: 1px solid var(--report-border); border-radius: 18px; box-shadow: var(--report-shadow); }
+        .summary-card::after { content: ""; position: absolute; right: -18px; bottom: -28px; width: 95px; height: 95px; border-radius: 50%; background: currentColor; opacity: .08; }
+        .summary-card span { display: block; font-size: 13px; font-weight: 800; color: var(--report-muted); }
+        .summary-card strong { display: block; margin-top: 13px; font-size: clamp(22px, 3vw, 31px); line-height: 1.1; color: var(--report-text); }
+        .summary-card small { display: block; margin-top: 8px; color: var(--report-muted); }
+        .card-blue { color: var(--report-primary); border-top: 4px solid var(--report-primary); }
+        .card-green { color: var(--report-success); border-top: 4px solid var(--report-success); }
+        .card-red { color: var(--report-danger); border-top: 4px solid var(--report-danger); }
+        .card-yellow { color: #d39e00; border-top: 4px solid var(--report-warning); }
+        .card-purple { color: var(--report-purple); border-top: 4px solid var(--report-purple); }
+        .card-info { color: #087990; border-top: 4px solid var(--report-info); }
+
+        .report-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 22px; margin-bottom: 22px; }
+        .report-section { background: #fff; border: 1px solid var(--report-border); border-radius: 18px; box-shadow: var(--report-shadow); overflow: hidden; }
+        .report-section.full { grid-column: 1 / -1; }
+        .section-heading { display: flex; justify-content: space-between; gap: 10px; align-items: center; padding: 18px 20px; border-bottom: 1px solid var(--report-border); }
+        .section-heading h2 { margin: 0; font-size: 18px; }
+        .section-heading p { margin: 4px 0 0; font-size: 13px; color: var(--report-muted); }
+        .table-wrap { width: 100%; overflow-x: auto; }
+        .report-table { width: 100%; min-width: 650px; border-collapse: collapse; }
+        .report-table th { padding: 13px 15px; text-align: left; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: #475467; background: #f8fafc; border-bottom: 1px solid var(--report-border); }
+        .report-table td { padding: 13px 15px; border-bottom: 1px solid #eef2f6; font-size: 14px; vertical-align: middle; }
+        .report-table tbody tr:hover { background: #f8fbff; }
+        .table-empty { padding: 28px !important; text-align: center; color: var(--report-muted); }
+        .positive-value { color: var(--report-success) !important; font-weight: 800; }
+        .negative-value { color: var(--report-danger) !important; font-weight: 800; }
+
+        .reports-note { padding: 14px 16px; color: #475467; background: #eef6ff; border-left: 4px solid var(--report-primary); border-radius: 10px; font-size: 13px; }
+
+        @media (max-width: 1100px) {
+            .summary-grid { grid-template-columns: repeat(2, minmax(180px, 1fr)); }
+            .filter-grid { grid-template-columns: repeat(2, minmax(160px, 1fr)); }
+            .report-grid { grid-template-columns: 1fr; }
+            .report-section.full { grid-column: auto; }
+        }
+        @media (max-width: 700px) {
+            .reports-page { padding: 14px; }
+            .reports-hero { align-items: flex-start; flex-direction: column; padding: 21px; border-radius: 17px; }
+            .filter-grid, .summary-grid { grid-template-columns: 1fr; }
+            .filter-actions { justify-content: stretch; }
+            .report-btn { flex: 1 1 100%; }
+            .report-panel, .summary-card, .report-section { border-radius: 15px; }
+        }
+        @media print {
+            #sidebar, #topbar, .filter-actions, .hero-badge { display: none !important; }
+            body, .main-content, .reports-page { background: #fff !important; margin: 0 !important; padding: 0 !important; }
+            .reports-hero { color: #111; background: #fff; box-shadow: none; border: 1px solid #ddd; }
+            .report-panel, .summary-card, .report-section { box-shadow: none; break-inside: avoid; }
+        }
+    </style>
+</head>
+<body>
+    <aside id="sidebar" class="sidebar"></aside>
+
+    <main class="main-content">
+        <header id="topbar" class="topbar"></header>
+
+        <div class="reports-page">
+            <section class="reports-hero">
+                <div>
+                    <h1>Reports & Analytics</h1>
+                    <p>Monitor sales, purchases, expenses, profit, stock and branch performance.</p>
+                </div>
+                <div class="hero-badge">Jufelix ERP v7.0 Professional</div>
+            </section>
+
+            <section class="report-panel" aria-label="Report filters">
+                <div class="filter-grid">
+                    <div class="field-group">
+                        <label for="reportPeriod">Quick period</label>
+                        <select id="reportPeriod">
+                            <option value="today">Today</option>
+                            <option value="week">This Week</option>
+                            <option value="month" selected>This Month</option>
+                            <option value="year">This Year</option>
+                            <option value="all">All Time</option>
+                            <option value="">Custom Range</option>
+                        </select>
+                    </div>
+                    <div class="field-group">
+                        <label for="reportStartDate">Start date</label>
+                        <input type="date" id="reportStartDate">
+                    </div>
+                    <div class="field-group">
+                        <label for="reportEndDate">End date</label>
+                        <input type="date" id="reportEndDate">
+                    </div>
+                    <div class="field-group">
+                        <label for="reportBranch">Branch</label>
+                        <select id="reportBranch">
+                            <option value="">All Branches</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="filter-actions">
+                    <button type="button" id="printReportButton" class="report-btn btn-primary">Download PDF</button>
+                    <button type="button" id="exportReportButton" class="report-btn btn-success">Export CSV</button>
+                </div>
+            </section>
+
+            <section class="summary-grid" aria-label="Report summary">
+                <article class="summary-card card-blue"><span>Total Sales</span><strong id="reportTotalSales">GH₵0.00</strong><small>Revenue from completed sales</small></article>
+                <article class="summary-card card-purple"><span>Total Purchases</span><strong id="reportTotalPurchases">GH₵0.00</strong><small>Stock purchased in this period</small></article>
+                <article class="summary-card card-red"><span>Total Expenses</span><strong id="reportTotalExpenses">GH₵0.00</strong><small>Operating expenses recorded</small></article>
+                <article class="summary-card card-green"><span>Gross Profit</span><strong id="reportGrossProfit">GH₵0.00</strong><small>Sales minus estimated cost of goods</small></article>
+                <article class="summary-card card-green"><span>Net Profit</span><strong id="reportNetProfit">GH₵0.00</strong><small>Gross profit minus expenses</small></article>
+                <article class="summary-card card-info"><span>Inventory Value</span><strong id="reportInventoryValue">GH₵0.00</strong><small>Current stock valued at cost</small></article>
+                <article class="summary-card card-blue"><span>Items Sold</span><strong id="reportItemsSold">0</strong><small>Total units sold</small></article>
+                <article class="summary-card card-yellow"><span>Low Stock Records</span><strong id="reportLowStockCount">0</strong><small>Items at or below reorder level</small></article>
+            </section>
+
+            <section class="report-grid">
+                <article class="report-section full">
+                    <div class="section-heading"><div><h2>Sales by Product</h2><p>Revenue, cost and estimated gross profit per product.</p></div></div>
+                    <div class="table-wrap"><table class="report-table"><thead><tr><th>Product</th><th>Qty Sold</th><th>Revenue</th><th>Estimated Cost</th><th>Gross Profit</th></tr></thead><tbody id="salesByProductTable"><tr><td colspan="5" class="table-empty">Loading report...</td></tr></tbody></table></div>
+                </article>
+
+                <article class="report-section full">
+                    <div class="section-heading"><div><h2>Branch Performance</h2><p>Compare sales, expenses, estimated profit and units sold.</p></div></div>
+                    <div class="table-wrap"><table class="report-table"><thead><tr><th>Branch</th><th>Sales</th><th>Expenses</th><th>Estimated Profit</th><th>Units Sold</th></tr></thead><tbody id="branchPerformanceTable"><tr><td colspan="5" class="table-empty">Loading report...</td></tr></tbody></table></div>
+                </article>
+
+                <article class="report-section">
+                    <div class="section-heading"><div><h2>Expense Breakdown</h2><p>Expenses grouped by category.</p></div></div>
+                    <div class="table-wrap"><table class="report-table"><thead><tr><th>Category</th><th>Transactions</th><th>Amount</th></tr></thead><tbody id="expenseBreakdownTable"><tr><td colspan="3" class="table-empty">Loading report...</td></tr></tbody></table></div>
+                </article>
+
+                <article class="report-section">
+                    <div class="section-heading"><div><h2>Low Stock Report</h2><p>Products that need restocking by branch.</p></div></div>
+                    <div class="table-wrap"><table class="report-table"><thead><tr><th>Product</th><th>Branch</th><th>Stock</th><th>Low Level</th><th>Status</th></tr></thead><tbody id="lowStockReportTable"><tr><td colspan="5" class="table-empty">Loading report...</td></tr></tbody></table></div>
+                </article>
+
+                <article class="report-section full">
+                    <div class="section-heading"><div><h2>Recent Transactions</h2><p>Latest sales, purchases, expenses and stock transfers.</p></div></div>
+                    <div class="table-wrap"><table class="report-table"><thead><tr><th>Date</th><th>Type</th><th>Reference</th><th>Branch</th><th>Description</th><th>Amount</th></tr></thead><tbody id="recentTransactionsTable"><tr><td colspan="6" class="table-empty">Loading report...</td></tr></tbody></table></div>
+                </article>
+            </section>
+
+            <div class="reports-note">Profit figures are estimates based on the cost price saved with each sale or the product's current cost price.</div>
+        </div>
+    </main>
+
+    <script>
+        (function () {
+            var currentUser = localStorage.getItem("currentUser");
+            var loggedIn = localStorage.getItem("loggedIn");
+            if (!currentUser && loggedIn !== "true") {
+                window.location.href = "login.html";
+            }
+        })();
+    </script>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+
+   <script src="js/core/storage.js?v=50"></script>
+   <script src="js/core/permissions.js?v=501"></script>
+<script src="js/core/auth-guard.js?v=650"></script>
+<script src="js/core/theme.js?v=580"></script>
+<script src="js/components/sidebar.js?v=610"></script>
+<script src="js/components/topbar.js?v=620"></script>
+<script src="js/modules/reports.js?v=1200"></script>
+</body>
+</html>

@@ -1,0 +1,1083 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <meta
+        name="theme-color"
+        content="#0b5ed7"
+    >
+
+    <title>Suppliers | Jufelix ERP v7.0</title>
+
+    <link rel="stylesheet" href="assets/css/variables.css">
+    <link rel="stylesheet" href="assets/css/base.css">
+    <link rel="stylesheet" href="assets/css/components.css">
+    <link rel="stylesheet" href="assets/css/style.css">
+
+    <style>
+
+        * {
+            box-sizing: border-box;
+        }
+
+        html,
+        body {
+            width: 100%;
+            max-width: 100%;
+            margin: 0;
+            overflow-x: hidden;
+            font-family: Arial, Helvetica, sans-serif;
+        }
+
+        body {
+            background: #f5f7fb;
+            color: #1f2937;
+        }
+
+        .main-content {
+            min-height: 100vh;
+            margin-left: 270px;
+            overflow-x: hidden;
+        }
+
+        .suppliers-page {
+            padding: 24px;
+        }
+
+        .page-heading {
+            margin-bottom: 24px;
+        }
+
+        .page-heading h1 {
+            margin: 0 0 7px;
+            font-size: 32px;
+        }
+
+        .page-heading p {
+            margin: 0;
+            color: #6b7280;
+            line-height: 1.6;
+        }
+
+        .suppliers-summary {
+            display: grid;
+            grid-template-columns:
+                repeat(4, minmax(160px, 1fr));
+            gap: 17px;
+            margin-bottom: 24px;
+        }
+
+        .summary-card,
+        .panel {
+            background: #ffffff;
+            border: 1px solid #edf0f4;
+            border-radius: 14px;
+            box-shadow:
+                0 4px 14px rgba(0,0,0,.06);
+        }
+
+        .summary-card {
+            padding: 20px;
+        }
+
+        .summary-card h3 {
+            margin: 0 0 10px;
+            color: #6b7280;
+            font-size: 14px;
+        }
+
+        .summary-card p {
+            margin: 0;
+            font-size: 25px;
+            font-weight: 800;
+            overflow-wrap: anywhere;
+        }
+
+        .panel {
+            margin-bottom: 24px;
+            padding: 22px;
+        }
+
+        .panel-header {
+            margin-bottom: 18px;
+        }
+
+        .panel-header h2 {
+            margin: 0 0 6px;
+            font-size: 22px;
+        }
+
+        .panel-header p {
+            margin: 0;
+            color: #6b7280;
+            font-size: 13px;
+            line-height: 1.5;
+        }
+
+        .supplier-form,
+        .payment-form {
+            display: grid;
+            grid-template-columns:
+                repeat(2, minmax(0,1fr));
+            gap: 17px;
+        }
+
+        .form-group {
+            min-width: 0;
+        }
+
+        .form-group.full-width {
+            grid-column: 1 / -1;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #374151;
+            font-size: 14px;
+            font-weight: 700;
+        }
+
+        .form-control {
+            width: 100%;
+            min-height: 49px;
+            padding: 0 14px;
+            border: 1px solid #d7dce5;
+            border-radius: 9px;
+            outline: none;
+            background: #ffffff;
+            color: #1f2937;
+            font-size: 16px;
+        }
+
+        textarea.form-control {
+            min-height: 90px;
+            padding: 12px 14px;
+            resize: vertical;
+        }
+
+        .form-control:focus {
+            border-color: #0b5ed7;
+            box-shadow:
+                0 0 0 3px rgba(11,94,215,.12);
+        }
+
+        .form-control[readonly] {
+            background: #f8fafc;
+        }
+
+        .form-actions {
+            grid-column: 1 / -1;
+            display: flex;
+            justify-content: flex-end;
+            gap: 11px;
+        }
+
+        .primary-button,
+        .secondary-button,
+        .action-button {
+            min-height: 40px;
+            padding: 0 13px;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 700;
+            cursor: pointer;
+        }
+
+        .primary-button {
+            border: none;
+            background: #0b5ed7;
+            color: #ffffff;
+        }
+
+        .secondary-button {
+            border: 1px solid #cfd5df;
+            background: #ffffff;
+            color: #374151;
+        }
+
+        .edit-button {
+            border: none;
+            background: #e7f1ff;
+            color: #084298;
+        }
+
+        .pay-button {
+            border: none;
+            background: #d1e7dd;
+            color: #0f5132;
+        }
+
+        .delete-button {
+            border: none;
+            background: #f8d7da;
+            color: #842029;
+        }
+
+        .supplier-toolbar {
+            display: grid;
+            grid-template-columns:
+                minmax(220px,1fr)
+                minmax(150px,.3fr);
+            gap: 13px;
+            margin-bottom: 18px;
+        }
+
+        .table-wrapper {
+            width: 100%;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .supplier-table {
+            width: 100%;
+            min-width: 1350px;
+            border-collapse: collapse;
+        }
+
+        .supplier-table th,
+        .supplier-table td {
+            padding: 13px 12px;
+            border-bottom: 1px solid #edf0f4;
+            text-align: left;
+            vertical-align: middle;
+            font-size: 13px;
+        }
+
+        .supplier-table th {
+            background: #f8fafc;
+            color: #4b5563;
+            white-space: nowrap;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 5px 9px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 700;
+        }
+
+        .status-active {
+            background: #d1e7dd;
+            color: #0f5132;
+        }
+
+        .status-inactive {
+            background: #f8d7da;
+            color: #842029;
+        }
+
+        .balance-positive {
+            color: #dc3545;
+            font-weight: 800;
+        }
+
+        .balance-clear {
+            color: #198754;
+            font-weight: 800;
+        }
+
+        .supplier-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 7px;
+        }
+
+        .payment-panel {
+            display: none;
+        }
+
+        .payment-panel.show {
+            display: block;
+        }
+
+        .payment-account-box {
+            grid-column: 1 / -1;
+            padding: 15px;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            background: #f8fafc;
+        }
+
+        .payment-account-box h3 {
+            margin: 0 0 12px;
+            font-size: 18px;
+        }
+
+        .payment-account-row {
+            display: flex;
+            justify-content: space-between;
+            gap: 15px;
+            padding: 6px 0;
+            font-size: 13px;
+        }
+
+        .payment-account-row span {
+            color: #6b7280;
+        }
+
+        .payment-account-row strong {
+            text-align: right;
+        }
+
+        .payment-history-table {
+            width: 100%;
+            min-width: 900px;
+            border-collapse: collapse;
+        }
+
+        .payment-history-table th,
+        .payment-history-table td {
+            padding: 12px;
+            border-bottom: 1px solid #edf0f4;
+            text-align: left;
+            font-size: 13px;
+        }
+
+        .payment-history-table th {
+            background: #f8fafc;
+            color: #4b5563;
+            white-space: nowrap;
+        }
+
+        .table-empty {
+            padding: 34px 15px !important;
+            text-align: center !important;
+            color: #9ca3af !important;
+        }
+
+        .toast {
+            position: fixed;
+            right: 18px;
+            bottom: 18px;
+            z-index: 50000;
+            max-width: 340px;
+            padding: 14px 16px;
+            border-radius: 10px;
+            background: #198754;
+            color: #ffffff;
+            font-size: 14px;
+            font-weight: 700;
+            box-shadow:
+                0 8px 25px rgba(0,0,0,.2);
+        }
+
+        .toast.error {
+            background: #dc3545;
+        }
+
+        @media screen and (max-width: 1100px) {
+
+            .suppliers-summary {
+                grid-template-columns:
+                    repeat(2,minmax(160px,1fr));
+            }
+        }
+
+        @media screen and (max-width: 900px) {
+
+            .main-content {
+                width: 100%;
+                max-width: 100%;
+                margin-left: 0;
+            }
+
+            .suppliers-page {
+                padding: 16px;
+            }
+
+            .supplier-form,
+            .payment-form {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media screen and (max-width: 600px) {
+
+            .suppliers-page {
+                padding: 12px;
+            }
+
+            .page-heading h1 {
+                font-size: 29px;
+            }
+
+            .suppliers-summary,
+            .supplier-toolbar {
+                grid-template-columns: 1fr;
+            }
+
+            .panel {
+                padding: 15px;
+            }
+
+            .form-actions {
+                flex-direction: column-reverse;
+            }
+
+            .form-actions button {
+                width: 100%;
+            }
+        }
+
+    </style>
+
+</head>
+
+<body>
+
+<aside
+    id="sidebar"
+    class="sidebar"
+></aside>
+
+<main class="main-content">
+
+<header
+    id="topbar"
+    class="topbar"
+></header>
+
+<div class="suppliers-page">
+
+<section class="page-heading">
+
+    <h1>
+        Suppliers
+    </h1>
+
+    <p>
+        Manage suppliers, outstanding balances,
+        supplier purchases and payments.
+    </p>
+
+</section>
+
+
+<section class="suppliers-summary">
+
+    <article class="summary-card">
+
+        <h3>
+            Total Suppliers
+        </h3>
+
+        <p id="totalSuppliers">
+            0
+        </p>
+
+    </article>
+
+
+    <article class="summary-card">
+
+        <h3>
+            Active Suppliers
+        </h3>
+
+        <p id="activeSuppliers">
+            0
+        </p>
+
+    </article>
+
+
+    <article class="summary-card">
+
+        <h3>
+            Total Purchases
+        </h3>
+
+        <p id="supplierTotalPurchases">
+            GH₵0.00
+        </p>
+
+    </article>
+
+
+    <article class="summary-card">
+
+        <h3>
+            Outstanding Balance
+        </h3>
+
+        <p id="supplierOutstandingBalance">
+            GH₵0.00
+        </p>
+
+    </article>
+
+</section>
+
+
+<section class="panel">
+
+<div class="panel-header">
+
+    <h2 id="supplierFormTitle">
+        Add New Supplier
+    </h2>
+
+    <p>
+        Enter the supplier's business and contact information.
+    </p>
+
+</div>
+
+
+<form
+    id="supplierForm"
+    class="supplier-form"
+>
+
+<input
+    type="hidden"
+    id="supplierId"
+>
+
+
+<div class="form-group">
+
+<label for="supplierName">
+    Supplier Name *
+</label>
+
+<input
+    type="text"
+    id="supplierName"
+    class="form-control"
+    placeholder="Enter supplier name"
+    required
+>
+
+</div>
+
+
+<div class="form-group">
+
+<label for="supplierContactPerson">
+    Contact Person
+</label>
+
+<input
+    type="text"
+    id="supplierContactPerson"
+    class="form-control"
+    placeholder="Enter contact person's name"
+>
+
+</div>
+
+
+<div class="form-group">
+
+<label for="supplierPhone">
+    Phone Number *
+</label>
+
+<input
+    type="tel"
+    id="supplierPhone"
+    class="form-control"
+    placeholder="Enter phone number"
+    required
+>
+
+</div>
+
+
+<div class="form-group">
+
+<label for="supplierEmail">
+    Email Address
+</label>
+
+<input
+    type="email"
+    id="supplierEmail"
+    class="form-control"
+    placeholder="Enter email address"
+>
+
+</div>
+
+
+<div class="form-group">
+
+<label for="supplierTaxNumber">
+    Tax / TIN Number
+</label>
+
+<input
+    type="text"
+    id="supplierTaxNumber"
+    class="form-control"
+    placeholder="Enter tax number"
+>
+
+</div>
+
+
+<div class="form-group">
+
+<label for="supplierStatus">
+    Status
+</label>
+
+<select
+    id="supplierStatus"
+    class="form-control"
+>
+
+<option value="active">
+    Active
+</option>
+
+<option value="inactive">
+    Inactive
+</option>
+
+</select>
+
+</div>
+
+
+<div class="form-group full-width">
+
+<label for="supplierAddress">
+    Address
+</label>
+
+<textarea
+    id="supplierAddress"
+    class="form-control"
+    placeholder="Enter supplier address"
+></textarea>
+
+</div>
+
+
+<div class="form-group full-width">
+
+<label for="supplierNotes">
+    Notes
+</label>
+
+<textarea
+    id="supplierNotes"
+    class="form-control"
+    placeholder="Optional notes"
+></textarea>
+
+</div>
+
+
+<div class="form-actions">
+
+<button
+    type="button"
+    id="clearSupplierButton"
+    class="secondary-button"
+>
+    Clear Form
+</button>
+
+<button
+    type="submit"
+    id="saveSupplierButton"
+    class="primary-button"
+>
+    Save Supplier
+</button>
+
+</div>
+
+</form>
+
+</section>
+
+
+<section
+    id="supplierPaymentPanel"
+    class="panel payment-panel"
+>
+
+<div class="panel-header">
+
+<h2>
+    Pay Supplier
+</h2>
+
+<p>
+    Record a payment against the selected supplier's outstanding balance.
+</p>
+
+</div>
+
+
+<form
+    id="supplierPaymentForm"
+    class="payment-form"
+>
+
+<input
+    type="hidden"
+    id="paymentSupplierId"
+>
+
+
+<div class="payment-account-box">
+
+<h3 id="paymentSupplierName">
+    Supplier
+</h3>
+
+<div class="payment-account-row">
+
+<span>
+    Total Purchases
+</span>
+
+<strong id="paymentSupplierPurchases">
+    GH₵0.00
+</strong>
+
+</div>
+
+
+<div class="payment-account-row">
+
+<span>
+    Total Paid
+</span>
+
+<strong id="paymentSupplierTotalPaid">
+    GH₵0.00
+</strong>
+
+</div>
+
+
+<div class="payment-account-row">
+
+<span>
+    Outstanding Balance
+</span>
+
+<strong id="paymentSupplierBalance">
+    GH₵0.00
+</strong>
+
+</div>
+
+</div>
+
+
+<div class="form-group">
+
+<label for="supplierPaymentDate">
+    Payment Date *
+</label>
+
+<input
+    type="date"
+    id="supplierPaymentDate"
+    class="form-control"
+    required
+>
+
+</div>
+
+
+<div class="form-group">
+
+<label for="supplierPaymentAmount">
+    Amount (GH₵) *
+</label>
+
+<input
+    type="text"
+    id="supplierPaymentAmount"
+    class="form-control"
+    inputmode="decimal"
+    autocomplete="off"
+    placeholder="0.00"
+    required
+>
+
+</div>
+
+
+<div class="form-group">
+
+<label for="supplierPaymentMethod">
+    Payment Method *
+</label>
+
+<select
+    id="supplierPaymentMethod"
+    class="form-control"
+>
+
+<option value="Cash">
+    Cash
+</option>
+
+<option value="Mobile Money">
+    Mobile Money
+</option>
+
+<option value="Bank">
+    Bank Transfer
+</option>
+
+<option value="Card">
+    Card
+</option>
+
+<option value="Other">
+    Other
+</option>
+
+</select>
+
+</div>
+
+
+<div class="form-group">
+
+<label for="supplierPaymentReference">
+    Reference
+</label>
+
+<input
+    type="text"
+    id="supplierPaymentReference"
+    class="form-control"
+    placeholder="Transaction or receipt reference"
+>
+
+</div>
+
+
+<div class="form-group full-width">
+
+<label for="supplierPaymentNotes">
+    Notes
+</label>
+
+<textarea
+    id="supplierPaymentNotes"
+    class="form-control"
+    placeholder="Optional payment notes"
+></textarea>
+
+</div>
+
+
+<div class="form-actions">
+
+<button
+    type="button"
+    id="cancelSupplierPaymentButton"
+    class="secondary-button"
+>
+    Cancel
+</button>
+
+<button
+    type="submit"
+    id="saveSupplierPaymentButton"
+    class="primary-button"
+>
+    💵 Record Payment
+</button>
+
+</div>
+
+</form>
+
+</section>
+
+
+<section class="panel">
+
+<div class="panel-header">
+
+<h2>
+    Supplier List
+</h2>
+
+<p>
+    Search suppliers, review balances and record payments.
+</p>
+
+</div>
+
+
+<div class="supplier-toolbar">
+
+<input
+    type="search"
+    id="supplierSearch"
+    class="form-control"
+    placeholder="Search supplier, phone, email or contact person"
+>
+
+
+<select
+    id="supplierStatusFilter"
+    class="form-control"
+>
+
+<option value="">
+    All Statuses
+</option>
+
+<option value="active">
+    Active
+</option>
+
+<option value="inactive">
+    Inactive
+</option>
+
+</select>
+
+</div>
+
+
+<div class="table-wrapper">
+
+<table class="supplier-table">
+
+<thead>
+
+<tr>
+
+<th>Supplier</th>
+<th>Contact Person</th>
+<th>Phone</th>
+<th>Total Purchases</th>
+<th>Total Paid</th>
+<th>Outstanding</th>
+<th>Last Purchase</th>
+<th>Status</th>
+<th>Actions</th>
+
+</tr>
+
+</thead>
+
+
+<tbody id="supplierTableBody">
+
+<tr>
+
+<td
+    colspan="9"
+    class="table-empty"
+>
+    No suppliers have been added.
+</td>
+
+</tr>
+
+</tbody>
+
+</table>
+
+</div>
+
+</section>
+
+
+<section class="panel">
+
+<div class="panel-header">
+
+<h2>
+    Supplier Payment History
+</h2>
+
+<p>
+    Payments recorded against supplier balances.
+</p>
+
+</div>
+
+
+<div class="table-wrapper">
+
+<table class="payment-history-table">
+
+<thead>
+
+<tr>
+
+<th>Payment No.</th>
+<th>Date</th>
+<th>Supplier</th>
+<th>Method</th>
+<th>Reference</th>
+<th>Amount</th>
+<th>Balance After</th>
+
+</tr>
+
+</thead>
+
+
+<tbody id="supplierPaymentTableBody">
+
+<tr>
+
+<td
+    colspan="7"
+    class="table-empty"
+>
+    No supplier payments recorded.
+</td>
+
+</tr>
+
+</tbody>
+
+</table>
+
+</div>
+
+</section>
+
+
+</div>
+
+</main>
+
+
+<script src="js/core/storage.js?v=140"></script>
+
+<script src="js/core/permissions.js?v=501"></script>
+
+<script src="js/core/auth-guard.js?v=650"></script>
+
+<script src="js/core/theme.js?v=580"></script>
+
+<script src="js/components/sidebar.js?v=610"></script>
+
+<script src="js/components/topbar.js?v=620"></script>
+
+<script src="js/modules/suppliers.js?v=300"></script>
+
+</body>
+
+</html>

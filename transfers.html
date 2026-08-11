@@ -1,0 +1,713 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <meta
+        name="theme-color"
+        content="#0b5ed7"
+    >
+
+    <title>Stock Transfers | Jufelix ERP v7.0</title>
+
+    <link rel="stylesheet" href="assets/css/variables.css">
+    <link rel="stylesheet" href="assets/css/base.css">
+    <link rel="stylesheet" href="assets/css/components.css">
+    <link rel="stylesheet" href="assets/css/style.css">
+
+    <style>
+
+        * {
+            box-sizing: border-box;
+        }
+
+        html,
+        body {
+            width: 100%;
+            max-width: 100%;
+            margin: 0;
+            overflow-x: hidden;
+            font-family: Arial, Helvetica, sans-serif;
+        }
+
+        body {
+            background: #f5f7fb;
+            color: #1f2937;
+        }
+
+        .main-content {
+            min-height: 100vh;
+            margin-left: 270px;
+            overflow-x: hidden;
+        }
+
+        .transfers-page {
+            width: 100%;
+            padding: 24px;
+        }
+
+        .page-heading {
+            margin-bottom: 24px;
+        }
+
+        .page-heading h1 {
+            margin: 0 0 7px;
+            font-size: 32px;
+        }
+
+        .page-heading p {
+            margin: 0;
+            color: #6b7280;
+            line-height: 1.6;
+        }
+
+        .transfer-summary {
+            display: grid;
+            grid-template-columns:
+                repeat(4, minmax(170px, 1fr));
+            gap: 17px;
+            margin-bottom: 24px;
+        }
+
+        .summary-card,
+        .transfer-panel {
+            background: #ffffff;
+            border: 1px solid #edf0f4;
+            border-radius: 14px;
+            box-shadow:
+                0 4px 14px rgba(0, 0, 0, 0.06);
+        }
+
+        .summary-card {
+            padding: 20px;
+        }
+
+        .summary-card h3 {
+            margin: 0 0 10px;
+            color: #6b7280;
+            font-size: 14px;
+        }
+
+        .summary-card p {
+            margin: 0;
+            font-size: 26px;
+            font-weight: 800;
+        }
+
+        .transfer-panel {
+            margin-bottom: 24px;
+            padding: 22px;
+        }
+
+        .panel-header {
+            margin-bottom: 18px;
+        }
+
+        .panel-header h2 {
+            margin: 0 0 6px;
+            font-size: 22px;
+        }
+
+        .panel-header p {
+            margin: 0;
+            color: #6b7280;
+            font-size: 13px;
+            line-height: 1.6;
+        }
+
+        .transfer-form {
+            display: grid;
+            grid-template-columns:
+                repeat(2, minmax(0, 1fr));
+            gap: 17px;
+        }
+
+        .form-group {
+            min-width: 0;
+        }
+
+        .form-group.full-width {
+            grid-column: 1 / -1;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #374151;
+            font-size: 14px;
+            font-weight: 700;
+        }
+
+        .form-control {
+            width: 100%;
+            min-height: 49px;
+            padding: 0 14px;
+            border: 1px solid #d7dce5;
+            border-radius: 9px;
+            outline: none;
+            background: #ffffff;
+            color: #1f2937;
+            font-size: 16px;
+        }
+
+        textarea.form-control {
+            min-height: 90px;
+            padding: 12px 14px;
+            resize: vertical;
+        }
+
+        .form-control:focus {
+            border-color: #0b5ed7;
+            box-shadow:
+                0 0 0 3px rgba(11, 94, 215, 0.12);
+        }
+
+        .form-control[readonly] {
+            background: #f8fafc;
+        }
+
+        .form-actions {
+            grid-column: 1 / -1;
+            display: flex;
+            justify-content: flex-end;
+            gap: 11px;
+        }
+
+        .primary-button,
+        .secondary-button {
+            min-height: 47px;
+            padding: 0 18px;
+            border-radius: 9px;
+            font-size: 15px;
+            font-weight: 700;
+            cursor: pointer;
+        }
+
+        .primary-button {
+            border: none;
+            background: #0b5ed7;
+            color: #ffffff;
+        }
+
+        .secondary-button {
+            border: 1px solid #cfd5df;
+            background: #ffffff;
+            color: #374151;
+        }
+
+        .transfer-toolbar {
+            display: grid;
+            grid-template-columns:
+                minmax(220px, 1fr)
+                repeat(2, minmax(150px, 0.3fr));
+            gap: 13px;
+            margin-bottom: 18px;
+        }
+
+        .table-wrapper {
+            width: 100%;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .transfer-table {
+            width: 100%;
+            min-width: 1050px;
+            border-collapse: collapse;
+        }
+
+        .transfer-table th,
+        .transfer-table td {
+            padding: 13px 12px;
+            border-bottom: 1px solid #edf0f4;
+            text-align: left;
+            font-size: 13px;
+        }
+
+        .transfer-table th {
+            background: #f8fafc;
+            color: #4b5563;
+            white-space: nowrap;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 5px 9px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 700;
+        }
+
+        .status-completed {
+            background: #d1e7dd;
+            color: #0f5132;
+        }
+
+        .status-pending {
+            background: #fff3cd;
+            color: #664d03;
+        }
+
+        .table-empty {
+            padding: 34px 15px !important;
+            text-align: center !important;
+            color: #9ca3af !important;
+        }
+
+        @media screen and (max-width: 1100px) {
+
+            .transfer-summary {
+                grid-template-columns:
+                    repeat(2, minmax(170px, 1fr));
+            }
+        }
+
+        @media screen and (max-width: 900px) {
+
+            .main-content {
+                width: 100%;
+                max-width: 100%;
+                margin-left: 0;
+            }
+
+            .transfers-page {
+                padding: 16px;
+            }
+
+            .transfer-form {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media screen and (max-width: 700px) {
+
+            .transfer-summary,
+            .transfer-toolbar {
+                grid-template-columns: 1fr;
+            }
+
+            .transfer-panel {
+                padding: 16px;
+            }
+
+            .form-actions {
+                flex-direction: column-reverse;
+            }
+
+            .form-actions button {
+                width: 100%;
+            }
+        }
+
+        @media screen and (max-width: 480px) {
+
+            .transfers-page {
+                padding: 12px;
+            }
+
+            .page-heading h1 {
+                font-size: 29px;
+            }
+        }
+
+    </style>
+
+</head>
+
+<body>
+
+    <aside
+        id="sidebar"
+        class="sidebar"
+    ></aside>
+
+    <main class="main-content">
+
+        <header
+            id="topbar"
+            class="topbar"
+        ></header>
+
+        <div class="transfers-page">
+
+            <section class="page-heading">
+
+                <h1>Stock Transfers</h1>
+
+                <p>
+                    Move products safely between branches and keep transfer records.
+                </p>
+
+            </section>
+
+            <section class="transfer-summary">
+
+                <article class="summary-card">
+
+                    <h3>Total Transfers</h3>
+
+                    <p id="totalTransfers">
+                        0
+                    </p>
+
+                </article>
+
+                <article class="summary-card">
+
+                    <h3>Completed Transfers</h3>
+
+                    <p id="completedTransfers">
+                        0
+                    </p>
+
+                </article>
+
+                <article class="summary-card">
+
+                    <h3>Pending Transfers</h3>
+
+                    <p id="pendingTransfers">
+                        0
+                    </p>
+
+                </article>
+
+                <article class="summary-card">
+
+                    <h3>Total Units Moved</h3>
+
+                    <p id="totalUnitsMoved">
+                        0
+                    </p>
+
+                </article>
+
+            </section>
+
+            <section class="transfer-panel">
+
+                <div class="panel-header">
+
+                    <h2>New Stock Transfer</h2>
+
+                    <p>
+                        Select the source branch, destination branch and product quantity.
+                    </p>
+
+                </div>
+
+                <form
+                    id="transferForm"
+                    class="transfer-form"
+                >
+
+                    <div class="form-group">
+
+                        <label for="transferNumber">
+                            Transfer Number
+                        </label>
+
+                        <input
+                            type="text"
+                            id="transferNumber"
+                            class="form-control"
+                            readonly
+                        >
+
+                    </div>
+
+                    <div class="form-group">
+
+                        <label for="transferDate">
+                            Transfer Date
+                        </label>
+
+                        <input
+                            type="date"
+                            id="transferDate"
+                            class="form-control"
+                            required
+                        >
+
+                    </div>
+
+                    <div class="form-group">
+
+                        <label for="fromBranch">
+                            From Branch *
+                        </label>
+
+                        <select
+                            id="fromBranch"
+                            class="form-control"
+                            required
+                        >
+
+                            <option value="">
+                                Select source branch
+                            </option>
+
+                        </select>
+
+                    </div>
+
+                    <div class="form-group">
+
+                        <label for="toBranch">
+                            To Branch *
+                        </label>
+
+                        <select
+                            id="toBranch"
+                            class="form-control"
+                            required
+                        >
+
+                            <option value="">
+                                Select destination branch
+                            </option>
+
+                        </select>
+
+                    </div>
+
+                    <div class="form-group">
+
+                        <label for="transferProduct">
+                            Product *
+                        </label>
+
+                        <select
+                            id="transferProduct"
+                            class="form-control"
+                            required
+                        >
+
+                            <option value="">
+                                Select product
+                            </option>
+
+                        </select>
+
+                    </div>
+
+                    <div class="form-group">
+
+                        <label for="availableTransferStock">
+                            Available Stock
+                        </label>
+
+                        <input
+                            type="text"
+                            id="availableTransferStock"
+                            class="form-control"
+                            readonly
+                        >
+
+                    </div>
+
+                    <div class="form-group">
+
+                        <label for="transferQuantity">
+                            Quantity *
+                        </label>
+
+                        <input
+                            type="number"
+                            id="transferQuantity"
+                            class="form-control"
+                            min="1"
+                            step="1"
+                            placeholder="Enter quantity"
+                            required
+                        >
+
+                    </div>
+
+                    <div class="form-group">
+
+                        <label for="transferStatus">
+                            Transfer Status
+                        </label>
+
+                        <select
+                            id="transferStatus"
+                            class="form-control"
+                        >
+
+                            <option value="completed">
+                                Completed
+                            </option>
+
+                            <option value="pending">
+                                Pending
+                            </option>
+
+                        </select>
+
+                    </div>
+
+                    <div class="form-group full-width">
+
+                        <label for="transferNotes">
+                            Notes
+                        </label>
+
+                        <textarea
+                            id="transferNotes"
+                            class="form-control"
+                            placeholder="Optional transfer notes"
+                        ></textarea>
+
+                    </div>
+
+                    <div class="form-actions">
+
+                        <button
+                            type="reset"
+                            class="secondary-button"
+                        >
+                            Reset
+                        </button>
+
+                        <button
+                            type="submit"
+                            class="primary-button"
+                        >
+                            Save Transfer
+                        </button>
+
+                    </div>
+
+                </form>
+
+            </section>
+
+            <section class="transfer-panel">
+
+                <div class="panel-header">
+
+                    <h2>Transfer History</h2>
+
+                    <p>
+                        Search and filter stock movement records.
+                    </p>
+
+                </div>
+
+                <div class="transfer-toolbar">
+
+                    <input
+                        type="search"
+                        id="transferSearch"
+                        class="form-control"
+                        placeholder="Search by transfer number, product or branch"
+                    >
+
+                    <select
+                        id="transferStatusFilter"
+                        class="form-control"
+                    >
+
+                        <option value="">
+                            All Statuses
+                        </option>
+
+                        <option value="completed">
+                            Completed
+                        </option>
+
+                        <option value="pending">
+                            Pending
+                        </option>
+
+                    </select>
+
+                    <input
+                        type="date"
+                        id="transferDateFilter"
+                        class="form-control"
+                    >
+
+                </div>
+
+                <div class="table-wrapper">
+
+                    <table class="transfer-table">
+
+                        <thead>
+
+                            <tr>
+
+                                <th>Transfer No.</th>
+                                <th>Date</th>
+                                <th>From</th>
+                                <th>To</th>
+                                <th>Product</th>
+                                <th>Quantity</th>
+                                <th>Status</th>
+                                <th>Notes</th>
+
+                            </tr>
+
+                        </thead>
+
+                        <tbody id="transferTableBody">
+
+                            <tr>
+
+                                <td
+                                    colspan="8"
+                                    class="table-empty"
+                                >
+                                    No stock transfers have been recorded.
+                                </td>
+
+                            </tr>
+
+                        </tbody>
+
+                    </table>
+
+                </div>
+
+            </section>
+
+        </div>
+
+    </main>
+
+<!-- CORE -->
+<script src="js/core/config.js?v=580"></script>
+<script src="js/core/storage.js?v=580"></script>
+
+<!-- PERMISSIONS -->
+<script src="js/core/permissions.js?v=550"></script>
+
+<!-- THEME -->
+<script src="js/core/theme.js?v=580"></script>
+
+<!-- AUTH GUARD -->
+<script src="js/core/auth-guard.js?v=650"></script>
+
+<!-- DATABASE -->
+<script src="js/core/database.js?v=580"></script>
+
+<!-- COMPONENTS -->
+<script src="js/components/sidebar.js?v=610"></script>
+<script src="js/components/topbar.js?v=620"></script>
+
+<!-- TRANSFER SERVICE -->
+<script src="js/services/transfer.service.js?v=580"></script>
+
+<!-- TRANSFERS MODULE -->
+<script src="js/modules/transfers.js?v=580"></script>
+</body>
+</html>

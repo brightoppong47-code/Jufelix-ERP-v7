@@ -1,0 +1,918 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <meta
+        name="theme-color"
+        content="#0b5ed7"
+    >
+
+    <title>Settings | Jufelix ERP v7.0</title>
+
+    <link
+        rel="stylesheet"
+        href="assets/css/variables.css"
+    >
+
+    <link
+        rel="stylesheet"
+        href="assets/css/base.css"
+    >
+
+    <link
+        rel="stylesheet"
+        href="assets/css/components.css"
+    >
+
+    <link
+        rel="stylesheet"
+        href="assets/css/style.css"
+    >
+
+    <style>
+
+        * {
+            box-sizing: border-box;
+        }
+
+        html,
+        body {
+            width: 100%;
+            max-width: 100%;
+            margin: 0;
+            overflow-x: hidden;
+            font-family: Arial, Helvetica, sans-serif;
+        }
+
+        body {
+            background: #f5f7fb;
+            color: #1f2937;
+        }
+
+        .main-content {
+            min-height: 100vh;
+            margin-left: 270px;
+            padding: 24px;
+        }
+
+        .page-header {
+            margin-bottom: 24px;
+        }
+
+        .page-header h1 {
+            margin: 0 0 8px;
+            font-size: 32px;
+        }
+
+        .page-header p {
+            margin: 0;
+            color: #6b7280;
+            line-height: 1.6;
+        }
+
+        .settings-layout {
+            display: grid;
+            grid-template-columns:
+                minmax(0, 1fr)
+                minmax(290px, .42fr);
+            gap: 22px;
+            align-items: start;
+        }
+
+        .card {
+            width: 100%;
+            margin-bottom: 22px;
+            padding: 22px;
+            border: 1px solid #edf0f4;
+            border-radius: 14px;
+            background: var(--card-bg, #ffffff);
+            box-shadow:
+                0 4px 14px rgba(0,0,0,.06);
+        }
+
+        .card-header {
+            margin-bottom: 20px;
+        }
+
+        .card-header h2 {
+            margin: 0 0 6px;
+            font-size: 22px;
+        }
+
+        .card-header p {
+            margin: 0;
+            color: var(--muted, #6b7280);
+            font-size: 13px;
+            line-height: 1.6;
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns:
+                repeat(2, minmax(0, 1fr));
+            gap: 17px;
+        }
+
+        .form-group {
+            min-width: 0;
+        }
+
+        .form-group.full-width {
+            grid-column: 1 / -1;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 14px;
+            font-weight: 700;
+        }
+
+        .form-control {
+            width: 100%;
+            min-height: 50px;
+            padding: 0 14px;
+            border: 1px solid #d7dce5;
+            border-radius: 9px;
+            outline: none;
+            background: var(--surface, #ffffff);
+            color: var(--text-color, #1f2937);
+            font-size: 16px;
+        }
+
+        textarea.form-control {
+            min-height: 110px;
+            padding: 12px 14px;
+            resize: vertical;
+        }
+
+        .form-control:focus {
+            border-color: var(--primary, #0b5ed7);
+            box-shadow:
+                0 0 0 3px rgba(11,94,215,.12);
+        }
+
+        .form-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 12px;
+            margin-top: 22px;
+        }
+
+        .btn {
+            min-height: 48px;
+            padding: 0 18px;
+            border-radius: 9px;
+            font-size: 15px;
+            font-weight: 700;
+            cursor: pointer;
+        }
+
+        .btn-primary {
+            border: none;
+            background: var(--primary, #0b5ed7);
+            color: #ffffff;
+        }
+
+        .btn-secondary {
+            border: 1px solid #cfd5df;
+            background: #ffffff;
+            color: #374151;
+        }
+
+        .logo-area {
+            display: grid;
+            grid-template-columns:
+                115px minmax(0, 1fr);
+            gap: 18px;
+            align-items: center;
+        }
+
+        .logo-preview {
+            width: 115px;
+            height: 115px;
+            border: 1px solid #d7dce5;
+            border-radius: 15px;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #f8fafc;
+            color: #0b5ed7;
+            font-size: 45px;
+            font-weight: 900;
+        }
+
+        .logo-preview img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            padding: 6px;
+        }
+
+        .setting-info {
+            margin-top: 8px;
+            color: var(--muted, #6b7280);
+            font-size: 12px;
+            line-height: 1.5;
+        }
+
+        .theme-preview {
+            margin-top: 15px;
+            padding: 15px;
+            border: 1px solid #e5e7eb;
+            border-radius: 10px;
+            background: var(--surface, #ffffff);
+        }
+
+        .theme-preview-bar {
+            height: 18px;
+            margin-bottom: 10px;
+            border-radius: 20px;
+            background: var(--primary, #0b5ed7);
+        }
+
+        .cloud-status {
+            padding: 15px;
+            border-radius: 10px;
+            background: #eef6ff;
+            color: #084298;
+            font-size: 13px;
+            line-height: 1.6;
+        }
+
+        .cloud-status strong {
+            display: block;
+            margin-bottom: 5px;
+        }
+
+        .system-info {
+            display: grid;
+            gap: 12px;
+        }
+
+        .system-row {
+            display: flex;
+            justify-content: space-between;
+            gap: 16px;
+            padding-bottom: 11px;
+            border-bottom: 1px solid #edf0f4;
+            font-size: 13px;
+        }
+
+        .system-row:last-child {
+            border-bottom: none;
+        }
+
+        .system-row span {
+            color: var(--muted, #6b7280);
+        }
+
+        .system-row strong {
+            text-align: right;
+        }
+
+        @media screen and (max-width: 1050px) {
+
+            .settings-layout {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media screen and (max-width: 900px) {
+
+            .main-content {
+                width: 100%;
+                margin-left: 0;
+                padding: 16px;
+            }
+        }
+
+        @media screen and (max-width: 700px) {
+
+            .form-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .logo-area {
+                grid-template-columns: 1fr;
+            }
+
+            .logo-preview {
+                margin: auto;
+            }
+
+            .form-actions {
+                flex-direction: column-reverse;
+            }
+
+            .form-actions .btn {
+                width: 100%;
+            }
+        }
+
+        @media screen and (max-width: 480px) {
+
+            .main-content {
+                padding: 12px;
+            }
+
+            .page-header h1 {
+                font-size: 29px;
+            }
+
+            .card {
+                padding: 16px;
+            }
+        }
+
+    </style>
+
+</head>
+
+
+<body>
+
+
+    <aside
+        id="sidebar"
+        class="sidebar"
+    ></aside>
+
+
+    <header
+        id="topbar"
+        class="topbar"
+    ></header>
+
+
+    <main class="main-content">
+
+
+        <div class="page-header">
+
+            <h1>
+                Settings
+            </h1>
+
+            <p>
+                Manage company information, logo,
+                currency, theme and ERP preferences.
+            </p>
+
+        </div>
+
+
+        <form id="settingsForm">
+
+
+            <div class="settings-layout">
+
+
+                <!-- LEFT COLUMN -->
+
+                <div>
+
+
+                    <!-- COMPANY INFORMATION -->
+
+                    <section class="card">
+
+                        <div class="card-header">
+
+                            <h2>
+                                Company Information
+                            </h2>
+
+                            <p>
+                                Details used throughout
+                                Jufelix ERP.
+                            </p>
+
+                        </div>
+
+
+                        <div class="form-grid">
+
+
+                            <div class="form-group">
+
+                                <label for="companyName">
+                                    Company Name
+                                </label>
+
+                                <input
+                                    type="text"
+                                    id="companyName"
+                                    class="form-control"
+                                    placeholder="Jufelix Services"
+                                    required
+                                >
+
+                            </div>
+
+
+                            <div class="form-group">
+
+                                <label for="companyPhone">
+                                    Phone Number
+                                </label>
+
+                                <input
+                                    type="tel"
+                                    id="companyPhone"
+                                    class="form-control"
+                                    placeholder="0240000000"
+                                >
+
+                            </div>
+
+
+                            <div class="form-group">
+
+                                <label for="companyEmail">
+                                    Email Address
+                                </label>
+
+                                <input
+                                    type="email"
+                                    id="companyEmail"
+                                    class="form-control"
+                                    placeholder="info@example.com"
+                                >
+
+                            </div>
+
+
+                            <div class="form-group">
+
+                                <label for="companyTaxId">
+                                    Tax / Registration ID
+                                </label>
+
+                                <input
+                                    type="text"
+                                    id="companyTaxId"
+                                    class="form-control"
+                                    placeholder="Optional"
+                                >
+
+                            </div>
+
+
+                            <div class="form-group full-width">
+
+                                <label for="companyAddress">
+                                    Business Address
+                                </label>
+
+                                <textarea
+                                    id="companyAddress"
+                                    class="form-control"
+                                    placeholder="Enter business address"
+                                ></textarea>
+
+                            </div>
+
+
+                        </div>
+
+                    </section>
+
+
+
+                    <!-- LOGO -->
+
+                    <section class="card">
+
+                        <div class="card-header">
+
+                            <h2>
+                                Company Logo
+                            </h2>
+
+                            <p>
+                                Upload the logo displayed throughout
+                                Jufelix ERP.
+                            </p>
+
+                        </div>
+
+
+                        <div class="logo-area">
+
+
+                            <div
+                                id="logoPreview"
+                                class="logo-preview"
+                            >
+                                J
+                            </div>
+
+
+                            <div>
+
+                                <input
+                                    type="file"
+                                    id="companyLogo"
+                                    accept="image/png,image/jpeg,image/webp"
+                                >
+
+                                <div class="setting-info">
+                                    Recommended: square PNG, JPG or WebP.
+                                    Maximum size: 2 MB.
+                                </div>
+
+                            </div>
+
+
+                        </div>
+
+                    </section>
+
+
+
+                    <!-- THEME -->
+
+                    <section class="card">
+
+                        <div class="card-header">
+
+                            <h2>
+                                Theme & Appearance
+                            </h2>
+
+                            <p>
+                                Choose the main colour style for
+                                Jufelix ERP.
+                            </p>
+
+                        </div>
+
+
+                        <div class="form-group">
+
+                            <label for="themeSelect">
+                                ERP Theme
+                            </label>
+
+                            <select
+                                id="themeSelect"
+                                class="form-control"
+                            >
+
+                                <option value="jufelix-blue">
+                                    Jufelix Blue
+                                </option>
+
+                                <option value="royal-purple">
+                                    Royal Purple
+                                </option>
+
+                                <option value="dark">
+                                    Dark Mode
+                                </option>
+
+                                <option value="classic-light">
+                                    Classic Light
+                                </option>
+
+                            </select>
+
+                        </div>
+
+
+                        <div class="theme-preview">
+
+                            <div
+                                class="theme-preview-bar"
+                            ></div>
+
+                            <strong>
+                                Live Theme Preview
+                            </strong>
+
+                            <div class="setting-info">
+                                Changing the selector previews the
+                                theme immediately. Tap Save Settings
+                                to keep it.
+                            </div>
+
+                        </div>
+
+                    </section>
+
+
+
+                    <!-- BUSINESS -->
+
+                    <section class="card">
+
+                        <div class="card-header">
+
+                            <h2>
+                                Business Preferences
+                            </h2>
+
+                        </div>
+
+
+                        <div class="form-grid">
+
+
+                            <div class="form-group">
+
+                                <label for="currency">
+                                    Currency
+                                </label>
+
+                                <select
+                                    id="currency"
+                                    class="form-control"
+                                >
+
+                                    <option value="GHS">
+                                        Ghana Cedi (GH₵)
+                                    </option>
+
+                                    <option value="USD">
+                                        US Dollar ($)
+                                    </option>
+
+                                    <option value="EUR">
+                                        Euro (€)
+                                    </option>
+
+                                    <option value="GBP">
+                                        British Pound (£)
+                                    </option>
+
+                                    <option value="NGN">
+                                        Nigerian Naira (₦)
+                                    </option>
+
+                                </select>
+
+                            </div>
+
+
+                        </div>
+
+                    </section>
+
+
+
+                    <!-- RECEIPTS -->
+
+                    <section class="card">
+
+                        <div class="card-header">
+
+                            <h2>
+                                Receipt Settings
+                            </h2>
+
+                            <p>
+                                Information to display on future
+                                sales receipts.
+                            </p>
+
+                        </div>
+
+
+                        <div class="form-group">
+
+                            <label for="receiptFooter">
+                                Receipt Footer
+                            </label>
+
+                            <textarea
+                                id="receiptFooter"
+                                class="form-control"
+                                placeholder="Thank you for doing business with us."
+                            ></textarea>
+
+                        </div>
+
+                    </section>
+
+
+
+                    <!-- SAVE -->
+
+                    <section class="card">
+
+                        <div class="form-actions">
+
+                            <button
+                                type="submit"
+                                id="saveSettings"
+                                class="btn btn-primary"
+                            >
+                                💾 Save Settings
+                            </button>
+
+                        </div>
+
+                    </section>
+
+
+                </div>
+
+
+
+                <!-- RIGHT COLUMN -->
+
+                <aside>
+
+
+                    <!-- FIREBASE -->
+
+                    <section class="card">
+
+                        <div class="card-header">
+
+                            <h2>
+                                Firebase Cloud
+                            </h2>
+
+                        </div>
+
+
+                        <div
+                            id="firebaseStatus"
+                            class="cloud-status"
+                        >
+
+                            <strong>
+                                Firebase Connected
+                            </strong>
+
+                            Jufelix ERP is configured for
+                            Firebase Authentication and Firestore.
+
+                        </div>
+
+                    </section>
+
+
+
+                    <!-- SYSTEM -->
+
+                    <section class="card">
+
+                        <div class="card-header">
+
+                            <h2>
+                                System Information
+                            </h2>
+
+                        </div>
+
+
+                        <div class="system-info">
+
+
+                            <div class="system-row">
+
+                                <span>
+                                    ERP Version
+                                </span>
+
+                                <strong>
+                                    7.0 Professional
+                                </strong>
+
+                            </div>
+
+
+                            <div class="system-row">
+
+                                <span>
+                                    Authentication
+                                </span>
+
+                                <strong>
+                                    Firebase Auth
+                                </strong>
+
+                            </div>
+
+
+                            <div class="system-row">
+
+                                <span>
+                                    Database
+                                </span>
+
+                                <strong>
+                                    Firestore
+                                </strong>
+
+                            </div>
+
+
+                            <div class="system-row">
+
+                                <span>
+                                    Active User
+                                </span>
+
+                                <strong id="settingsCurrentUser">
+                                    Administrator
+                                </strong>
+
+                            </div>
+
+
+                            <div class="system-row">
+
+                                <span>
+                                    Active Branch
+                                </span>
+
+                                <strong id="settingsActiveBranch">
+                                    Head Office
+                                </strong>
+
+                            </div>
+
+
+                        </div>
+
+                    </section>
+
+
+                </aside>
+
+
+            </div>
+
+
+        </form>
+
+
+    </main>
+
+
+
+    <!-- STORAGE -->
+
+    <script
+        src="js/core/storage.js?v=501"
+    ></script>
+
+
+    <!-- PERMISSIONS -->
+
+    <script
+        src="js/core/permissions.js?v=550"
+    ></script>
+
+
+    <!-- SECURITY -->
+    
+<script src="js/core/theme.js?v=580"></script>
+
+    <script
+        src="js/core/auth-guard.js?v=650"
+    ></script>
+
+
+    <!-- COMPONENTS -->
+
+    <script
+        src="js/components/sidebar.js?v=610"
+    ></script>
+
+    <script
+        src="js/components/topbar.js?v=620"
+    ></script>
+
+
+    <!-- FIREBASE -->
+
+    <script
+        type="module"
+        src="js/core/firebase.js?v=520"
+    ></script>
+
+
+    <!-- SETTINGS -->
+
+    <script
+        src="js/modules/settings.js?v=570"
+    ></script>
+
+
+</body>
+
+</html>

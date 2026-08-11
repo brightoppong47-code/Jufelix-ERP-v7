@@ -1,0 +1,896 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <meta
+        name="theme-color"
+        content="#0b5ed7"
+    >
+
+    <title>Expenses | Jufelix ERP v7.0</title>
+
+    <link rel="stylesheet" href="assets/css/variables.css">
+    <link rel="stylesheet" href="assets/css/base.css">
+    <link rel="stylesheet" href="assets/css/components.css">
+    <link rel="stylesheet" href="assets/css/style.css">
+
+    <style>
+
+        * {
+            box-sizing: border-box;
+        }
+
+        html,
+        body {
+            width: 100%;
+            max-width: 100%;
+            margin: 0;
+            overflow-x: hidden;
+            font-family: Arial, Helvetica, sans-serif;
+        }
+
+        body {
+            background: #f5f7fb;
+            color: #1f2937;
+        }
+
+        .main-content {
+            min-height: 100vh;
+            margin-left: 270px;
+            overflow-x: hidden;
+        }
+
+        .expenses-page {
+            width: 100%;
+            padding: 24px;
+        }
+
+        .page-heading {
+            margin-bottom: 24px;
+        }
+
+        .page-heading h1 {
+            margin: 0 0 7px;
+            font-size: 32px;
+        }
+
+        .page-heading p {
+            margin: 0;
+            color: #6b7280;
+            line-height: 1.6;
+        }
+
+        .expense-summary {
+            display: grid;
+            grid-template-columns:
+                repeat(4, minmax(170px, 1fr));
+            gap: 17px;
+            margin-bottom: 24px;
+        }
+
+        .summary-card,
+        .expense-panel {
+            background: #ffffff;
+            border: 1px solid #edf0f4;
+            border-radius: 14px;
+            box-shadow:
+                0 4px 14px rgba(0, 0, 0, 0.06);
+        }
+
+        .summary-card {
+            padding: 20px;
+        }
+
+        .summary-card h3 {
+            margin: 0 0 10px;
+            color: #6b7280;
+            font-size: 14px;
+        }
+
+        .summary-card p {
+            margin: 0;
+            color: #1f2937;
+            font-size: 26px;
+            font-weight: 800;
+            overflow-wrap: anywhere;
+        }
+
+        .expense-panel {
+            margin-bottom: 24px;
+            padding: 22px;
+        }
+
+        .panel-header {
+            margin-bottom: 18px;
+        }
+
+        .panel-header h2 {
+            margin: 0 0 6px;
+            font-size: 22px;
+        }
+
+        .panel-header p {
+            margin: 0;
+            color: #6b7280;
+            font-size: 13px;
+            line-height: 1.6;
+        }
+
+        .expense-form {
+            display: grid;
+            grid-template-columns:
+                repeat(2, minmax(0, 1fr));
+            gap: 17px;
+        }
+
+        .form-group {
+            min-width: 0;
+        }
+
+        .form-group.full-width {
+            grid-column: 1 / -1;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #374151;
+            font-size: 14px;
+            font-weight: 700;
+        }
+
+        .form-control {
+            width: 100%;
+            max-width: 100%;
+            min-height: 49px;
+            padding: 0 14px;
+            border: 1px solid #d7dce5;
+            border-radius: 9px;
+            outline: none;
+            background: #ffffff;
+            color: #1f2937;
+            font-size: 16px;
+        }
+
+        textarea.form-control {
+            min-height: 90px;
+            padding: 12px 14px;
+            resize: vertical;
+        }
+
+        .form-control:focus {
+            border-color: #0b5ed7;
+            box-shadow:
+                0 0 0 3px rgba(11, 94, 215, 0.12);
+        }
+
+        .form-control[readonly] {
+            background: #f8fafc;
+        }
+
+        .form-actions {
+            grid-column: 1 / -1;
+            display: flex;
+            justify-content: flex-end;
+            gap: 11px;
+        }
+
+        .primary-button,
+        .secondary-button {
+            min-height: 47px;
+            padding: 0 18px;
+            border-radius: 9px;
+            font-size: 15px;
+            font-weight: 700;
+            cursor: pointer;
+        }
+
+        .primary-button {
+            border: none;
+            background: #0b5ed7;
+            color: #ffffff;
+        }
+
+        .primary-button:hover {
+            background: #084298;
+        }
+
+        .secondary-button {
+            border: 1px solid #cfd5df;
+            background: #ffffff;
+            color: #374151;
+        }
+
+        .expense-toolbar {
+            display: grid;
+            grid-template-columns:
+                minmax(220px, 1fr)
+                repeat(3, minmax(150px, 0.3fr));
+            gap: 13px;
+            margin-bottom: 18px;
+        }
+
+        .table-wrapper {
+            width: 100%;
+            max-width: 100%;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .expense-table {
+            width: 100%;
+            min-width: 1100px;
+            border-collapse: collapse;
+        }
+
+        .expense-table th,
+        .expense-table td {
+            padding: 13px 12px;
+            border-bottom: 1px solid #edf0f4;
+            text-align: left;
+            font-size: 13px;
+            vertical-align: middle;
+        }
+
+        .expense-table th {
+            background: #f8fafc;
+            color: #4b5563;
+            white-space: nowrap;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 5px 9px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 700;
+        }
+
+        .status-paid {
+            background: #d1e7dd;
+            color: #0f5132;
+        }
+
+        .status-pending {
+            background: #fff3cd;
+            color: #664d03;
+        }
+
+        .action-button {
+            min-height: 34px;
+            padding: 0 11px;
+            border: none;
+            border-radius: 7px;
+            font-size: 12px;
+            font-weight: 700;
+            cursor: pointer;
+        }
+
+        .edit-button {
+            background: #e7f1ff;
+            color: #084298;
+        }
+
+        .delete-button {
+            background: #f8d7da;
+            color: #842029;
+        }
+
+        .table-empty {
+            padding: 34px 15px !important;
+            text-align: center !important;
+            color: #9ca3af !important;
+        }
+
+        @media screen and (max-width: 1100px) {
+
+            .expense-summary {
+                grid-template-columns:
+                    repeat(2, minmax(170px, 1fr));
+            }
+        }
+
+        @media screen and (max-width: 900px) {
+
+            .main-content {
+                width: 100%;
+                max-width: 100%;
+                margin-left: 0;
+            }
+
+            .expenses-page {
+                padding: 16px;
+            }
+
+            .expense-form {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media screen and (max-width: 700px) {
+
+            .expense-summary,
+            .expense-toolbar {
+                grid-template-columns: 1fr;
+            }
+
+            .expense-panel {
+                padding: 16px;
+            }
+
+            .form-actions {
+                flex-direction: column-reverse;
+            }
+
+            .form-actions button {
+                width: 100%;
+            }
+        }
+
+        @media screen and (max-width: 480px) {
+
+            .expenses-page {
+                padding: 12px;
+            }
+
+            .page-heading h1 {
+                font-size: 29px;
+            }
+        }
+
+    </style>
+
+</head>
+
+<body>
+
+    <aside
+        id="sidebar"
+        class="sidebar"
+    ></aside>
+
+
+    <main class="main-content">
+
+        <header
+            id="topbar"
+            class="topbar"
+        ></header>
+
+
+        <div class="expenses-page">
+
+            <section class="page-heading">
+
+                <h1>Expenses</h1>
+
+                <p>
+                    Record and manage business expenses by branch and category.
+                </p>
+
+            </section>
+
+
+            <section class="expense-summary">
+
+                <article class="summary-card">
+
+                    <h3>Total Expenses</h3>
+
+                    <p id="totalExpenseCount">
+                        0
+                    </p>
+
+                </article>
+
+
+                <article class="summary-card">
+
+                    <h3>Today's Expenses</h3>
+
+                    <p id="todayExpenseTotal">
+                        GH₵0.00
+                    </p>
+
+                </article>
+
+
+                <article class="summary-card">
+
+                    <h3>This Month</h3>
+
+                    <p id="monthExpenseTotal">
+                        GH₵0.00
+                    </p>
+
+                </article>
+
+
+                <article class="summary-card">
+
+                    <h3>Pending Expenses</h3>
+
+                    <p id="pendingExpenseTotal">
+                        GH₵0.00
+                    </p>
+
+                </article>
+
+            </section>
+
+
+            <section class="expense-panel">
+
+                <div class="panel-header">
+
+                    <h2 id="expenseFormTitle">
+                        Add New Expense
+                    </h2>
+
+                    <p>
+                        Enter the expense details and assign it to the correct branch.
+                    </p>
+
+                </div>
+
+
+                <form
+                    id="expenseForm"
+                    class="expense-form"
+                >
+
+                    <input
+                        type="hidden"
+                        id="expenseId"
+                    >
+
+
+                    <div class="form-group">
+
+                        <label for="expenseNumber">
+                            Expense Number
+                        </label>
+
+                        <input
+                            type="text"
+                            id="expenseNumber"
+                            class="form-control"
+                            readonly
+                        >
+
+                    </div>
+
+
+                    <div class="form-group">
+
+                        <label for="expenseDate">
+                            Expense Date *
+                        </label>
+
+                        <input
+                            type="date"
+                            id="expenseDate"
+                            class="form-control"
+                            required
+                        >
+
+                    </div>
+
+
+                    <div class="form-group">
+
+                        <label for="expenseBranch">
+                            Branch *
+                        </label>
+
+                        <select
+                            id="expenseBranch"
+                            class="form-control"
+                            required
+                        >
+
+                            <option value="">
+                                Select branch
+                            </option>
+
+                        </select>
+
+                    </div>
+
+
+                    <div class="form-group">
+
+                        <label for="expenseCategory">
+                            Expense Category *
+                        </label>
+
+                        <select
+                            id="expenseCategory"
+                            class="form-control"
+                            required
+                        >
+
+                            <option value="">
+                                Select category
+                            </option>
+
+                            <option value="rent">
+                                Rent
+                            </option>
+
+                            <option value="utilities">
+                                Utilities
+                            </option>
+
+                            <option value="transport">
+                                Transport
+                            </option>
+
+                            <option value="fuel">
+                                Fuel
+                            </option>
+
+                            <option value="salary">
+                                Salaries and Wages
+                            </option>
+
+                            <option value="maintenance">
+                                Repairs and Maintenance
+                            </option>
+
+                            <option value="marketing">
+                                Marketing
+                            </option>
+
+                            <option value="office">
+                                Office Supplies
+                            </option>
+
+                            <option value="tax">
+                                Taxes and Levies
+                            </option>
+
+                            <option value="miscellaneous">
+                                Miscellaneous
+                            </option>
+
+                        </select>
+
+                    </div>
+
+
+                    <div class="form-group">
+
+                        <label for="expenseDescription">
+                            Description *
+                        </label>
+
+                        <input
+                            type="text"
+                            id="expenseDescription"
+                            class="form-control"
+                            placeholder="Enter expense description"
+                            required
+                        >
+
+                    </div>
+
+
+                    <div class="form-group">
+
+                        <label for="expenseAmount">
+                            Amount (GH₵) *
+                        </label>
+
+                        <input
+                            type="number"
+                            id="expenseAmount"
+                            class="form-control"
+                            min="0.01"
+                            step="0.01"
+                            placeholder="0.00"
+                            required
+                        >
+
+                    </div>
+
+
+                    <div class="form-group">
+
+                        <label for="expensePaymentMethod">
+                            Payment Method
+                        </label>
+
+                        <select
+                            id="expensePaymentMethod"
+                            class="form-control"
+                        >
+
+                            <option value="cash">
+                                Cash
+                            </option>
+
+                            <option value="mobile-money">
+                                Mobile Money
+                            </option>
+
+                            <option value="bank">
+                                Bank Transfer
+                            </option>
+
+                            <option value="card">
+                                Card
+                            </option>
+
+                        </select>
+
+                    </div>
+
+
+                    <div class="form-group">
+
+                        <label for="expenseStatus">
+                            Payment Status
+                        </label>
+
+                        <select
+                            id="expenseStatus"
+                            class="form-control"
+                        >
+
+                            <option value="paid">
+                                Paid
+                            </option>
+
+                            <option value="pending">
+                                Pending
+                            </option>
+
+                        </select>
+
+                    </div>
+
+
+                    <div class="form-group">
+
+                        <label for="expenseVendor">
+                            Vendor / Payee
+                        </label>
+
+                        <input
+                            type="text"
+                            id="expenseVendor"
+                            class="form-control"
+                            placeholder="Enter vendor or payee"
+                        >
+
+                    </div>
+
+
+                    <div class="form-group">
+
+                        <label for="expenseReference">
+                            Reference
+                        </label>
+
+                        <input
+                            type="text"
+                            id="expenseReference"
+                            class="form-control"
+                            placeholder="Receipt or transaction reference"
+                        >
+
+                    </div>
+
+
+                    <div class="form-group full-width">
+
+                        <label for="expenseNotes">
+                            Notes
+                        </label>
+
+                        <textarea
+                            id="expenseNotes"
+                            class="form-control"
+                            placeholder="Optional expense notes"
+                        ></textarea>
+
+                    </div>
+
+
+                    <div class="form-actions">
+
+                        <button
+                            type="button"
+                            id="clearExpenseButton"
+                            class="secondary-button"
+                        >
+                            Clear Form
+                        </button>
+
+                        <button
+                            type="submit"
+                            id="saveExpenseButton"
+                            class="primary-button"
+                        >
+                            Save Expense
+                        </button>
+
+                    </div>
+
+                </form>
+
+            </section>
+
+
+            <section class="expense-panel">
+
+                <div class="panel-header">
+
+                    <h2>Expense History</h2>
+
+                    <p>
+                        Search and filter saved business expenses.
+                    </p>
+
+                </div>
+
+
+                <div class="expense-toolbar">
+
+                    <input
+                        type="search"
+                        id="expenseSearch"
+                        class="form-control"
+                        placeholder="Search by number, description, vendor or reference"
+                    >
+
+
+                    <select
+                        id="expenseCategoryFilter"
+                        class="form-control"
+                    >
+
+                        <option value="">
+                            All Categories
+                        </option>
+
+                        <option value="rent">
+                            Rent
+                        </option>
+
+                        <option value="utilities">
+                            Utilities
+                        </option>
+
+                        <option value="transport">
+                            Transport
+                        </option>
+
+                        <option value="fuel">
+                            Fuel
+                        </option>
+
+                        <option value="salary">
+                            Salaries
+                        </option>
+
+                        <option value="maintenance">
+                            Maintenance
+                        </option>
+
+                        <option value="marketing">
+                            Marketing
+                        </option>
+
+                        <option value="office">
+                            Office Supplies
+                        </option>
+
+                        <option value="tax">
+                            Taxes
+                        </option>
+
+                        <option value="miscellaneous">
+                            Miscellaneous
+                        </option>
+
+                    </select>
+
+
+                    <select
+                        id="expenseStatusFilter"
+                        class="form-control"
+                    >
+
+                        <option value="">
+                            All Statuses
+                        </option>
+
+                        <option value="paid">
+                            Paid
+                        </option>
+
+                        <option value="pending">
+                            Pending
+                        </option>
+
+                    </select>
+
+
+                    <input
+                        type="date"
+                        id="expenseDateFilter"
+                        class="form-control"
+                    >
+
+                </div>
+
+
+                <div class="table-wrapper">
+
+                    <table class="expense-table">
+
+                        <thead>
+
+                            <tr>
+
+                                <th>Expense No.</th>
+                                <th>Date</th>
+                                <th>Branch</th>
+                                <th>Category</th>
+                                <th>Description</th>
+                                <th>Vendor</th>
+                                <th>Amount</th>
+                                <th>Status</th>
+                                <th>Recorded By</th>
+                                <th>Actions</th>
+
+                            </tr>
+
+                        </thead>
+
+                        <tbody id="expenseTableBody">
+
+                            <tr>
+
+                                <td
+                                    colspan="10"
+                                    class="table-empty"
+                                >
+                                    No expenses have been recorded.
+                                </td>
+
+                            </tr>
+
+                        </tbody>
+
+                    </table>
+
+                </div>
+
+            </section>
+
+        </div>
+
+    </main>
+
+
+    <script src="js/core/storage.js?v=220"></script>
+    <script src="js/core/permissions.js?v=501"></script>
+<script src="js/core/auth-guard.js?v=650"></script>
+<script src="js/core/theme.js?v=580"></script>
+    <script src="js/components/sidebar.js?v=610"></script>
+    <script src="js/components/topbar.js?v=620"></script>
+<script src="js/modules/expenses.js?v=400"></script>
+</body>
+
+</html>

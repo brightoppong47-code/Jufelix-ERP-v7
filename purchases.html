@@ -1,0 +1,1014 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+<meta charset="UTF-8">
+
+<meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+>
+
+<meta
+    name="theme-color"
+    content="#0b5ed7"
+>
+
+<title>Purchases | Jufelix ERP v7.0</title>
+
+<link rel="stylesheet" href="assets/css/variables.css">
+<link rel="stylesheet" href="assets/css/base.css">
+<link rel="stylesheet" href="assets/css/components.css">
+<link rel="stylesheet" href="assets/css/style.css">
+
+<style>
+
+* {
+    box-sizing: border-box;
+}
+
+html,
+body {
+    width: 100%;
+    max-width: 100%;
+    margin: 0;
+    overflow-x: hidden;
+    font-family: Arial, Helvetica, sans-serif;
+}
+
+body {
+    background: #f5f7fb;
+    color: #1f2937;
+}
+
+.main-content {
+    min-height: 100vh;
+    margin-left: 270px;
+    padding: 24px;
+    overflow-x: hidden;
+}
+
+.page-header {
+    margin-bottom: 24px;
+}
+
+.page-header h1 {
+    margin: 0 0 8px;
+    font-size: 32px;
+}
+
+.page-header p {
+    margin: 0;
+    color: #6b7280;
+    line-height: 1.6;
+}
+
+.card {
+    width: 100%;
+    margin-bottom: 24px;
+    padding: 22px;
+    border: 1px solid #edf0f4;
+    border-radius: 14px;
+    background: #ffffff;
+    box-shadow:
+        0 4px 14px rgba(0, 0, 0, 0.06);
+}
+
+.card-header {
+    margin-bottom: 20px;
+}
+
+.card-header h2 {
+    margin: 0 0 6px;
+    font-size: 22px;
+}
+
+.card-header p {
+    margin: 0;
+    color: #6b7280;
+    font-size: 13px;
+}
+
+.grid-2 {
+    display: grid;
+    grid-template-columns:
+        repeat(2, minmax(0, 1fr));
+    gap: 17px;
+}
+
+.form-group {
+    min-width: 0;
+}
+
+.form-group.full-width {
+    grid-column: 1 / -1;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 8px;
+    color: #374151;
+    font-size: 14px;
+    font-weight: 700;
+}
+
+.form-control {
+    width: 100%;
+    min-height: 49px;
+    padding: 0 14px;
+    border: 1px solid #d7dce5;
+    border-radius: 9px;
+    outline: none;
+    background: #ffffff;
+    color: #1f2937;
+    font-size: 16px;
+}
+
+.form-control:focus {
+    border-color: #0b5ed7;
+    box-shadow:
+        0 0 0 3px rgba(11, 94, 215, 0.12);
+}
+
+.form-control[readonly] {
+    background: #f8fafc;
+    color: #4b5563;
+}
+
+.helper-text {
+    display: block;
+    margin-top: 6px;
+    color: #6b7280;
+    font-size: 12px;
+}
+
+.form-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    margin-top: 22px;
+}
+
+.btn {
+    min-height: 48px;
+    padding: 0 18px;
+    border-radius: 9px;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.btn-primary {
+    border: none;
+    background: #0b5ed7;
+    color: #ffffff;
+}
+
+.btn-secondary {
+    border: 1px solid #cfd5df;
+    background: #ffffff;
+    color: #374151;
+}
+
+.purchase-summary,
+.stats-grid {
+    display: grid;
+    grid-template-columns:
+        repeat(3, minmax(0, 1fr));
+    gap: 17px;
+    margin-bottom: 24px;
+}
+
+.summary-card,
+.stat-box {
+    padding: 20px;
+    border: 1px solid #edf0f4;
+    border-radius: 13px;
+    background: #ffffff;
+    box-shadow:
+        0 4px 14px rgba(0, 0, 0, 0.06);
+}
+
+.summary-card h3,
+.stat-box h4 {
+    margin: 0 0 10px;
+    color: #6b7280;
+    font-size: 14px;
+}
+
+.summary-card p,
+.stat-box h2 {
+    margin: 0;
+    color: #1f2937;
+    font-size: 25px;
+    font-weight: 800;
+}
+
+.payment-box {
+    grid-column: 1 / -1;
+    padding: 16px;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    background: #f8fafc;
+}
+
+.payment-box h3 {
+    margin: 0 0 14px;
+    font-size: 16px;
+}
+
+.payment-grid {
+    display: grid;
+    grid-template-columns:
+        repeat(2, minmax(0, 1fr));
+    gap: 15px;
+}
+
+.amount-due-box {
+    padding: 13px 14px;
+    border-radius: 9px;
+    background: #fff8e1;
+    color: #664d03;
+    font-weight: 800;
+}
+
+.purchase-filters {
+    display: grid;
+    grid-template-columns:
+        minmax(220px, 1fr)
+        repeat(2, minmax(150px, .3fr));
+    gap: 13px;
+    margin-bottom: 18px;
+}
+
+.table-wrapper {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+.purchase-table {
+    width: 100%;
+    min-width: 1280px;
+    border-collapse: collapse;
+}
+
+.purchase-table th,
+.purchase-table td {
+    padding: 13px 12px;
+    border-bottom: 1px solid #edf0f4;
+    text-align: left;
+    font-size: 13px;
+}
+
+.purchase-table th {
+    background: #f8fafc;
+    color: #4b5563;
+    white-space: nowrap;
+}
+
+.status-badge {
+    display: inline-block;
+    padding: 5px 9px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 700;
+}
+
+.status-received {
+    background: #d1e7dd;
+    color: #0f5132;
+}
+
+.status-draft {
+    background: #fff3cd;
+    color: #664d03;
+}
+
+.payment-paid {
+    background: #d1e7dd;
+    color: #0f5132;
+}
+
+.payment-partial {
+    background: #fff3cd;
+    color: #664d03;
+}
+
+.payment-credit {
+    background: #f8d7da;
+    color: #842029;
+}
+
+.table-empty {
+    padding: 34px 15px !important;
+    text-align: center !important;
+    color: #9ca3af !important;
+}
+
+.toast {
+    position: fixed;
+    right: 18px;
+    bottom: 18px;
+    z-index: 9999;
+    max-width: 340px;
+    padding: 14px 16px;
+    border-radius: 10px;
+    color: #ffffff;
+    background: #198754;
+    box-shadow:
+        0 8px 25px rgba(0, 0, 0, 0.2);
+    font-size: 14px;
+    font-weight: 700;
+}
+
+.toast.error {
+    background: #dc3545;
+}
+
+@media (max-width: 900px) {
+
+    .main-content {
+        width: 100%;
+        max-width: 100%;
+        margin-left: 0;
+        padding: 16px;
+    }
+
+    .grid-2,
+    .purchase-summary,
+    .stats-grid,
+    .payment-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 700px) {
+
+    .purchase-filters {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 600px) {
+
+    .main-content {
+        padding: 12px;
+    }
+
+    .page-header h1 {
+        font-size: 29px;
+    }
+
+    .card {
+        padding: 15px;
+    }
+
+    .form-actions {
+        flex-direction: column-reverse;
+    }
+
+    .form-actions .btn {
+        width: 100%;
+    }
+}
+
+</style>
+
+</head>
+
+<body>
+
+<aside id="sidebar" class="sidebar"></aside>
+
+<header id="topbar" class="topbar"></header>
+
+<main class="main-content">
+
+<div class="page-header">
+
+    <h1>
+        Purchases
+    </h1>
+
+    <p>
+        Record supplier purchases, receive stock into the correct branch
+        and track supplier payments and balances.
+    </p>
+
+</div>
+
+
+<section class="purchase-summary">
+
+    <article class="summary-card">
+
+        <h3>
+            Total Purchases
+        </h3>
+
+        <p id="totalPurchaseCount">
+            0
+        </p>
+
+    </article>
+
+
+    <article class="summary-card">
+
+        <h3>
+            Total Purchase Value
+        </h3>
+
+        <p id="totalPurchaseValue">
+            GH₵0.00
+        </p>
+
+    </article>
+
+
+    <article class="summary-card">
+
+        <h3>
+            Items Purchased
+        </h3>
+
+        <p id="totalPurchasedItems">
+            0
+        </p>
+
+    </article>
+
+</section>
+
+
+<div class="card">
+
+    <div class="card-header">
+
+        <h2>
+            New Purchase
+        </h2>
+
+        <p>
+            Received purchases increase stock immediately.
+            Supplier balances are updated from the payment information.
+        </p>
+
+    </div>
+
+
+    <form id="purchaseForm">
+
+
+        <div class="grid-2">
+
+
+            <div class="form-group">
+
+                <label for="purchaseNo">
+                    Purchase Number
+                </label>
+
+                <input
+                    class="form-control"
+                    type="text"
+                    id="purchaseNo"
+                    readonly
+                >
+
+            </div>
+
+
+            <div class="form-group">
+
+                <label for="purchaseDate">
+                    Date *
+                </label>
+
+                <input
+                    class="form-control"
+                    type="date"
+                    id="purchaseDate"
+                    required
+                >
+
+            </div>
+
+
+            <div class="form-group">
+
+                <label for="purchaseBranch">
+                    Receiving Branch *
+                </label>
+
+                <select
+                    class="form-control"
+                    id="purchaseBranch"
+                    required
+                >
+
+                    <option value="">
+                        Select branch
+                    </option>
+
+                </select>
+
+            </div>
+
+
+            <div class="form-group">
+
+                <label for="purchaseSupplier">
+                    Supplier *
+                </label>
+
+                <select
+                    class="form-control"
+                    id="purchaseSupplier"
+                    required
+                >
+
+                    <option value="">
+                        Select supplier
+                    </option>
+
+                    <option value="other">
+                        Other / Type supplier name
+                    </option>
+
+                </select>
+
+            </div>
+
+
+            <div
+                class="form-group full-width"
+                id="customSupplierGroup"
+                hidden
+            >
+
+                <label for="customSupplierName">
+                    Supplier Name *
+                </label>
+
+                <input
+                    class="form-control"
+                    type="text"
+                    id="customSupplierName"
+                    placeholder="Enter supplier name"
+                >
+
+            </div>
+
+
+            <div class="form-group">
+
+                <label for="purchaseProduct">
+                    Product *
+                </label>
+
+                <select
+                    class="form-control"
+                    id="purchaseProduct"
+                    required
+                >
+
+                    <option value="">
+                        Select product
+                    </option>
+
+                </select>
+
+            </div>
+
+
+            <div class="form-group">
+
+                <label for="purchaseStatus">
+                    Status *
+                </label>
+
+                <select
+                    class="form-control"
+                    id="purchaseStatus"
+                >
+
+                    <option value="received">
+                        Received
+                    </option>
+
+                    <option value="draft">
+                        Draft
+                    </option>
+
+                </select>
+
+                <small class="helper-text">
+                    Only Received purchases add stock and update supplier accounts.
+                </small>
+
+            </div>
+
+
+            <div class="form-group">
+
+                <label for="purchaseQty">
+                    Quantity *
+                </label>
+
+                <input
+                    class="form-control"
+                    type="text"
+                    id="purchaseQty"
+                    inputmode="numeric"
+                    pattern="[0-9]*"
+                    autocomplete="off"
+                    placeholder="0"
+                    required
+                >
+
+            </div>
+
+
+            <div class="form-group">
+
+                <label for="purchaseCost">
+                    Cost Price (GH₵) *
+                </label>
+
+                <input
+                    class="form-control"
+                    type="text"
+                    id="purchaseCost"
+                    inputmode="decimal"
+                    autocomplete="off"
+                    placeholder="0.00"
+                    required
+                >
+
+            </div>
+
+
+            <div class="form-group">
+
+                <label for="purchaseTotal">
+                    Total Cost
+                </label>
+
+                <input
+                    class="form-control"
+                    type="text"
+                    id="purchaseTotal"
+                    readonly
+                >
+
+            </div>
+
+
+            <div class="form-group">
+
+                <label for="purchaseReference">
+                    Supplier Reference
+                </label>
+
+                <input
+                    class="form-control"
+                    type="text"
+                    id="purchaseReference"
+                    placeholder="Invoice or delivery note number"
+                >
+
+            </div>
+
+
+            <div class="payment-box">
+
+                <h3>
+                    Supplier Payment
+                </h3>
+
+
+                <div class="payment-grid">
+
+
+                    <div class="form-group">
+
+                        <label for="purchasePaymentStatus">
+                            Payment Status *
+                        </label>
+
+                        <select
+                            class="form-control"
+                            id="purchasePaymentStatus"
+                        >
+
+                            <option value="paid">
+                                Paid in Full
+                            </option>
+
+                            <option value="partial">
+                                Partly Paid
+                            </option>
+
+                            <option value="credit">
+                                Credit / Unpaid
+                            </option>
+
+                        </select>
+
+                    </div>
+
+
+                    <div class="form-group">
+
+                        <label for="purchasePaymentMethod">
+                            Payment Method
+                        </label>
+
+                        <select
+                            class="form-control"
+                            id="purchasePaymentMethod"
+                        >
+
+                            <option value="Cash">
+                                Cash
+                            </option>
+
+                            <option value="Mobile Money">
+                                Mobile Money
+                            </option>
+
+                            <option value="Bank">
+                                Bank Transfer
+                            </option>
+
+                            <option value="Card">
+                                Card
+                            </option>
+
+                            <option value="Other">
+                                Other
+                            </option>
+
+                        </select>
+
+                    </div>
+
+
+                    <div class="form-group">
+
+                        <label for="purchaseAmountPaid">
+                            Amount Paid (GH₵)
+                        </label>
+
+                        <input
+                            class="form-control"
+                            type="text"
+                            id="purchaseAmountPaid"
+                            inputmode="decimal"
+                            autocomplete="off"
+                            placeholder="0.00"
+                        >
+
+                    </div>
+
+
+                    <div class="form-group">
+
+                        <label for="purchaseAmountDue">
+                            Amount Due
+                        </label>
+
+                        <input
+                            class="form-control"
+                            type="text"
+                            id="purchaseAmountDue"
+                            readonly
+                        >
+
+                    </div>
+
+
+                </div>
+
+
+                <div
+                    id="purchasePaymentSummary"
+                    class="amount-due-box"
+                >
+                    Supplier balance change: GH₵0.00
+                </div>
+
+            </div>
+
+
+        </div>
+
+
+        <div class="form-actions">
+
+            <button
+                id="resetPurchaseButton"
+                type="reset"
+                class="btn btn-secondary"
+            >
+                Reset
+            </button>
+
+            <button
+                id="savePurchaseButton"
+                type="submit"
+                class="btn btn-primary"
+            >
+                💾 Save Purchase
+            </button>
+
+        </div>
+
+
+    </form>
+
+</div>
+
+
+<div class="card">
+
+    <div class="card-header">
+
+        <h2>
+            Purchase History
+        </h2>
+
+        <p>
+            Search and filter completed and draft purchases.
+        </p>
+
+    </div>
+
+
+    <div class="purchase-filters">
+
+        <input
+            class="form-control"
+            type="search"
+            id="purchaseSearch"
+            placeholder="Search purchase, supplier, product or branch"
+        >
+
+
+        <select
+            class="form-control"
+            id="purchaseStatusFilter"
+        >
+
+            <option value="">
+                All Statuses
+            </option>
+
+            <option value="received">
+                Received
+            </option>
+
+            <option value="draft">
+                Draft
+            </option>
+
+        </select>
+
+
+        <input
+            class="form-control"
+            type="date"
+            id="purchaseDateFilter"
+        >
+
+    </div>
+
+
+    <div class="table-wrapper">
+
+        <table class="purchase-table">
+
+            <thead>
+
+                <tr>
+
+                    <th>Purchase No.</th>
+                    <th>Date</th>
+                    <th>Branch</th>
+                    <th>Supplier</th>
+                    <th>Product</th>
+                    <th>Quantity</th>
+                    <th>Cost Price</th>
+                    <th>Total Cost</th>
+                    <th>Paid</th>
+                    <th>Due</th>
+                    <th>Payment</th>
+                    <th>Status</th>
+
+                </tr>
+
+            </thead>
+
+
+            <tbody id="purchaseTableBody">
+
+                <tr>
+
+                    <td
+                        colspan="12"
+                        class="table-empty"
+                    >
+                        No purchases recorded.
+                    </td>
+
+                </tr>
+
+            </tbody>
+
+        </table>
+
+    </div>
+
+</div>
+
+
+<div class="card">
+
+    <div class="card-header">
+
+        <h2>
+            Purchase Statistics
+        </h2>
+
+    </div>
+
+
+    <div class="stats-grid">
+
+
+        <div class="stat-box">
+
+            <h4>
+                Today's Purchases
+            </h4>
+
+            <h2 id="todayPurchases">
+                GH₵0.00
+            </h2>
+
+        </div>
+
+
+        <div class="stat-box">
+
+            <h4>
+                This Month
+            </h4>
+
+            <h2 id="monthPurchases">
+                GH₵0.00
+            </h2>
+
+        </div>
+
+
+        <div class="stat-box">
+
+            <h4>
+                Suppliers
+            </h4>
+
+            <h2 id="supplierCount">
+                0
+            </h2>
+
+        </div>
+
+
+    </div>
+
+</div>
+
+</main>
+
+
+<script src="js/core/config.js?v=400"></script>
+<script src="js/core/database.js?v=400"></script>
+<script src="js/core/storage.js?v=400"></script>
+
+<script src="js/core/permissions.js?v=501"></script>
+<script src="js/core/auth-guard.js?v=650"></script>
+<script src="js/core/theme.js?v=580"></script>
+
+<script src="js/components/sidebar.js?v=610"></script>
+<script src="js/components/topbar.js?v=620"></script>
+
+<script src="js/modules/suppliers.js?v=200"></script>
+<script src="js/modules/purchases.js?v=800"></script>
+
+</body>
+
+</html>

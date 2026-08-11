@@ -1,0 +1,1206 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <meta
+        name="theme-color"
+        content="#0b5ed7"
+    >
+
+    <title>Dashboard | Jufelix ERP v7.0</title>
+
+    <link
+        rel="stylesheet"
+        href="assets/css/style.css"
+    >
+
+    <style>
+
+        * {
+            box-sizing: border-box;
+        }
+
+        html,
+        body {
+            width: 100%;
+            max-width: 100%;
+            margin: 0;
+            overflow-x: hidden;
+        }
+
+        body {
+            background:
+                var(--background, #f5f7fb);
+
+            color:
+                var(--text-color, #1f2937);
+        }
+
+        .dashboard-page {
+            width: 100%;
+            padding: 24px;
+        }
+
+        .dashboard-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 20px;
+            margin-bottom: 24px;
+        }
+
+        .dashboard-title h1 {
+            margin: 0 0 7px;
+
+            font-size: 30px;
+
+            color:
+                var(--text-color, #1f2937);
+        }
+
+        .dashboard-title p {
+            margin: 0;
+
+            color:
+                var(--muted, #6b7280);
+
+            font-size: 15px;
+            line-height: 1.6;
+        }
+
+        .dashboard-date {
+            padding: 12px 16px;
+
+            border:
+                1px solid #e5e7eb;
+
+            border-radius: 10px;
+
+            background:
+                var(--surface, #ffffff);
+
+            color:
+                var(--text-color, #374151);
+
+            font-size: 14px;
+
+            box-shadow:
+                0 2px 8px
+                rgba(0, 0, 0, 0.05);
+        }
+
+        .dashboard-grid {
+            display: grid;
+
+            grid-template-columns:
+                repeat(
+                    4,
+                    minmax(180px, 1fr)
+                );
+
+            gap: 18px;
+
+            margin-bottom: 24px;
+        }
+
+        .stat-card {
+            min-width: 0;
+
+            padding: 20px;
+
+            display: flex;
+
+            align-items: center;
+
+            gap: 16px;
+
+            border:
+                1px solid #edf0f4;
+
+            border-radius: 14px;
+
+            background:
+                var(--surface, #ffffff);
+
+            box-shadow:
+                0 4px 14px
+                rgba(0, 0, 0, 0.06);
+
+            transition:
+                transform 0.2s ease,
+                box-shadow 0.2s ease;
+        }
+
+        .stat-card:hover {
+            transform:
+                translateY(-3px);
+
+            box-shadow:
+                0 7px 18px
+                rgba(0, 0, 0, 0.09);
+        }
+
+        .stat-icon {
+            width: 52px;
+            height: 52px;
+
+            min-width: 52px;
+
+            border-radius: 13px;
+
+            display: flex;
+
+            align-items: center;
+
+            justify-content: center;
+
+            font-size: 25px;
+        }
+
+        .icon-blue {
+            background: #e8f1ff;
+        }
+
+        .icon-green {
+            background: #e7f8ee;
+        }
+
+        .icon-orange {
+            background: #fff3df;
+        }
+
+        .icon-red {
+            background: #ffeaea;
+        }
+
+        .icon-purple {
+            background: #f1eaff;
+        }
+
+        .icon-cyan {
+            background: #e5f8fb;
+        }
+
+        .icon-yellow {
+            background: #fff9db;
+        }
+
+        .icon-gray {
+            background: #edf1f5;
+        }
+
+        .stat-content {
+            min-width: 0;
+        }
+
+        .stat-content h3 {
+            margin: 0 0 7px;
+
+            color:
+                var(--muted, #6b7280);
+
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .stat-content p {
+            margin: 0;
+
+            color:
+                var(--text-color, #1f2937);
+
+            font-size: 24px;
+            font-weight: 800;
+
+            overflow-wrap: anywhere;
+        }
+
+        .positive-value {
+            color:
+                #198754 !important;
+        }
+
+        .negative-value {
+            color:
+                #dc3545 !important;
+        }
+
+        .dashboard-content-grid {
+            display: grid;
+
+            grid-template-columns:
+                minmax(0, 1fr)
+                minmax(300px, 0.42fr);
+
+            gap: 22px;
+
+            margin-bottom: 24px;
+        }
+
+        .dashboard-panel {
+            min-width: 0;
+
+            padding: 22px;
+
+            border:
+                1px solid #edf0f4;
+
+            border-radius: 14px;
+
+            background:
+                var(--surface, #ffffff);
+
+            box-shadow:
+                0 4px 14px
+                rgba(0, 0, 0, 0.06);
+        }
+
+        .panel-header {
+            display: flex;
+
+            justify-content:
+                space-between;
+
+            align-items: center;
+
+            gap: 12px;
+
+            margin-bottom: 18px;
+        }
+
+        .panel-header h2 {
+            margin: 0;
+
+            color:
+                var(--text-color, #1f2937);
+
+            font-size: 19px;
+        }
+
+        .panel-link {
+            color:
+                var(--primary, #0b5ed7);
+
+            font-size: 14px;
+            font-weight: 700;
+
+            text-decoration: none;
+        }
+
+        .panel-link:hover {
+            text-decoration:
+                underline;
+        }
+
+        .dashboard-table-wrapper {
+            width: 100%;
+
+            overflow-x: auto;
+
+            -webkit-overflow-scrolling:
+                touch;
+        }
+
+        .dashboard-table {
+            width: 100%;
+
+            min-width: 650px;
+
+            border-collapse:
+                collapse;
+        }
+
+        .dashboard-table th,
+        .dashboard-table td {
+            padding: 13px 12px;
+
+            text-align: left;
+
+            border-bottom:
+                1px solid #edf0f4;
+
+            font-size: 14px;
+        }
+
+        .dashboard-table th {
+            background: #f8fafc;
+
+            color: #4b5563;
+
+            font-weight: 700;
+
+            white-space: nowrap;
+        }
+
+        .dashboard-table td {
+            color:
+                var(--text-color, #374151);
+        }
+
+        .dashboard-table tr:last-child td {
+            border-bottom: none;
+        }
+
+        .dashboard-empty {
+            padding:
+                35px 15px !important;
+
+            text-align:
+                center !important;
+
+            color:
+                #9ca3af !important;
+        }
+
+        .status-warning,
+        .status-danger {
+            display: inline-block;
+
+            padding: 5px 9px;
+
+            border-radius: 20px;
+
+            font-size: 12px;
+            font-weight: 700;
+
+            white-space: nowrap;
+        }
+
+        .status-warning {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .status-danger {
+            background: #f8d7da;
+            color: #842029;
+        }
+
+        .quick-actions {
+            display: grid;
+
+            grid-template-columns:
+                repeat(
+                    2,
+                    minmax(130px, 1fr)
+                );
+
+            gap: 14px;
+        }
+
+        .quick-action {
+            min-height: 100px;
+
+            padding: 15px;
+
+            display: flex;
+
+            flex-direction: column;
+
+            align-items: center;
+
+            justify-content: center;
+
+            gap: 9px;
+
+            border:
+                1px solid #e7ebf0;
+
+            border-radius: 12px;
+
+            background:
+                var(--background, #f8fafc);
+
+            color:
+                var(--text-color, #334155);
+
+            text-decoration: none;
+
+            text-align: center;
+
+            font-weight: 700;
+
+            transition:
+                background 0.2s ease,
+                transform 0.2s ease,
+                color 0.2s ease;
+        }
+
+        .quick-action:hover {
+            background: #eaf2ff;
+
+            color:
+                var(--primary, #0b5ed7);
+
+            transform:
+                translateY(-2px);
+        }
+
+        .quick-action-icon {
+            font-size: 26px;
+        }
+
+
+        @media screen and
+        (max-width: 1200px) {
+
+            .dashboard-grid {
+                grid-template-columns:
+                    repeat(
+                        3,
+                        minmax(180px, 1fr)
+                    );
+            }
+
+            .dashboard-content-grid {
+                grid-template-columns:
+                    1fr;
+            }
+        }
+
+
+        @media screen and
+        (max-width: 900px) {
+
+            .dashboard-grid {
+                grid-template-columns:
+                    repeat(
+                        2,
+                        minmax(160px, 1fr)
+                    );
+            }
+        }
+
+
+        @media screen and
+        (max-width: 600px) {
+
+            .dashboard-page {
+                padding: 15px;
+            }
+
+            .dashboard-header {
+                flex-direction:
+                    column;
+            }
+
+            .dashboard-title h1 {
+                font-size: 26px;
+            }
+
+            .dashboard-date {
+                width: 100%;
+            }
+
+            .dashboard-grid {
+                grid-template-columns:
+                    1fr;
+            }
+
+            .stat-card {
+                padding: 17px;
+            }
+
+            .dashboard-panel {
+                padding: 16px;
+            }
+
+            .quick-actions {
+                grid-template-columns:
+                    1fr 1fr;
+            }
+        }
+
+
+        @media screen and
+        (max-width: 420px) {
+
+            .quick-actions {
+                grid-template-columns:
+                    1fr;
+            }
+        }
+
+    </style>
+
+</head>
+
+
+<body>
+
+
+    <!-- SIDEBAR -->
+
+    <aside
+        id="sidebar"
+        class="sidebar"
+    ></aside>
+
+
+    <!-- MAIN -->
+
+    <main class="main-content">
+
+
+        <!-- TOPBAR -->
+
+        <header
+            id="topbar"
+            class="topbar"
+        ></header>
+
+
+
+        <div class="dashboard-page">
+
+
+            <!-- HEADER -->
+
+            <section class="dashboard-header">
+
+
+                <div class="dashboard-title">
+
+                    <h1>
+                        Dashboard
+                    </h1>
+
+                    <p id="welcomeUser">
+                        Welcome to Jufelix ERP v7.0 Professional
+                    </p>
+
+                </div>
+
+
+                <div
+                    id="dashboardDate"
+                    class="dashboard-date"
+                >
+                    Loading date...
+                </div>
+
+
+            </section>
+
+
+
+            <!-- STATISTICS -->
+
+            <section class="dashboard-grid">
+
+
+                <article
+                    class="stat-card"
+                    id="totalProductsCard"
+                >
+
+                    <div class="stat-icon icon-blue">
+                        📦
+                    </div>
+
+                    <div class="stat-content">
+
+                        <h3>
+                            Total Products
+                        </h3>
+
+                        <p id="totalProducts">
+                            0
+                        </p>
+
+                    </div>
+
+                </article>
+
+
+
+                <article
+                    class="stat-card"
+                    id="stockQuantityCard"
+                >
+
+                    <div class="stat-icon icon-cyan">
+                        🧮
+                    </div>
+
+                    <div class="stat-content">
+
+                        <h3>
+                            Total Stock Quantity
+                        </h3>
+
+                        <p id="totalStockQuantity">
+                            0
+                        </p>
+
+                    </div>
+
+                </article>
+
+
+
+                <article
+                    class="stat-card"
+                    id="stockValueCard"
+                >
+
+                    <div class="stat-icon icon-purple">
+                        🏷️
+                    </div>
+
+                    <div class="stat-content">
+
+                        <h3>
+                            Stock Value
+                        </h3>
+
+                        <p id="stockValue">
+                            GH₵0.00
+                        </p>
+
+                    </div>
+
+                </article>
+
+
+
+                <article
+                    class="stat-card"
+                    id="lowStockCard"
+                >
+
+                    <div class="stat-icon icon-orange">
+                        ⚠️
+                    </div>
+
+                    <div class="stat-content">
+
+                        <h3>
+                            Low Stock
+                        </h3>
+
+                        <p id="lowStockCount">
+                            0
+                        </p>
+
+                    </div>
+
+                </article>
+
+
+
+                <article
+                    class="stat-card"
+                    id="totalSalesCard"
+                >
+
+                    <div class="stat-icon icon-green">
+                        🛒
+                    </div>
+
+                    <div class="stat-content">
+
+                        <h3>
+                            Total Sales
+                        </h3>
+
+                        <p id="totalSales">
+                            GH₵0.00
+                        </p>
+
+                    </div>
+
+                </article>
+
+
+
+                <article
+                    class="stat-card"
+                    id="totalRevenueCard"
+                >
+
+                    <div class="stat-icon icon-blue">
+                        💰
+                    </div>
+
+                    <div class="stat-content">
+
+                        <h3>
+                            Total Revenue
+                        </h3>
+
+                        <p id="totalRevenue">
+                            GH₵0.00
+                        </p>
+
+                    </div>
+
+                </article>
+
+
+
+                <article
+                    class="stat-card"
+                    id="totalExpensesCard"
+                >
+
+                    <div class="stat-icon icon-red">
+                        💸
+                    </div>
+
+                    <div class="stat-content">
+
+                        <h3>
+                            Total Expenses
+                        </h3>
+
+                        <p id="totalExpenses">
+                            GH₵0.00
+                        </p>
+
+                    </div>
+
+                </article>
+
+
+
+                <article
+                    class="stat-card"
+                    id="netProfitCard"
+                >
+
+                    <div class="stat-icon icon-green">
+                        📈
+                    </div>
+
+                    <div class="stat-content">
+
+                        <h3>
+                            Net Profit
+                        </h3>
+
+                        <p id="netProfit">
+                            GH₵0.00
+                        </p>
+
+                    </div>
+
+                </article>
+
+
+
+                <article
+                    class="stat-card"
+                    id="customersCard"
+                >
+
+                    <div class="stat-icon icon-cyan">
+                        👥
+                    </div>
+
+                    <div class="stat-content">
+
+                        <h3>
+                            Customers
+                        </h3>
+
+                        <p id="totalCustomers">
+                            0
+                        </p>
+
+                    </div>
+
+                </article>
+
+
+
+                <article
+                    class="stat-card"
+                    id="suppliersCard"
+                >
+
+                    <div class="stat-icon icon-gray">
+                        🚚
+                    </div>
+
+                    <div class="stat-content">
+
+                        <h3>
+                            Suppliers
+                        </h3>
+
+                        <p id="totalSuppliers">
+                            0
+                        </p>
+
+                    </div>
+
+                </article>
+
+
+            </section>
+
+
+
+            <!-- CONTENT -->
+
+            <section class="dashboard-content-grid">
+
+
+                <!-- RECENT SALES -->
+
+                <article
+                    class="dashboard-panel"
+                    id="recentSalesPanel"
+                >
+
+                    <div class="panel-header">
+
+                        <h2>
+                            Recent Sales
+                        </h2>
+
+                        <a
+                            href="sales.html"
+                            class="panel-link"
+                        >
+                            View Sales
+                        </a>
+
+                    </div>
+
+
+                    <div class="dashboard-table-wrapper">
+
+                        <table class="dashboard-table">
+
+                            <thead>
+
+                                <tr>
+
+                                    <th>Date</th>
+
+                                    <th>Receipt</th>
+
+                                    <th>Customer</th>
+
+                                    <th>Payment</th>
+
+                                    <th>Amount</th>
+
+                                </tr>
+
+                            </thead>
+
+
+                            <tbody id="recentSales">
+
+                                <tr>
+
+                                    <td
+                                        colspan="5"
+                                        class="dashboard-empty"
+                                    >
+                                        No sales have been recorded.
+                                    </td>
+
+                                </tr>
+
+                            </tbody>
+
+                        </table>
+
+                    </div>
+
+                </article>
+
+
+
+                <!-- QUICK ACTIONS -->
+
+                <article
+                    class="dashboard-panel"
+                    id="quickActionsPanel"
+                >
+
+                    <div class="panel-header">
+
+                        <h2>
+                            Quick Actions
+                        </h2>
+
+                    </div>
+
+
+                    <div class="quick-actions">
+
+
+                        <a
+                            href="sales.html"
+                            class="quick-action"
+                            data-permission="sales"
+                        >
+
+                            <span class="quick-action-icon">
+                                🛒
+                            </span>
+
+                            New Sale
+
+                        </a>
+
+
+                        <a
+                            href="inventory.html"
+                            class="quick-action"
+                            data-permission="inventory"
+                        >
+
+                            <span class="quick-action-icon">
+                                📦
+                            </span>
+
+                            Inventory
+
+                        </a>
+
+
+                        <a
+                            href="customers.html"
+                            class="quick-action"
+                            data-permission="customers"
+                        >
+
+                            <span class="quick-action-icon">
+                                👥
+                            </span>
+
+                            Customers
+
+                        </a>
+
+
+                        <a
+                            href="expenses.html"
+                            class="quick-action"
+                            data-permission="expenses"
+                        >
+
+                            <span class="quick-action-icon">
+                                💸
+                            </span>
+
+                            Expenses
+
+                        </a>
+
+
+                        <a
+                            href="purchases.html"
+                            class="quick-action"
+                            data-permission="purchases"
+                        >
+
+                            <span class="quick-action-icon">
+                                🧾
+                            </span>
+
+                            Purchases
+
+                        </a>
+
+
+                        <a
+                            href="reports.html"
+                            class="quick-action"
+                            data-permission="reports"
+                        >
+
+                            <span class="quick-action-icon">
+                                📊
+                            </span>
+
+                            Reports
+
+                        </a>
+
+
+                    </div>
+
+                </article>
+
+
+            </section>
+
+
+
+            <!-- LOW STOCK -->
+
+            <section
+                class="dashboard-panel"
+                id="lowStockPanel"
+            >
+
+                <div class="panel-header">
+
+                    <h2>
+                        Low-Stock Products
+                    </h2>
+
+                    <a
+                        href="inventory.html"
+                        class="panel-link"
+                    >
+                        View Inventory
+                    </a>
+
+                </div>
+
+
+                <div class="dashboard-table-wrapper">
+
+                    <table class="dashboard-table">
+
+                        <thead>
+
+                            <tr>
+
+                                <th>Product</th>
+
+                                <th>Quantity</th>
+
+                                <th>Low-Stock Level</th>
+
+                                <th>Status</th>
+
+                            </tr>
+
+                        </thead>
+
+
+                        <tbody id="lowStockTable">
+
+                            <tr>
+
+                                <td
+                                    colspan="4"
+                                    class="dashboard-empty"
+                                >
+                                    No low-stock products.
+                                </td>
+
+                            </tr>
+
+                        </tbody>
+
+                    </table>
+
+                </div>
+
+            </section>
+
+
+        </div>
+
+
+    </main>
+
+
+
+    <!-- DASHBOARD DATE -->
+
+    <script>
+
+        document.addEventListener(
+            "DOMContentLoaded",
+            function () {
+
+                const dashboardDate =
+                    document.getElementById(
+                        "dashboardDate"
+                    );
+
+
+                if (!dashboardDate) {
+                    return;
+                }
+
+
+                dashboardDate.textContent =
+                    new Date()
+                        .toLocaleDateString(
+                            "en-GH",
+                            {
+                                weekday:
+                                    "long",
+
+                                day:
+                                    "2-digit",
+
+                                month:
+                                    "long",
+
+                                year:
+                                    "numeric"
+                            }
+                        );
+            }
+        );
+
+    </script>
+
+
+
+<!-- =========================================
+     JUFELIX ERP CORE FILES
+========================================== -->
+
+<script src="js/core/storage.js?v=130"></script>
+
+<script src="js/core/permissions.js?v=501"></script>
+
+<script src="js/core/auth-guard.js?v=650"></script>
+
+<script src="js/core/theme.js?v=580"></script>
+
+
+<!-- =========================================
+     SHARED COMPONENTS
+========================================== -->
+
+<script src="js/components/sidebar.js?v=610"></script>
+
+<script src="js/components/topbar.js?v=620"></script>
+
+
+<!-- =========================================
+     FIREBASE
+========================================== -->
+
+<script
+    type="module"
+    src="js/core/firebase.js?v=1"
+></script>
+
+<script
+    type="module"
+    src="js/core/firestore.js?v=1"
+></script>
+
+
+<!-- =========================================
+     DASHBOARD MODULE
+========================================== -->
+
+<script src="js/modules/dashboard.js?v=640"></script>
+
+</body>
+</html>

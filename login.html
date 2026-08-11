@@ -1,0 +1,976 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0, maximum-scale=1.0"
+    >
+
+    <meta
+        name="theme-color"
+        content="#35105f"
+    >
+
+    <title>Login | Jufelix ERP v7.0</title>
+
+    <style>
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html,
+        body {
+            width: 100%;
+            min-height: 100%;
+            overflow-x: hidden;
+            font-family: Arial, Helvetica, sans-serif;
+        }
+
+        body {
+            background: #f4f6fb;
+        }
+
+        .login-page {
+            width: 100%;
+            min-height: 100vh;
+
+            display: grid;
+
+            grid-template-columns:
+                minmax(0, 1fr)
+                minmax(360px, 520px);
+        }
+
+
+        /* =====================================
+           LEFT INFORMATION AREA
+        ===================================== */
+
+        .login-information {
+            min-width: 0;
+            min-height: 100vh;
+
+            padding: 48px;
+
+            display: flex;
+            flex-direction: column;
+
+            color: #ffffff;
+
+            background:
+                linear-gradient(
+                    145deg,
+                    #250744,
+                    #451174
+                );
+        }
+
+        .login-brand {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+
+        .login-logo {
+            width: 62px;
+            height: 62px;
+            min-width: 62px;
+
+            border: 3px solid #d4af37;
+            border-radius: 17px;
+
+            display: flex;
+            justify-content: center;
+            align-items: center;
+
+            color: #d4af37;
+
+            font-size: 38px;
+            font-weight: 900;
+        }
+
+        .login-brand-text h2 {
+            font-size: 25px;
+        }
+
+        .login-brand-text p {
+            margin-top: 4px;
+
+            color: #e0c35c;
+
+            font-size: 13px;
+            font-weight: 700;
+
+            letter-spacing: 1px;
+        }
+
+        .login-information-content {
+            margin-top: 90px;
+            max-width: 650px;
+        }
+
+        .login-information-content h1 {
+            font-size:
+                clamp(
+                    40px,
+                    5vw,
+                    66px
+                );
+
+            line-height: 1.08;
+        }
+
+        .login-information-content h1 span {
+            color: #f5c928;
+        }
+
+        .login-description {
+            max-width: 580px;
+
+            margin-top: 28px;
+
+            color:
+                rgba(
+                    255,
+                    255,
+                    255,
+                    0.82
+                );
+
+            font-size: 23px;
+
+            line-height: 1.7;
+        }
+
+        .login-features {
+            margin-top: 36px;
+
+            display: grid;
+
+            gap: 22px;
+        }
+
+        .login-feature {
+            display: flex;
+            align-items: center;
+
+            gap: 16px;
+
+            font-size: 19px;
+        }
+
+        .feature-check {
+            width: 38px;
+            height: 38px;
+            min-width: 38px;
+
+            border-radius: 50%;
+
+            display: flex;
+            justify-content: center;
+            align-items: center;
+
+            background: #e1bd34;
+            color: #34105f;
+
+            font-size: 22px;
+            font-weight: 900;
+        }
+
+        .login-footer {
+            margin-top: auto;
+
+            padding-top: 45px;
+
+            color:
+                rgba(
+                    255,
+                    255,
+                    255,
+                    0.68
+                );
+
+            font-size: 13px;
+        }
+
+
+        /* =====================================
+           LOGIN AREA
+        ===================================== */
+
+        .login-form-section {
+            width: 100%;
+            min-width: 0;
+            min-height: 100vh;
+
+            padding: 42px;
+
+            display: flex;
+            justify-content: center;
+            align-items: center;
+
+            background: #ffffff;
+        }
+
+        .login-card {
+            width: 100%;
+            max-width: 430px;
+        }
+
+        .login-icon {
+            width: 78px;
+            height: 78px;
+
+            margin:
+                0 auto 22px;
+
+            border-radius: 50%;
+
+            display: flex;
+            justify-content: center;
+            align-items: center;
+
+            background: #f1ebf8;
+
+            font-size: 37px;
+        }
+
+        .login-card h2 {
+            margin-bottom: 10px;
+
+            color: #17172a;
+
+            text-align: center;
+
+            font-size: 34px;
+        }
+
+        .login-subtitle {
+            margin-bottom: 30px;
+
+            color: #687083;
+
+            text-align: center;
+
+            font-size: 15px;
+
+            line-height: 1.6;
+        }
+
+
+        /* =====================================
+           MESSAGES
+        ===================================== */
+
+        .login-message {
+            display: none;
+
+            margin-bottom: 18px;
+
+            padding: 13px 15px;
+
+            border-radius: 8px;
+
+            font-size: 14px;
+
+            text-align: center;
+
+            line-height: 1.5;
+        }
+
+        .login-message.error {
+            display: block;
+
+            color: #842029;
+
+            background: #f8d7da;
+
+            border:
+                1px solid #f5c2c7;
+        }
+
+        .login-message.success {
+            display: block;
+
+            color: #0f5132;
+
+            background: #d1e7dd;
+
+            border:
+                1px solid #badbcc;
+        }
+
+
+        /* =====================================
+           FORM
+        ===================================== */
+
+        .form-group {
+            margin-bottom: 19px;
+        }
+
+        .form-group label {
+            display: block;
+
+            margin-bottom: 8px;
+
+            color: #202437;
+
+            font-size: 14px;
+            font-weight: 700;
+        }
+
+        .form-control {
+            width: 100%;
+            min-height: 52px;
+
+            padding:
+                0 15px;
+
+            border:
+                1px solid #d7dce5;
+
+            border-radius: 9px;
+
+            outline: none;
+
+            background: #ffffff;
+
+            color: #202437;
+
+            font-size: 16px;
+        }
+
+        .form-control:focus {
+            border-color: #5b2194;
+
+            box-shadow:
+                0 0 0 3px
+                rgba(
+                    91,
+                    33,
+                    148,
+                    0.12
+                );
+        }
+
+
+        /* =====================================
+           PASSWORD
+        ===================================== */
+
+        .password-field {
+            width: 100%;
+
+            display: flex;
+
+            align-items: stretch;
+        }
+
+        .password-field input {
+            min-width: 0;
+
+            flex: 1;
+
+            border-radius:
+                9px 0 0 9px;
+        }
+
+        .password-toggle {
+            width: 72px;
+
+            flex:
+                0 0 72px;
+
+            border:
+                1px solid #d7dce5;
+
+            border-left: none;
+
+            border-radius:
+                0 9px 9px 0;
+
+            background: #f5f6f8;
+
+            color: #32374a;
+
+            font-weight: 700;
+
+            cursor: pointer;
+        }
+
+
+        /* =====================================
+           REMEMBER ME
+        ===================================== */
+
+        .remember-row {
+            margin:
+                4px 0 22px;
+
+            display: flex;
+
+            align-items: center;
+
+            gap: 9px;
+
+            color: #3d4354;
+
+            font-size: 14px;
+        }
+
+        .remember-row input {
+            width: 18px;
+            height: 18px;
+        }
+
+
+        /* =====================================
+           BUTTON
+        ===================================== */
+
+        .login-button {
+            width: 100%;
+
+            min-height: 52px;
+
+            border: none;
+
+            border-radius: 9px;
+
+            background:
+                linear-gradient(
+                    135deg,
+                    #431072,
+                    #6a22a7
+                );
+
+            color: #ffffff;
+
+            font-size: 16px;
+
+            font-weight: 800;
+
+            cursor: pointer;
+        }
+
+        .login-button:hover {
+            background:
+                linear-gradient(
+                    135deg,
+                    #35105f,
+                    #58188f
+                );
+        }
+
+        .login-button:disabled {
+            cursor: not-allowed;
+
+            opacity: 0.7;
+        }
+
+
+        /* =====================================
+           LOGIN INFORMATION
+        ===================================== */
+
+        .login-help {
+            margin-top: 25px;
+
+            padding: 18px;
+
+            border:
+                1px solid #e0e3e9;
+
+            border-radius: 10px;
+
+            background: #f8f9fc;
+        }
+
+        .login-help h3 {
+            margin-bottom: 10px;
+
+            color: #282d3e;
+
+            font-size: 15px;
+        }
+
+        .login-help p {
+            color: #52596c;
+
+            font-size: 14px;
+
+            line-height: 1.6;
+        }
+
+        .login-help strong {
+            color: #51168c;
+        }
+
+
+        /* =====================================
+           FIREBASE STATUS
+        ===================================== */
+
+        .firebase-status {
+            margin-top: 15px;
+
+            display: flex;
+
+            justify-content: center;
+            align-items: center;
+
+            gap: 7px;
+
+            color: #687083;
+
+            font-size: 12px;
+        }
+
+        .firebase-status-dot {
+            width: 8px;
+            height: 8px;
+
+            border-radius: 50%;
+
+            background: #198754;
+        }
+
+
+        /* =====================================
+           MOBILE
+        ===================================== */
+
+        @media screen and (max-width: 900px) {
+
+            .login-page {
+                display: block;
+            }
+
+            .login-information {
+                display: none;
+            }
+
+            .login-form-section {
+                width: 100%;
+
+                min-height: 100vh;
+
+                padding:
+                    26px 18px;
+
+                align-items:
+                    flex-start;
+            }
+
+            .login-card {
+                max-width: 480px;
+
+                margin:
+                    20px auto;
+            }
+        }
+
+
+        @media screen and (max-width: 480px) {
+
+            .login-form-section {
+                padding:
+                    18px 15px 30px;
+            }
+
+            .login-card {
+                margin:
+                    5px auto;
+            }
+
+            .login-icon {
+                width: 65px;
+                height: 65px;
+
+                margin-bottom: 16px;
+
+                font-size: 30px;
+            }
+
+            .login-card h2 {
+                font-size: 27px;
+            }
+
+            .login-subtitle {
+                margin-bottom: 23px;
+
+                font-size: 14px;
+            }
+
+            .form-control,
+            .login-button {
+                min-height: 50px;
+            }
+
+            .login-help {
+                padding: 16px;
+            }
+        }
+
+    </style>
+
+</head>
+
+
+<body>
+
+
+    <main class="login-page">
+
+
+        <!-- =====================================
+             LEFT SIDE
+        ====================================== -->
+
+        <section class="login-information">
+
+
+            <div class="login-brand">
+
+                <div class="login-logo">
+                    J
+                </div>
+
+                <div class="login-brand-text">
+
+                    <h2>
+                        Jufelix ERP
+                    </h2>
+
+                    <p>
+                        VERSION 7.0 PROFESSIONAL
+                    </p>
+
+                </div>
+
+            </div>
+
+
+            <div class="login-information-content">
+
+                <h1>
+
+                    Manage your business with
+
+                    <span>
+                        Jufelix ERP v7.0
+                    </span>
+
+                </h1>
+
+
+                <p class="login-description">
+
+                    Manage your inventory,
+                    branches, sales, purchases,
+                    expenses and reports from
+                    one professional business
+                    system.
+
+                </p>
+
+
+                <div class="login-features">
+
+
+                    <div class="login-feature">
+
+                        <span class="feature-check">
+                            ✓
+                        </span>
+
+                        <span>
+                            Secure Firebase Authentication
+                        </span>
+
+                    </div>
+
+
+                    <div class="login-feature">
+
+                        <span class="feature-check">
+                            ✓
+                        </span>
+
+                        <span>
+                            Role-based user access
+                        </span>
+
+                    </div>
+
+
+                    <div class="login-feature">
+
+                        <span class="feature-check">
+                            ✓
+                        </span>
+
+                        <span>
+                            Multiple branch management
+                        </span>
+
+                    </div>
+
+
+                    <div class="login-feature">
+
+                        <span class="feature-check">
+                            ✓
+                        </span>
+
+                        <span>
+                            Cloud-connected business data
+                        </span>
+
+                    </div>
+
+
+                </div>
+
+            </div>
+
+
+            <div class="login-footer">
+
+                © 2026 Jufelix Services.
+                All rights reserved.
+
+            </div>
+
+
+        </section>
+
+
+
+        <!-- =====================================
+             LOGIN FORM
+        ====================================== -->
+
+        <section class="login-form-section">
+
+
+            <div class="login-card">
+
+
+                <div class="login-icon">
+                    🔒
+                </div>
+
+
+                <h2>
+                    Welcome back
+                </h2>
+
+
+                <p class="login-subtitle">
+
+                    Sign in with your registered
+                    email address to continue to
+                    Jufelix ERP v7.0 Professional.
+
+                </p>
+
+
+
+                <!-- LOGIN MESSAGE -->
+
+                <div
+                    id="loginMessage"
+                    class="login-message"
+                ></div>
+
+
+
+                <!-- LOGIN FORM -->
+
+                <form
+                    id="loginForm"
+                    autocomplete="on"
+                >
+
+
+                    <!-- EMAIL -->
+
+                    <div class="form-group">
+
+                        <label for="loginEmail">
+
+                            Email Address
+
+                        </label>
+
+
+                        <input
+                            type="email"
+                            id="loginEmail"
+                            class="form-control"
+                            placeholder="Enter your email address"
+                            autocomplete="username"
+                            inputmode="email"
+                            autocapitalize="none"
+                            spellcheck="false"
+                            required
+                        >
+
+                    </div>
+
+
+
+                    <!-- PASSWORD -->
+
+                    <div class="form-group">
+
+                        <label for="password">
+
+                            Password
+
+                        </label>
+
+
+                        <div class="password-field">
+
+
+                            <input
+                                type="password"
+                                id="password"
+                                class="form-control"
+                                placeholder="Enter your password"
+                                autocomplete="current-password"
+                                required
+                            >
+
+
+                            <button
+                                type="button"
+                                id="passwordToggle"
+                                class="password-toggle"
+                            >
+
+                                Show
+
+                            </button>
+
+
+                        </div>
+
+                    </div>
+
+
+
+                    <!-- REMEMBER -->
+
+                    <label class="remember-row">
+
+                        <input
+                            type="checkbox"
+                            id="rememberMe"
+                        >
+
+                        <span>
+                            Remember me
+                        </span>
+
+                    </label>
+
+
+
+                    <!-- LOGIN BUTTON -->
+
+                    <button
+                        type="submit"
+                        id="loginButton"
+                        class="login-button"
+                    >
+
+                        Sign In
+
+                    </button>
+
+
+                </form>
+
+
+
+                <!-- HELP -->
+
+                <div class="login-help">
+
+                    <h3>
+                        🔐 Secure ERP Login
+                    </h3>
+
+                    <p>
+
+                        Enter the
+                        <strong>
+                            email address
+                        </strong>
+
+                        and password assigned to
+                        your ERP user account.
+
+                    </p>
+
+                </div>
+
+
+
+                <div class="firebase-status">
+
+                    <span
+                        class="firebase-status-dot"
+                    ></span>
+
+                    <span>
+                        Firebase Authentication
+                    </span>
+
+                </div>
+
+
+            </div>
+
+
+        </section>
+
+
+    </main>
+
+
+
+    <!-- =====================================
+         FIREBASE
+    ====================================== -->
+
+    <script
+        type="module"
+        src="js/core/firebase.js?v=520"
+    ></script>
+
+
+    <!-- =====================================
+         FIREBASE LOGIN MODULE
+    ====================================== -->
+
+    <script
+        type="module"
+        src="js/modules/login.js?v=520"
+    ></script>
+
+
+</body>
+
+</html>

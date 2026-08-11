@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+<meta charset="UTF-8">
+
+<meta name="viewport"
+content="width=device-width, initial-scale=1.0">
+
+<meta name="theme-color"
+content="#0B5ED7">
+
+<title>Branches | Jufelix ERP v7.0</title>
+
+<link rel="stylesheet" href="assets/css/variables.css">
+<link rel="stylesheet" href="assets/css/base.css">
+<link rel="stylesheet" href="assets/css/components.css">
+<link rel="stylesheet" href="assets/css/style.css">
+
+<style>
+
+*{
+box-sizing:border-box;
+}
+
+body{
+margin:0;
+font-family:Arial,Helvetica,sans-serif;
+background:#f5f7fb;
+color:#1f2937;
+overflow-x:hidden;
+}
+
+.main-content{
+margin-left:270px;
+min-height:100vh;
+}
+
+.branch-page{
+padding:24px;
+}
+
+.page-header h1{
+margin:0;
+font-size:36px;
+font-weight:700;
+}
+
+.page-header p{
+margin-top:8px;
+color:#6b7280;
+}
+
+.summary-grid{
+display:grid;
+grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
+gap:18px;
+margin:25px 0;
+}
+
+.summary-card{
+background:#fff;
+border-radius:14px;
+padding:20px;
+box-shadow:0 4px 14px rgba(0,0,0,.08);
+}
+
+.summary-card h3{
+margin:0;
+font-size:15px;
+color:#666;
+}
+
+.summary-card h2{
+margin-top:15px;
+font-size:30px;
+color:#0B5ED7;
+}
+
+.card{
+background:#fff;
+padding:24px;
+border-radius:14px;
+box-shadow:0 4px 14px rgba(0,0,0,.08);
+margin-bottom:25px;
+}
+
+.card h2{
+margin-top:0;
+}
+
+.grid-2{
+display:grid;
+grid-template-columns:1fr 1fr;
+gap:18px;
+}
+
+.form-group{
+display:flex;
+flex-direction:column;
+margin-bottom:18px;
+}
+
+.form-group label{
+margin-bottom:8px;
+font-weight:600;
+}
+
+.form-control{
+padding:14px;
+border:1px solid #d9d9d9;
+border-radius:10px;
+font-size:16px;
+width:100%;
+}
+
+textarea.form-control{
+min-height:100px;
+resize:vertical;
+}
+
+.btn{
+padding:14px 22px;
+border:none;
+border-radius:10px;
+cursor:pointer;
+font-size:16px;
+font-weight:bold;
+}
+
+.btn-primary{
+background:#0B5ED7;
+color:white;
+}
+
+.btn-secondary{
+background:#6c757d;
+color:white;
+margin-left:10px;
+}
+
+.table-responsive{
+overflow:auto;
+}
+
+table{
+width:100%;
+border-collapse:collapse;
+}
+
+table th,
+table td{
+padding:14px;
+border-bottom:1px solid #eee;
+text-align:left;
+}
+
+table th{
+background:#0B5ED7;
+color:white;
+}
+
+.status-active{
+color:green;
+font-weight:bold;
+}
+
+.status-inactive{
+color:red;
+font-weight:bold;
+}
+
+@media(max-width:900px){
+
+.main-content{
+margin-left:0;
+}
+
+.grid-2{
+grid-template-columns:1fr;
+}
+
+}
+
+</style>
+
+</head>
+
+<body>
+
+<aside id="sidebar"
+class="sidebar"></aside>
+
+<main class="main-content">
+
+<header id="topbar"
+class="topbar"></header>
+
+<div class="branch-page">
+
+<div class="page-header">
+
+<h1>Branch Management</h1>
+
+<p>
+Manage all company branches from one place.
+</p>
+
+</div>
+
+<div class="summary-grid">
+
+<div class="summary-card">
+<h3>Total Branches</h3>
+<h2 id="totalBranches">0</h2>
+</div>
+
+<div class="summary-card">
+<h3>Active Branches</h3>
+<h2 id="activeBranches">0</h2>
+</div>
+
+<div class="summary-card">
+<h3>Head Office</h3>
+<h2 id="headOfficeCount">0</h2>
+</div>
+
+<div class="summary-card">
+<h3>Inactive</h3>
+<h2 id="inactiveBranches">0</h2>
+</div>
+
+</div>
+<div class="card">
+
+<h2 id="branchFormTitle">
+Add New Branch
+</h2>
+
+<form id="branchForm">
+
+<input
+type="hidden"
+id="branchId"
+>
+
+<div class="grid-2">
+
+<div class="form-group">
+
+<label for="branchName">
+Branch Name *
+</label>
+
+<input
+type="text"
+id="branchName"
+class="form-control"
+placeholder="Enter branch name"
+required
+>
+
+</div>
+
+<div class="form-group">
+
+<label for="branchCode">
+Branch Code *
+</label>
+
+<input
+type="text"
+id="branchCode"
+class="form-control"
+placeholder="Example: HOF, ACC, KSI"
+required
+>
+
+</div>
+
+<div class="form-group">
+
+<label for="branchManager">
+Branch Manager
+</label>
+
+<input
+type="text"
+id="branchManager"
+class="form-control"
+placeholder="Enter manager name"
+>
+
+</div>
+
+<div class="form-group">
+
+<label for="branchPhone">
+Phone Number *
+</label>
+
+<input
+type="tel"
+id="branchPhone"
+class="form-control"
+placeholder="Enter phone number"
+required
+>
+
+</div>
+
+<div class="form-group">
+
+<label for="branchEmail">
+Email Address
+</label>
+
+<input
+type="email"
+id="branchEmail"
+class="form-control"
+placeholder="Enter email address"
+>
+
+</div>
+
+<div class="form-group">
+
+<label for="branchStatus">
+Branch Status
+</label>
+
+<select
+id="branchStatus"
+class="form-control"
+>
+
+<option value="active">
+Active
+</option>
+
+<option value="inactive">
+Inactive
+</option>
+
+</select>
+
+</div>
+
+<div class="form-group">
+
+<label for="branchType">
+Branch Type
+</label>
+
+<select
+id="branchType"
+class="form-control"
+>
+
+<option value="branch">
+Regular Branch
+</option>
+
+<option value="head-office">
+Head Office
+</option>
+
+<option value="warehouse">
+Warehouse
+</option>
+
+</select>
+
+</div>
+
+<div class="form-group">
+
+<label for="branchOpeningDate">
+Opening Date
+</label>
+
+<input
+type="date"
+id="branchOpeningDate"
+class="form-control"
+>
+
+</div>
+
+</div>
+
+<div class="form-group">
+
+<label for="branchAddress">
+Branch Address *
+</label>
+
+<textarea
+id="branchAddress"
+class="form-control"
+placeholder="Enter branch address"
+required
+></textarea>
+
+</div>
+
+<div class="form-group">
+
+<label for="branchNotes">
+Notes
+</label>
+
+<textarea
+id="branchNotes"
+class="form-control"
+placeholder="Optional notes"
+></textarea>
+
+</div>
+
+<div>
+
+<button
+type="submit"
+id="saveBranchButton"
+class="btn btn-primary"
+>
+Save Branch
+</button>
+
+<button
+type="button"
+id="clearBranchButton"
+class="btn btn-secondary"
+>
+Clear Form
+</button>
+
+</div>
+
+</form>
+
+</div>
+
+
+<div class="card">
+
+<h2>Branch List</h2>
+
+<div
+style="
+display:grid;
+grid-template-columns:minmax(220px,1fr) minmax(150px,.35fr);
+gap:14px;
+margin-bottom:20px;
+"
+>
+
+<input
+type="search"
+id="branchSearch"
+class="form-control"
+placeholder="Search by branch name, code, manager, phone or address"
+>
+
+<select
+id="branchStatusFilter"
+class="form-control"
+>
+
+<option value="">
+All Statuses
+</option>
+
+<option value="active">
+Active
+</option>
+
+<option value="inactive">
+Inactive
+</option>
+
+</select>
+
+</div>
+
+<div class="table-responsive">
+
+<table>
+
+<thead>
+
+<tr>
+
+<th>Branch</th>
+<th>Code</th>
+<th>Type</th>
+<th>Manager</th>
+<th>Phone</th>
+<th>Address</th>
+<th>Status</th>
+<th>Actions</th>
+
+</tr>
+
+</thead>
+
+<tbody id="branchTableBody">
+
+<tr>
+
+<td
+colspan="8"
+style="
+text-align:center;
+padding:30px;
+color:#888;
+"
+>
+No branches have been added.
+</td>
+
+</tr>
+
+</tbody>
+
+</table>
+
+</div>
+
+</div>
+</div>
+
+</main>
+
+<script src="js/core/storage.js?v=160"></script>
+<script src="js/core/permissions.js?v=501"></script>
+<script src="js/core/auth-guard.js?v=650"></script>
+<script src="js/core/theme.js?v=580"></script>
+<script src="js/components/sidebar.js?v=610"></script>
+<script src="js/components/topbar.js?v=620"></script>
+<script src="js/modules/branches.js?v=170"></script>
+
+</body>
+
+</html>
