@@ -751,19 +751,95 @@
 
                     <div class="form-group">
 
-                        <label for="productCategory">
-                            Category *
-                        </label>
+    <label for="productCategory">
+        Category *
+    </label>
 
-                        <input
-                            type="text"
-                            id="productCategory"
-                            class="form-control"
-                            placeholder="Example: Clothing, Drinks, Cement"
-                            required
-                        >
+    <select
+        id="productCategory"
+        class="form-control"
+        required
+    >
 
-                    </div>
+        <option value="">
+            Select category
+        </option>
+
+        <option value="Electronics">
+            Electronics
+        </option>
+
+        <option value="Computers">
+            Computers
+        </option>
+
+        <option value="Phones">
+            Phones & Accessories
+        </option>
+
+        <option value="Home Appliances">
+            Home Appliances
+        </option>
+
+        <option value="Clothing">
+            Clothing
+        </option>
+
+        <option value="Footwear">
+            Footwear
+        </option>
+
+        <option value="Beauty">
+            Beauty & Personal Care
+        </option>
+
+        <option value="Food">
+            Food
+        </option>
+
+        <option value="Drinks">
+            Drinks
+        </option>
+
+        <option value="Building Materials">
+            Building Materials
+        </option>
+
+        <option value="Office Supplies">
+            Office Supplies
+        </option>
+
+        <option value="Automotive">
+            Automotive
+        </option>
+
+        <option value="Other">
+            Other / New Category
+        </option>
+
+    </select>
+
+</div>
+
+
+<div
+    class="form-group"
+    id="customCategoryGroup"
+    style="display:none;"
+>
+
+    <label for="customProductCategory">
+        New Category *
+    </label>
+
+    <input
+        type="text"
+        id="customProductCategory"
+        class="form-control"
+        placeholder="Enter new category"
+    >
+
+</div>
 
 
                     <div class="form-group">
@@ -780,7 +856,57 @@
                         >
 
                     </div>
+                    <!-- PRODUCT IMAGE -->
+                    <div class="form-group full-width">
 
+                        <label for="productImage">
+                            Product Image
+                        </label>
+
+                        <input
+                            type="file"
+                            id="productImage"
+                            class="form-control"
+                            accept="image/jpeg,image/png,image/webp"
+                        >
+
+                        <small class="branch-quantity-note">
+                            Choose a JPG, PNG or WebP image.
+                        </small>
+
+                        <div
+                            id="productImagePreviewContainer"
+                            style="
+                                display:none;
+                                margin-top:15px;
+                            "
+                        >
+                            <img
+                                id="productImagePreview"
+                                src=""
+                                alt="Product preview"
+                                style="
+                                    width:120px;
+                                    height:120px;
+                                    object-fit:cover;
+                                    border-radius:12px;
+                                    border:1px solid #ddd;
+                                "
+                            >
+
+                            <br>
+
+                            <button
+                                type="button"
+                                id="removeProductImageButton"
+                                class="secondary-button"
+                                style="margin-top:10px;"
+                            >
+                                Remove Image
+                            </button>
+                        </div>
+
+                    </div>
 
                     <div class="form-group">
 
@@ -1278,22 +1404,10 @@
 <script src="js/components/sidebar.js?v=610"></script>
 <script src="js/components/topbar.js?v=620"></script>
 
-<script src="js/modules/inventory.js?v=501"></script>
+<script src="js/modules/inventory.js?v=504"></script>
 <script src="js/modules/inventory-branch-viewer.js?v=501"></script>
 
-<!-- FIREBASE CONFIGURATION -->
-<script src="config/firebase-config.js?v=651"></script>
-
-<!-- FIREBASE CONNECTION -->
-<script
-    type="module"
-    src="js/core/firebase.js?v=651"
-></script>
-
-<!-- INVENTORY CLOUD SYNC -->
-<script
-    type="module"
-    src="js/cloud/inventory-cloud.js?v=651"
-></script>
+<script type="module" src="js/core/firebase.js?v=501"></script>
+<script type="module" src="js/cloud/inventory-cloud.js?v=652"></script>
 </body>
 </html>
