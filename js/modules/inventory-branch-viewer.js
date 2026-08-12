@@ -27,23 +27,51 @@
     let products = [];
     let branches = [];
 
-    document.addEventListener(
-        "DOMContentLoaded",
-        initializeBranchStockViewer
-    );
 
-    function initializeBranchStockViewer() {
-        loadData();
-        ensureHeadOffice();
-        connectEvents();
-        populateActiveBranchSelector();
-        populateBranchFilter();
-        updateActiveBranchName();
-        displayBranchStock();
-        updateTotalStock();
+    /* ==========================================
+       START
+    ========================================== */
+
+    if (document.readyState === "loading") {
+        document.addEventListener(
+            "DOMContentLoaded",
+            initializeBranchStockViewer
+        );
+    } else {
+        initializeBranchStockViewer();
     }
 
+
+    function initializeBranchStockViewer() {
+
+        loadData();
+
+        ensureHeadOffice();
+
+        connectEvents();
+
+        populateActiveBranchSelector();
+
+        populateBranchFilter();
+
+        updateActiveBranchName();
+
+        displayBranchStock();
+
+        updateTotalStock();
+
+        console.log(
+            "Jufelix Branch Stock Viewer loaded."
+        );
+    }
+
+
+    /* ==========================================
+       EVENTS
+    ========================================== */
+
     function connectEvents() {
+
         const searchInput =
             document.getElementById(
                 "branchStockSearch"
@@ -64,6 +92,7 @@
                 "inventoryActiveBranchSelect"
             );
 
+
         if (searchInput) {
             searchInput.addEventListener(
                 "input",
@@ -71,12 +100,18 @@
             );
         }
 
+
         if (branchFilter) {
             branchFilter.addEventListener(
                 "change",
-                displayBranchStock
+                function () {
+
+                    displayBranchStock();
+                    updateTotalStock();
+                }
             );
         }
+
 
         if (stockFilter) {
             stockFilter.addEventListener(
@@ -85,6 +120,7 @@
             );
         }
 
+
         if (activeBranchSelect) {
             activeBranchSelect.addEventListener(
                 "change",
@@ -92,9 +128,11 @@
             );
         }
 
+
         document.addEventListener(
             "jufelix:data-updated",
             function (event) {
+
                 const updatedKey =
                     event.detail
                         ? event.detail.key
@@ -102,16 +140,28 @@
 
                 if (
                     updatedKey === PRODUCTS_KEY ||
-                    updatedKey === BRANCHES_KEY
+                    updatedKey === BRANCHES_KEY ||
+                    updatedKey === ACTIVE_BRANCH_KEY
                 ) {
                     refreshBranchStockViewer();
                 }
             }
         );
 
+
+        document.addEventListener(
+            "jufelix:cloud-products-updated",
+            function () {
+
+                refreshBranchStockViewer();
+            }
+        );
+
+
         window.addEventListener(
             "storage",
             function (event) {
+
                 if (
                     event.key === PRODUCTS_KEY ||
                     event.key === BRANCHES_KEY ||
@@ -123,17 +173,35 @@
         );
     }
 
+
+    /* ==========================================
+       REFRESH
+    ========================================== */
+
     function refreshBranchStockViewer() {
+
         loadData();
+
         ensureHeadOffice();
+
         populateActiveBranchSelector();
+
         populateBranchFilter();
+
         updateActiveBranchName();
+
         displayBranchStock();
+
         updateTotalStock();
     }
 
+
+    /* ==========================================
+       LOAD DATA
+    ========================================== */
+
     function loadData() {
+
         products =
             readStoredArray(
                 PRODUCTS_KEY
@@ -145,10 +213,17 @@
             );
     }
 
+
+    /* ==========================================
+       HEAD OFFICE
+    ========================================== */
+
     function ensureHeadOffice() {
+
         const headOfficeExists =
             branches.some(
                 function (branch) {
+
                     return (
                         String(branch.id) ===
                             DEFAULT_BRANCH_ID ||
@@ -162,21 +237,41 @@
                 }
             );
 
+
         if (!headOfficeExists) {
+
             branches.unshift({
-                id: DEFAULT_BRANCH_ID,
-                branchName: "Head Office",
-                name: "Head Office",
-                code: "HO",
-                type: "head-office",
-                isHeadOffice: true,
-                status: "active"
+                id:
+                    DEFAULT_BRANCH_ID,
+
+                branchName:
+                    "Head Office",
+
+                name:
+                    "Head Office",
+
+                code:
+                    "HO",
+
+                type:
+                    "head-office",
+
+                isHeadOffice:
+                    true,
+
+                status:
+                    "active"
             });
         }
     }
 
 
+    /* ==========================================
+       ACTIVE BRANCH SELECTOR
+    ========================================== */
+
     function populateActiveBranchSelector() {
+
         const selector =
             document.getElementById(
                 "inventoryActiveBranchSelect"
@@ -186,26 +281,41 @@
             return;
         }
 
+
         const activeBranchId =
             getActiveBranchId();
 
         const activeBranches =
             getActiveBranches();
 
+
         selector.innerHTML =
             activeBranches
-                .map(function (branch) {
-                    return `
-                        <option value="${escapeHTML(branch.id)}">
-                            ${escapeHTML(getBranchName(branch))}
-                        </option>
-                    `;
-                })
+                .map(
+                    function (branch) {
+
+                        return `
+                            <option
+                                value="${escapeHTML(
+                                    branch.id
+                                )}"
+                            >
+                                ${escapeHTML(
+                                    getBranchName(
+                                        branch
+                                    )
+                                )}
+                            </option>
+                        `;
+                    }
+                )
                 .join("");
+
 
         const selectedExists =
             activeBranches.some(
                 function (branch) {
+
                     return (
                         String(branch.id) ===
                         String(activeBranchId)
@@ -213,58 +323,132 @@
                 }
             );
 
+
         selector.value =
             selectedExists
                 ? String(activeBranchId)
                 : DEFAULT_BRANCH_ID;
     }
 
+
+    /* ==========================================
+       CHANGE ACTIVE BRANCH
+    ========================================== */
+
     function changeActiveBranch(event) {
+
         const branchId =
-            event.target.value;
+            String(
+                event.target.value ||
+                ""
+            );
+
 
         const selectedBranch =
             branches.find(
                 function (branch) {
+
                     return (
                         String(branch.id) ===
-                        String(branchId)
+                        branchId
                     );
                 }
             );
+
 
         if (!selectedBranch) {
             return;
         }
 
+
         const activeBranch = {
-            id: String(selectedBranch.id),
-            branchName: getBranchName(selectedBranch),
-            name: getBranchName(selectedBranch),
-            code: selectedBranch.code || ""
+
+            id:
+                String(
+                    selectedBranch.id
+                ),
+
+            branchName:
+                getBranchName(
+                    selectedBranch
+                ),
+
+            name:
+                getBranchName(
+                    selectedBranch
+                ),
+
+            code:
+                selectedBranch.code ||
+                "",
+
+            status:
+                selectedBranch.status ||
+                "active",
+
+            isHeadOffice:
+                String(
+                    selectedBranch.id
+                ) ===
+                DEFAULT_BRANCH_ID
         };
+
 
         localStorage.setItem(
             ACTIVE_BRANCH_KEY,
-            JSON.stringify(activeBranch)
+            JSON.stringify(
+                activeBranch
+            )
         );
+
+
+        /*
+         * Make Branch Stock Viewer immediately
+         * follow the newly selected branch.
+         */
+
+        const branchFilter =
+            document.getElementById(
+                "inventoryBranchFilter"
+            );
+
+        if (branchFilter) {
+            branchFilter.value =
+                branchId;
+        }
+
+
+        updateActiveBranchName();
+
+        displayBranchStock();
+
+        updateTotalStock();
+
 
         document.dispatchEvent(
             new CustomEvent(
                 "jufelix:data-updated",
                 {
                     detail: {
-                        key: ACTIVE_BRANCH_KEY,
-                        value: activeBranch
+
+                        key:
+                            ACTIVE_BRANCH_KEY,
+
+                        value:
+                            activeBranch
                     }
                 }
             )
         );
-
-        window.location.reload();
     }
 
+
+    /* ==========================================
+       BRANCH FILTER
+    ========================================== */
+
     function populateBranchFilter() {
+
         const branchFilter =
             document.getElementById(
                 "inventoryBranchFilter"
@@ -274,11 +458,13 @@
             return;
         }
 
-        const previousValue =
-            branchFilter.value;
 
         const activeBranches =
             getActiveBranches();
+
+        const activeBranchId =
+            getActiveBranchId();
+
 
         branchFilter.innerHTML = `
             <option value="">
@@ -288,10 +474,13 @@
             ${activeBranches
                 .map(
                     function (branch) {
+
                         return `
-                            <option value="${escapeHTML(
-                                branch.id
-                            )}">
+                            <option
+                                value="${escapeHTML(
+                                    branch.id
+                                )}"
+                            >
                                 ${escapeHTML(
                                     getBranchName(
                                         branch
@@ -304,23 +493,38 @@
                 .join("")}
         `;
 
-        const previousStillExists =
+
+        /*
+         * IMPORTANT:
+         * Default the viewer to the current
+         * active branch instead of All Branches.
+         */
+
+        const activeBranchExists =
             activeBranches.some(
                 function (branch) {
+
                     return (
                         String(branch.id) ===
-                        String(previousValue)
+                        String(activeBranchId)
                     );
                 }
             );
 
-        if (previousStillExists) {
-            branchFilter.value =
-                previousValue;
-        }
+
+        branchFilter.value =
+            activeBranchExists
+                ? String(activeBranchId)
+                : "";
     }
 
+
+    /* ==========================================
+       DISPLAY STOCK
+    ========================================== */
+
     function displayBranchStock() {
+
         const tableBody =
             document.getElementById(
                 "branchStockTableBody"
@@ -330,10 +534,12 @@
             return;
         }
 
+
         products =
             readStoredArray(
                 PRODUCTS_KEY
             );
+
 
         const searchInput =
             document.getElementById(
@@ -350,6 +556,7 @@
                 "branchStockLevelFilter"
             );
 
+
         const searchTerm =
             searchInput
                 ? searchInput.value
@@ -357,34 +564,55 @@
                     .toLowerCase()
                 : "";
 
-        const selectedBranch =
+
+        /*
+         * If no branch filter is selected,
+         * show all branches.
+         */
+
+        const selectedBranchId =
             branchFilter
-                ? branchFilter.value
-                : "";
+                ? String(
+                    branchFilter.value ||
+                    ""
+                )
+                : getActiveBranchId();
+
 
         const selectedStockLevel =
             stockFilter
                 ? stockFilter.value
                 : "";
 
+
         const activeBranches =
             getActiveBranches();
 
+
+        const branchesToDisplay =
+            selectedBranchId
+                ? activeBranches.filter(
+                    function (branch) {
+
+                        return (
+                            String(branch.id) ===
+                            String(
+                                selectedBranchId
+                            )
+                        );
+                    }
+                )
+                : activeBranches;
+
+
         const rows = [];
+
 
         products.forEach(
             function (product) {
-                activeBranches.forEach(
+
+                branchesToDisplay.forEach(
                     function (branch) {
-                        if (
-                            selectedBranch &&
-                            String(branch.id) !==
-                                String(
-                                    selectedBranch
-                                )
-                        ) {
-                            return;
-                        }
 
                         const quantity =
                             getBranchStock(
@@ -392,16 +620,19 @@
                                 branch.id
                             );
 
+
                         const lowStockLevel =
                             getLowStockLevel(
                                 product
                             );
+
 
                         const stockStatus =
                             getStockStatus(
                                 quantity,
                                 lowStockLevel
                             );
+
 
                         const searchableText = [
                             product.name,
@@ -416,6 +647,7 @@
                             .join(" ")
                             .toLowerCase();
 
+
                         if (
                             searchTerm &&
                             !searchableText.includes(
@@ -425,6 +657,7 @@
                             return;
                         }
 
+
                         if (
                             selectedStockLevel &&
                             stockStatus.level !==
@@ -433,7 +666,9 @@
                             return;
                         }
 
+
                         rows.push({
+
                             product:
                                 product,
 
@@ -454,14 +689,42 @@
             }
         );
 
-        if (rows.length === 0) {
+
+        /*
+         * Sort products alphabetically.
+         */
+
+        rows.sort(
+            function (
+                first,
+                second
+            ) {
+
+                return String(
+                    first.product.name ||
+                    ""
+                ).localeCompare(
+                    String(
+                        second.product.name ||
+                        ""
+                    )
+                );
+            }
+        );
+
+
+        if (
+            rows.length ===
+            0
+        ) {
+
             tableBody.innerHTML = `
                 <tr>
                     <td
                         colspan="7"
                         class="table-empty"
                     >
-                        No matching branch stock records found.
+                        No matching stock records found for this branch.
                     </td>
                 </tr>
             `;
@@ -469,62 +732,88 @@
             return;
         }
 
+
         tableBody.innerHTML =
             rows
                 .map(
                     function (row) {
+
                         return `
                             <tr>
 
                                 <td>
+
                                     <strong>
                                         ${escapeHTML(
                                             row.product.name ||
                                             "Unnamed Product"
                                         )}
                                     </strong>
+
                                 </td>
 
+
                                 <td>
+
                                     ${escapeHTML(
                                         row.product.sku ||
                                         "—"
                                     )}
+
                                 </td>
 
+
                                 <td>
+
                                     ${escapeHTML(
                                         getBranchName(
                                             row.branch
                                         )
                                     )}
+
                                 </td>
 
+
                                 <td>
+
                                     <strong>
                                         ${formatNumber(
                                             row.quantity
                                         )}
                                     </strong>
+
                                 </td>
 
+
                                 <td>
+
                                     ${formatNumber(
                                         row.lowStockLevel
                                     )}
+
                                 </td>
 
+
                                 <td>
+
                                     ${escapeHTML(
                                         row.product.unit ||
                                         "—"
                                     )}
+
                                 </td>
 
+
                                 <td>
-                                    <span class="branch-status ${row.stockStatus.className}">
+
+                                    <span
+                                        class="branch-status ${row.stockStatus.className}"
+                                    >
+
                                         ${row.stockStatus.label}
+
                                     </span>
+
                                 </td>
 
                             </tr>
@@ -534,7 +823,13 @@
                 .join("");
     }
 
+
+    /* ==========================================
+       TOTAL STOCK
+    ========================================== */
+
     function updateTotalStock() {
+
         const totalElement =
             document.getElementById(
                 "totalAllBranchesStock"
@@ -544,33 +839,87 @@
             return;
         }
 
+
         products =
             readStoredArray(
                 PRODUCTS_KEY
             );
 
-        const totalStock =
-            products.reduce(
-                function (
-                    total,
-                    product
-                ) {
-                    return (
-                        total +
-                        sumBranchStock(
-                            product.branchStock ||
-                            {}
-                        )
-                    );
-                },
-                0
+
+        const branchFilter =
+            document.getElementById(
+                "inventoryBranchFilter"
             );
 
+
+        const selectedBranchId =
+            branchFilter
+                ? String(
+                    branchFilter.value ||
+                    ""
+                )
+                : "";
+
+
+        let totalStock =
+            0;
+
+
+        if (selectedBranchId) {
+
+            totalStock =
+                products.reduce(
+                    function (
+                        total,
+                        product
+                    ) {
+
+                        return (
+                            total +
+                            getBranchStock(
+                                product,
+                                selectedBranchId
+                            )
+                        );
+                    },
+                    0
+                );
+
+        } else {
+
+            totalStock =
+                products.reduce(
+                    function (
+                        total,
+                        product
+                    ) {
+
+                        return (
+                            total +
+                            sumBranchStock(
+                                product.branchStock ||
+                                {}
+                            )
+                        );
+                    },
+                    0
+                );
+        }
+
+
         totalElement.textContent =
-            formatNumber(totalStock);
+            formatNumber(
+                totalStock
+            );
     }
 
+
+    /* ==========================================
+       ACTIVE BRANCH NAME
+    ========================================== */
+
     function updateActiveBranchName() {
+
         const nameElement =
             document.getElementById(
                 "inventoryActiveBranchName"
@@ -580,18 +929,24 @@
             return;
         }
 
+
         const activeBranchId =
             getActiveBranchId();
+
 
         const activeBranch =
             branches.find(
                 function (branch) {
+
                     return (
                         String(branch.id) ===
-                        String(activeBranchId)
+                        String(
+                            activeBranchId
+                        )
                     );
                 }
             );
+
 
         nameElement.textContent =
             activeBranch
@@ -601,10 +956,17 @@
                 : "Head Office";
     }
 
+
+    /* ==========================================
+       ACTIVE BRANCHES
+    ========================================== */
+
     function getActiveBranches() {
+
         return branches
             .filter(
                 function (branch) {
+
                     return (
                         String(
                             branch.status ||
@@ -619,6 +981,30 @@
                     firstBranch,
                     secondBranch
                 ) {
+
+                    /*
+                     * Keep Head Office first.
+                     */
+
+                    if (
+                        String(
+                            firstBranch.id
+                        ) ===
+                        DEFAULT_BRANCH_ID
+                    ) {
+                        return -1;
+                    }
+
+                    if (
+                        String(
+                            secondBranch.id
+                        ) ===
+                        DEFAULT_BRANCH_ID
+                    ) {
+                        return 1;
+                    }
+
+
                     return getBranchName(
                         firstBranch
                     ).localeCompare(
@@ -630,10 +1016,16 @@
             );
     }
 
+
+    /* ==========================================
+       GET BRANCH STOCK
+    ========================================== */
+
     function getBranchStock(
         product,
         branchId
     ) {
+
         if (
             product &&
             product.branchStock &&
@@ -643,17 +1035,25 @@
                 product.branchStock
             )
         ) {
+
             return toNumber(
                 product.branchStock[
-                    branchId
+                    String(branchId)
                 ]
             );
         }
+
+
+        /*
+         * Old products without branchStock
+         * belong to Head Office only.
+         */
 
         if (
             String(branchId) ===
             DEFAULT_BRANCH_ID
         ) {
+
             return toNumber(
                 product
                     ? product.quantity
@@ -661,12 +1061,19 @@
             );
         }
 
+
         return 0;
     }
+
+
+    /* ==========================================
+       LOW STOCK
+    ========================================== */
 
     function getLowStockLevel(
         product
     ) {
+
         return toNumber(
             product.lowStockLevel ??
             product.lowStock ??
@@ -674,11 +1081,17 @@
         );
     }
 
+
     function getStockStatus(
         quantity,
         lowStockLevel
     ) {
-        if (quantity <= 0) {
+
+        if (
+            quantity <=
+            0
+        ) {
+
             return {
                 label:
                     "Out of Stock",
@@ -691,10 +1104,12 @@
             };
         }
 
+
         if (
             quantity <=
             lowStockLevel
         ) {
+
             return {
                 label:
                     "Low Stock",
@@ -706,6 +1121,7 @@
                     "branch-stock-low"
             };
         }
+
 
         return {
             label:
@@ -719,20 +1135,29 @@
         };
     }
 
+
+    /* ==========================================
+       ACTIVE BRANCH ID
+    ========================================== */
+
     function getActiveBranchId() {
+
         const activeBranch =
             readStoredObject(
                 ACTIVE_BRANCH_KEY
             );
 
+
         if (
             activeBranch &&
             activeBranch.id
         ) {
+
             return String(
                 activeBranch.id
             );
         }
+
 
         const currentUser =
             readStoredObject(
@@ -742,21 +1167,30 @@
                 "currentUser"
             );
 
+
         if (
             currentUser &&
             currentUser.branchId
         ) {
+
             return String(
                 currentUser.branchId
             );
         }
 
+
         return DEFAULT_BRANCH_ID;
     }
+
+
+    /* ==========================================
+       BRANCH NAME
+    ========================================== */
 
     function getBranchName(
         branch
     ) {
+
         return (
             branch.branchName ||
             branch.name ||
@@ -764,9 +1198,15 @@
         );
     }
 
+
+    /* ==========================================
+       STOCK TOTAL
+    ========================================== */
+
     function sumBranchStock(
         branchStock
     ) {
+
         return Object.values(
             branchStock ||
             {}
@@ -775,60 +1215,87 @@
                 total,
                 value
             ) {
+
                 return (
                     total +
-                    toNumber(value)
+                    toNumber(
+                        value
+                    )
                 );
             },
             0
         );
     }
 
+
+    /* ==========================================
+       STORAGE HELPERS
+    ========================================== */
+
     function readStoredArray(
         storageKey
     ) {
+
         try {
+
             const savedData =
                 localStorage.getItem(
                     storageKey
                 );
 
+
             if (!savedData) {
                 return [];
             }
+
 
             const parsedData =
                 JSON.parse(
                     savedData
                 );
+
 
             return Array.isArray(
                 parsedData
             )
                 ? parsedData
                 : [];
+
         } catch (error) {
+
+            console.error(
+                "Unable to read:",
+                storageKey,
+                error
+            );
+
             return [];
         }
     }
 
+
     function readStoredObject(
         storageKey
     ) {
+
         try {
+
             const savedData =
                 localStorage.getItem(
                     storageKey
                 );
 
+
             if (!savedData) {
                 return null;
             }
+
 
             const parsedData =
                 JSON.parse(
                     savedData
                 );
+
 
             if (
                 parsedData &&
@@ -838,18 +1305,33 @@
                     parsedData
                 )
             ) {
+
                 return parsedData;
             }
 
+
             return null;
+
         } catch (error) {
+
             return null;
         }
     }
 
-    function toNumber(value) {
+
+    /* ==========================================
+       GENERAL HELPERS
+    ========================================== */
+
+    function toNumber(
+        value
+    ) {
+
         const numberValue =
-            Number(value);
+            Number(
+                value
+            );
+
 
         return Number.isFinite(
             numberValue
@@ -858,29 +1340,60 @@
             : 0;
     }
 
-    function formatNumber(value) {
+
+    function formatNumber(
+        value
+    ) {
+
         return new Intl.NumberFormat(
             "en-GH"
         ).format(
-            toNumber(value)
+            toNumber(
+                value
+            )
         );
     }
 
-    function escapeHTML(value) {
+
+    function escapeHTML(
+        value
+    ) {
+
         return String(
             value === undefined ||
             value === null
                 ? ""
                 : value
         )
-            .replace(/&/g, "&amp;")
-            .replace(/</g, "&lt;")
-            .replace(/>/g, "&gt;")
-            .replace(/"/g, "&quot;")
-            .replace(/'/g, "&#039;");
+            .replace(
+                /&/g,
+                "&amp;"
+            )
+            .replace(
+                /</g,
+                "&lt;"
+            )
+            .replace(
+                />/g,
+                "&gt;"
+            )
+            .replace(
+                /"/g,
+                "&quot;"
+            )
+            .replace(
+                /'/g,
+                "&#039;"
+            );
     }
 
+
+    /* ==========================================
+       PUBLIC API
+    ========================================== */
+
     window.JufelixBranchStockViewer = {
+
         refresh:
             refreshBranchStockViewer
     };
