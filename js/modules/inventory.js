@@ -9,70 +9,80 @@
 (function () {
     "use strict";
 
-    const PRODUCTS_KEY =
-        "jufelix_products";
-
-    const ACTIVE_BRANCH_KEY =
-        "jufelix_v7_active_branch";
-
-    const CURRENT_USER_KEY =
-        "jufelix_v7_current_user";
-
-    const DEFAULT_BRANCH_ID =
-        "head-office";
+    const PRODUCTS_KEY = "jufelix_products";
+    const ACTIVE_BRANCH_KEY = "jufelix_v7_active_branch";
+    const CURRENT_USER_KEY = "jufelix_v7_current_user";
+    const DEFAULT_BRANCH_ID = "head-office";
 
     let products = [];
     let editingProductId = null;
+    let productImageData = "";
 
-    const form =
-        document.getElementById(
-            "productForm"
-        );
+    const form = document.getElementById("productForm");
+    const tableBody = document.getElementById("inventoryTableBody");
+    const saveButton = document.getElementById("saveProductButton");
+    const formTitle = document.getElementById("productFormTitle");
+    const clearButton = document.getElementById("cancelProductButton");
 
-    const tableBody =
-        document.getElementById(
-            "inventoryTableBody"
-        );
-
-    const saveButton =
-        document.getElementById(
-            "saveProductButton"
-        );
-
-    const formTitle =
-        document.getElementById(
-            "productFormTitle"
-        );
-
-    const clearButton =
-        document.getElementById(
-            "cancelProductButton"
-        );
-
-    const searchInput =
-        document.getElementById(
-            "inventorySearch"
-        );
-
-    const categoryFilter =
-        document.getElementById(
-            "inventoryCategoryFilter"
-        );
-
-    const stockFilter =
-        document.getElementById(
-            "inventoryStockFilter"
-        );
-
-    const statusFilter =
-        document.getElementById(
-            "inventoryStatusFilter"
-        );
-
-    document.addEventListener(
-        "DOMContentLoaded",
-        initializeInventory
+    const searchInput = document.getElementById("inventorySearch");
+    const categoryFilter = document.getElementById(
+        "inventoryCategoryFilter"
     );
+    const stockFilter = document.getElementById(
+        "inventoryStockFilter"
+    );
+    const statusFilter = document.getElementById(
+        "inventoryStatusFilter"
+    );
+
+    const productCategory =
+        document.getElementById(
+            "productCategory"
+        );
+
+    const customCategoryGroup =
+        document.getElementById(
+            "customCategoryGroup"
+        );
+
+    const customProductCategory =
+        document.getElementById(
+            "customProductCategory"
+        );
+
+    const productImageInput =
+        document.getElementById(
+            "productImage"
+        );
+
+    const productImagePreview =
+        document.getElementById(
+            "productImagePreview"
+        );
+
+    const productImagePreviewContainer =
+        document.getElementById(
+            "productImagePreviewContainer"
+        );
+
+    const removeProductImageButton =
+        document.getElementById(
+            "removeProductImageButton"
+        );
+
+
+    /* ==========================================
+       START
+    ========================================== */
+
+    if (document.readyState === "loading") {
+        document.addEventListener(
+            "DOMContentLoaded",
+            initializeInventory
+        );
+    } else {
+        initializeInventory();
+    }
 
 
     function initializeInventory() {
@@ -85,10 +95,19 @@
         resetForm();
 
         refreshInventory();
+
+        console.log(
+            "Jufelix Inventory loaded successfully."
+        );
     }
 
 
+    /* ==========================================
+       EVENTS
+    ========================================== */
+
     function connectEvents() {
+
         if (form) {
             form.addEventListener(
                 "submit",
@@ -130,6 +149,486 @@
                 displayProducts
             );
         }
+
+        if (productCategory) {
+            productCategory.addEventListener(
+                "change",
+                handleCategoryChange
+            );
+        }
+
+        if (productImageInput) {
+            productImageInput.addEventListener(
+                "change",
+                handleProductImage
+            );
+        }
+
+        if (removeProductImageButton) {
+            removeProductImageButton.addEventListener(
+                "click",
+                removeProductImage
+            );
+        }
+    }
+
+
+    /* ==========================================
+       CATEGORY
+    ========================================== */
+
+    function handleCategoryChange() {
+
+        if (
+            !productCategory ||
+            !customCategoryGroup ||
+            !customProductCategory
+        ) {
+            return;
+        }
+
+        const isOther =
+            productCategory.value === "Other";
+
+        customCategoryGroup.style.display =
+            isOther
+                ? "block"
+                : "none";
+
+        customProductCategory.required =
+            isOther;
+
+        if (!isOther) {
+            customProductCategory.value =
+                "";
+        }
+    }
+
+
+    function getSelectedCategory() {
+
+        const selected =
+            getValue(
+                "productCategory"
+            );
+
+        if (selected === "Other") {
+            return getValue(
+                "customProductCategory"
+            );
+        }
+
+        return selected;
+    }
+
+
+    function setCategoryValue(
+        category
+    ) {
+
+        if (!productCategory) {
+            return;
+        }
+
+        const categoryValue =
+            String(
+                category || ""
+            ).trim();
+
+        const options =
+            Array.from(
+                productCategory.options
+            );
+
+        const optionExists =
+            options.some(
+                function (option) {
+                    return (
+                        option.value ===
+                        categoryValue
+                    );
+                }
+            );
+
+        if (
+            categoryValue &&
+            optionExists
+        ) {
+
+            productCategory.value =
+                categoryValue;
+
+            if (
+                customCategoryGroup
+            ) {
+                customCategoryGroup
+                    .style.display =
+                    "none";
+            }
+
+            if (
+                customProductCategory
+            ) {
+                customProductCategory
+                    .required =
+                    false;
+
+                customProductCategory
+                    .value =
+                    "";
+            }
+
+            return;
+        }
+
+
+        if (categoryValue) {
+
+            productCategory.value =
+                "Other";
+
+            if (
+                customCategoryGroup
+            ) {
+                customCategoryGroup
+                    .style.display =
+                    "block";
+            }
+
+            if (
+                customProductCategory
+            ) {
+                customProductCategory
+                    .required =
+                    true;
+
+                customProductCategory
+                    .value =
+                    categoryValue;
+            }
+
+            return;
+        }
+
+
+        productCategory.value =
+            "";
+
+        if (customCategoryGroup) {
+            customCategoryGroup.style.display =
+                "none";
+        }
+
+        if (customProductCategory) {
+            customProductCategory.required =
+                false;
+
+            customProductCategory.value =
+                "";
+        }
+    }
+
+
+    /* ==========================================
+       PRODUCT IMAGE
+    ========================================== */
+
+    function handleProductImage(
+        event
+    ) {
+
+        const file =
+            event.target.files &&
+            event.target.files[0];
+
+        if (!file) {
+            return;
+        }
+
+        const allowedTypes = [
+            "image/jpeg",
+            "image/png",
+            "image/webp"
+        ];
+
+        if (
+            !allowedTypes.includes(
+                file.type
+            )
+        ) {
+            alert(
+                "Please select a JPG, PNG or WebP image."
+            );
+
+            if (productImageInput) {
+                productImageInput.value =
+                    "";
+            }
+
+            return;
+        }
+
+        if (
+            file.size >
+            10 * 1024 * 1024
+        ) {
+            alert(
+                "The selected image is too large. Please choose an image below 10 MB."
+            );
+
+            if (productImageInput) {
+                productImageInput.value =
+                    "";
+            }
+
+            return;
+        }
+
+        compressProductImage(
+            file
+        )
+            .then(
+                function (
+                    compressedImage
+                ) {
+
+                    productImageData =
+                        compressedImage;
+
+                    showProductImagePreview(
+                        productImageData
+                    );
+                }
+            )
+            .catch(
+                function (error) {
+
+                    console.error(
+                        "Image processing failed:",
+                        error
+                    );
+
+                    alert(
+                        "Unable to process this image. Please try another image."
+                    );
+
+                    productImageData =
+                        "";
+
+                    if (
+                        productImageInput
+                    ) {
+                        productImageInput.value =
+                            "";
+                    }
+
+                    showProductImagePreview(
+                        ""
+                    );
+                }
+            );
+    }
+
+
+    function compressProductImage(
+        file
+    ) {
+
+        return new Promise(
+            function (
+                resolve,
+                reject
+            ) {
+
+                const reader =
+                    new FileReader();
+
+                reader.onerror =
+                    function () {
+
+                        reject(
+                            new Error(
+                                "Unable to read image."
+                            )
+                        );
+                    };
+
+                reader.onload =
+                    function () {
+
+                        const image =
+                            new Image();
+
+                        image.onerror =
+                            function () {
+
+                                reject(
+                                    new Error(
+                                        "Unable to load image."
+                                    )
+                                );
+                            };
+
+                        image.onload =
+                            function () {
+
+                                try {
+
+                                    const MAX_SIZE =
+                                        700;
+
+                                    let width =
+                                        image.naturalWidth ||
+                                        image.width;
+
+                                    let height =
+                                        image.naturalHeight ||
+                                        image.height;
+
+                                    if (
+                                        width >
+                                            MAX_SIZE ||
+                                        height >
+                                            MAX_SIZE
+                                    ) {
+
+                                        const ratio =
+                                            Math.min(
+                                                MAX_SIZE /
+                                                    width,
+                                                MAX_SIZE /
+                                                    height
+                                            );
+
+                                        width =
+                                            Math.round(
+                                                width *
+                                                    ratio
+                                            );
+
+                                        height =
+                                            Math.round(
+                                                height *
+                                                    ratio
+                                            );
+                                    }
+
+                                    const canvas =
+                                        document
+                                            .createElement(
+                                                "canvas"
+                                            );
+
+                                    canvas.width =
+                                        width;
+
+                                    canvas.height =
+                                        height;
+
+                                    const context =
+                                        canvas.getContext(
+                                            "2d"
+                                        );
+
+                                    if (
+                                        !context
+                                    ) {
+
+                                        reject(
+                                            new Error(
+                                                "Canvas is unavailable."
+                                            )
+                                        );
+
+                                        return;
+                                    }
+
+                                    context.drawImage(
+                                        image,
+                                        0,
+                                        0,
+                                        width,
+                                        height
+                                    );
+
+                                    const compressed =
+                                        canvas.toDataURL(
+                                            "image/jpeg",
+                                            0.72
+                                        );
+
+                                    resolve(
+                                        compressed
+                                    );
+
+                                } catch (
+                                    error
+                                ) {
+                                    reject(
+                                        error
+                                    );
+                                }
+                            };
+
+                        image.src =
+                            reader.result;
+                    };
+
+                reader.readAsDataURL(
+                    file
+                );
+            }
+        );
+    }
+
+
+    function showProductImagePreview(
+        imageSource
+    ) {
+
+        if (
+            !productImagePreview ||
+            !productImagePreviewContainer
+        ) {
+            return;
+        }
+
+        if (!imageSource) {
+
+            productImagePreview
+                .removeAttribute(
+                    "src"
+                );
+
+            productImagePreviewContainer
+                .style.display =
+                "none";
+
+            return;
+        }
+
+        productImagePreview.src =
+            imageSource;
+
+        productImagePreviewContainer
+            .style.display =
+            "block";
+    }
+
+
+    function removeProductImage() {
+
+        productImageData =
+            "";
+
+        if (productImageInput) {
+            productImageInput.value =
+                "";
+        }
+
+        showProductImagePreview(
+            ""
+        );
     }
 
 
@@ -138,41 +637,50 @@
     ========================================== */
 
     function migrateProductsToBranchStock() {
+
         const activeBranchId =
             getActiveBranchId();
 
-        let changed = false;
+        let changed =
+            false;
 
-        products = products.map(
-            function (product) {
-                if (
-                    !product.branchStock ||
-                    typeof product.branchStock !==
-                        "object" ||
-                    Array.isArray(
-                        product.branchStock
-                    )
+        products =
+            products.map(
+                function (
+                    product
                 ) {
-                    product.branchStock = {};
 
-                    product.branchStock[
-                        activeBranchId
-                    ] =
-                        toNumber(
-                            product.quantity
+                    if (
+                        !product.branchStock ||
+                        typeof product.branchStock !==
+                            "object" ||
+                        Array.isArray(
+                            product.branchStock
+                        )
+                    ) {
+
+                        product.branchStock =
+                            {};
+
+                        product.branchStock[
+                            activeBranchId
+                        ] =
+                            toNumber(
+                                product.quantity
+                            );
+
+                        changed =
+                            true;
+                    }
+
+                    product.quantity =
+                        calculateTotalStock(
+                            product
                         );
 
-                    changed = true;
+                    return product;
                 }
-
-                product.quantity =
-                    calculateTotalStock(
-                        product
-                    );
-
-                return product;
-            }
-        );
+            );
 
         if (changed) {
             saveProducts();
@@ -184,8 +692,18 @@
        SAVE PRODUCT
     ========================================== */
 
-    function saveProduct(event) {
+    function saveProduct(
+        event
+    ) {
+
         event.preventDefault();
+
+        if (
+            saveButton &&
+            saveButton.disabled
+        ) {
+            return;
+        }
 
         const activeBranchId =
             getActiveBranchId();
@@ -195,7 +713,11 @@
                 "productQuantity"
             );
 
+        const category =
+            getSelectedCategory();
+
         const productData = {
+
             name:
                 getValue(
                     "productName"
@@ -212,14 +734,16 @@
                 ),
 
             category:
-                getValue(
-                    "productCategory"
-                ),
+                category,
 
             brand:
                 getValue(
                     "productBrand"
                 ),
+
+            image:
+                productImageData ||
+                "",
 
             unit:
                 getValue(
@@ -254,7 +778,8 @@
             status:
                 getValue(
                     "productStatus"
-                ) || "active",
+                ) ||
+                "active",
 
             description:
                 getValue(
@@ -262,7 +787,14 @@
                 )
         };
 
-        if (!productData.name) {
+
+        /* ======================================
+           VALIDATION
+        ====================================== */
+
+        if (
+            !productData.name
+        ) {
             alert(
                 "Enter the product name."
             );
@@ -270,15 +802,19 @@
             return;
         }
 
-        if (!productData.category) {
+        if (
+            !productData.category
+        ) {
             alert(
-                "Enter the product category."
+                "Select or enter a product category."
             );
 
             return;
         }
 
-        if (!productData.unit) {
+        if (
+            !productData.unit
+        ) {
             alert(
                 "Select the product unit."
             );
@@ -287,10 +823,14 @@
         }
 
         if (
-            productData.costPrice < 0 ||
-            productData.sellingPrice < 0 ||
-            branchQuantity < 0
+            productData.costPrice <
+                0 ||
+            productData.sellingPrice <
+                0 ||
+            branchQuantity <
+                0
         ) {
+
             alert(
                 "Prices and quantities cannot be negative."
             );
@@ -298,27 +838,42 @@
             return;
         }
 
+
+        /* ======================================
+           DUPLICATE SKU
+        ====================================== */
+
         const duplicateSku =
             products.find(
-                function (product) {
+                function (
+                    product
+                ) {
+
                     return (
-                        String(product.id) !==
+                        String(
+                            product.id
+                        ) !==
                             String(
                                 editingProductId
                             ) &&
                         productData.sku &&
                         String(
-                            product.sku || ""
+                            product.sku ||
+                            ""
                         )
                             .trim()
                             .toLowerCase() ===
                             productData.sku
+                                .trim()
                                 .toLowerCase()
                     );
                 }
             );
 
-        if (duplicateSku) {
+        if (
+            duplicateSku
+        ) {
+
             alert(
                 "Another product already uses this SKU."
             );
@@ -326,58 +881,131 @@
             return;
         }
 
+
         const wasEditing =
-            editingProductId !== null;
+            editingProductId !==
+            null;
 
-        if (wasEditing) {
-            updateProduct(
-                productData,
-                branchQuantity,
-                activeBranchId
+        try {
+
+            if (
+                saveButton
+            ) {
+
+                saveButton.disabled =
+                    true;
+
+                saveButton.textContent =
+                    wasEditing
+                        ? "Updating..."
+                        : "Saving...";
+            }
+
+
+            if (
+                wasEditing
+            ) {
+
+                updateProduct(
+                    productData,
+                    branchQuantity,
+                    activeBranchId
+                );
+
+            } else {
+
+                createProduct(
+                    productData,
+                    branchQuantity,
+                    activeBranchId
+                );
+            }
+
+
+            saveProducts();
+
+            resetForm();
+
+            refreshInventory();
+
+
+            alert(
+                wasEditing
+                    ? "Product updated successfully."
+                    : "Product saved successfully."
             );
-        } else {
-            createProduct(
-                productData,
-                branchQuantity,
-                activeBranchId
+
+        } catch (
+            error
+        ) {
+
+            console.error(
+                "Unable to save product:",
+                error
             );
+
+            alert(
+                "Unable to save product. " +
+                (
+                    error &&
+                    error.message
+                        ? error.message
+                        : ""
+                )
+            );
+
+        } finally {
+
+            if (
+                saveButton
+            ) {
+
+                saveButton.disabled =
+                    false;
+
+                saveButton.textContent =
+                    editingProductId
+                        ? "Update Product"
+                        : "Save Product";
+            }
         }
-
-        saveProducts();
-
-        resetForm();
-
-        refreshInventory();
-
-        alert(
-            wasEditing
-                ? "Product updated successfully."
-                : "Product saved successfully."
-        );
     }
 
+
+    /* ==========================================
+       CREATE PRODUCT
+    ========================================== */
 
     function createProduct(
         productData,
         branchQuantity,
         branchId
     ) {
+
         const currentTime =
-            new Date().toISOString();
+            new Date()
+                .toISOString();
 
-        const branchStock = {};
+        const branchStock =
+            {};
 
-        branchStock[branchId] =
+        branchStock[
+            branchId
+        ] =
             branchQuantity;
 
         const newProduct = {
+
             id:
                 "prd-" +
                 Date.now() +
                 "-" +
                 Math.random()
                     .toString(36)
-                    .substring(2, 7),
+                    .substring(
+                        2,
+                        7
+                    ),
 
             ...productData,
 
@@ -398,20 +1026,32 @@
                 currentTime
         };
 
-        products.push(newProduct);
+        products.push(
+            newProduct
+        );
     }
 
+
+    /* ==========================================
+       UPDATE PRODUCT
+    ========================================== */
 
     function updateProduct(
         productData,
         branchQuantity,
         branchId
     ) {
+
         const productIndex =
             products.findIndex(
-                function (product) {
+                function (
+                    product
+                ) {
+
                     return (
-                        String(product.id) ===
+                        String(
+                            product.id
+                        ) ===
                         String(
                             editingProductId
                         )
@@ -419,16 +1059,20 @@
                 }
             );
 
-        if (productIndex === -1) {
-            alert(
+        if (
+            productIndex ===
+            -1
+        ) {
+
+            throw new Error(
                 "Product not found."
             );
-
-            return;
         }
 
         const existingProduct =
-            products[productIndex];
+            products[
+                productIndex
+            ];
 
         const branchStock = {
             ...(
@@ -438,10 +1082,15 @@
             )
         };
 
-        branchStock[branchId] =
+        branchStock[
+            branchId
+        ] =
             branchQuantity;
 
-        products[productIndex] = {
+        products[
+            productIndex
+        ] = {
+
             ...existingProduct,
 
             ...productData,
@@ -458,11 +1107,13 @@
                 ),
 
             createdAt:
-                existingProduct
-                    .createdAt,
+                existingProduct.createdAt ||
+                new Date()
+                    .toISOString(),
 
             updatedAt:
-                new Date().toISOString()
+                new Date()
+                    .toISOString()
         };
     }
 
@@ -471,18 +1122,31 @@
        EDIT PRODUCT
     ========================================== */
 
-    function editProduct(productId) {
+    function editProduct(
+        productId
+    ) {
+
         const product =
             products.find(
-                function (item) {
+                function (
+                    item
+                ) {
+
                     return (
-                        String(item.id) ===
-                        String(productId)
+                        String(
+                            item.id
+                        ) ===
+                        String(
+                            productId
+                        )
                     );
                 }
             );
 
-        if (!product) {
+        if (
+            !product
+        ) {
+
             alert(
                 "Product not found."
             );
@@ -516,8 +1180,7 @@
             product.barcode
         );
 
-        setValue(
-            "productCategory",
+        setCategoryValue(
             product.category
         );
 
@@ -558,7 +1221,8 @@
 
         setValue(
             "productTax",
-            product.tax || 0
+            product.tax ||
+            0
         );
 
         setValue(
@@ -572,20 +1236,47 @@
             product.description
         );
 
-        if (formTitle) {
+
+        productImageData =
+            product.image ||
+            "";
+
+        if (
+            productImageInput
+        ) {
+            productImageInput.value =
+                "";
+        }
+
+        showProductImagePreview(
+            productImageData
+        );
+
+
+        if (
+            formTitle
+        ) {
             formTitle.textContent =
                 "Edit Product";
         }
 
-        if (saveButton) {
+        if (
+            saveButton
+        ) {
             saveButton.textContent =
                 "Update Product";
         }
 
-        if (form) {
+        if (
+            form
+        ) {
+
             form.scrollIntoView({
-                behavior: "smooth",
-                block: "start"
+                behavior:
+                    "smooth",
+
+                block:
+                    "start"
             });
         }
     }
@@ -595,18 +1286,31 @@
        DELETE PRODUCT
     ========================================== */
 
-    function deleteProduct(productId) {
+    function deleteProduct(
+        productId
+    ) {
+
         const product =
             products.find(
-                function (item) {
+                function (
+                    item
+                ) {
+
                     return (
-                        String(item.id) ===
-                        String(productId)
+                        String(
+                            item.id
+                        ) ===
+                        String(
+                            productId
+                        )
                     );
                 }
             );
 
-        if (!product) {
+        if (
+            !product
+        ) {
+
             alert(
                 "Product not found."
             );
@@ -619,16 +1323,25 @@
                 `Delete "${product.name}" permanently?`
             );
 
-        if (!confirmed) {
+        if (
+            !confirmed
+        ) {
             return;
         }
 
         products =
             products.filter(
-                function (item) {
+                function (
+                    item
+                ) {
+
                     return (
-                        String(item.id) !==
-                        String(productId)
+                        String(
+                            item.id
+                        ) !==
+                        String(
+                            productId
+                        )
                     );
                 }
             );
@@ -636,9 +1349,14 @@
         saveProducts();
 
         if (
-            String(editingProductId) ===
-            String(productId)
+            String(
+                editingProductId
+            ) ===
+            String(
+                productId
+            )
         ) {
+
             resetForm();
         }
 
@@ -655,7 +1373,10 @@
     ========================================== */
 
     function displayProducts() {
-        if (!tableBody) {
+
+        if (
+            !tableBody
+        ) {
             return;
         }
 
@@ -686,7 +1407,10 @@
 
         const filteredProducts =
             products.filter(
-                function (product) {
+                function (
+                    product
+                ) {
+
                     const branchQuantity =
                         getBranchStock(
                             product,
@@ -710,9 +1434,10 @@
 
                     const matchesSearch =
                         !searchTerm ||
-                        searchableText.includes(
-                            searchTerm
-                        );
+                        searchableText
+                            .includes(
+                                searchTerm
+                            );
 
                     const matchesCategory =
                         !selectedCategory ||
@@ -727,25 +1452,31 @@
                         String(
                             product.status ||
                             "active"
-                        ).toLowerCase() ===
+                        )
+                            .toLowerCase() ===
                             selectedStatus;
 
-                    let matchesStock = true;
+                    let matchesStock =
+                        true;
 
                     if (
                         selectedStock ===
                         "out"
                     ) {
+
                         matchesStock =
-                            branchQuantity <= 0;
+                            branchQuantity <=
+                            0;
                     }
 
                     if (
                         selectedStock ===
                         "low"
                     ) {
+
                         matchesStock =
-                            branchQuantity > 0 &&
+                            branchQuantity >
+                                0 &&
                             branchQuantity <=
                                 lowStock;
                     }
@@ -754,6 +1485,7 @@
                         selectedStock ===
                         "available"
                     ) {
+
                         matchesStock =
                             branchQuantity >
                             lowStock;
@@ -769,8 +1501,10 @@
             );
 
         if (
-            filteredProducts.length === 0
+            filteredProducts.length ===
+            0
         ) {
+
             tableBody.innerHTML = `
                 <tr>
                     <td
@@ -788,7 +1522,10 @@
         tableBody.innerHTML =
             filteredProducts
                 .map(
-                    function (product) {
+                    function (
+                        product
+                    ) {
+
                         return createProductRow(
                             product,
                             activeBranchId
@@ -799,10 +1536,15 @@
     }
 
 
+    /* ==========================================
+       PRODUCT ROW
+    ========================================== */
+
     function createProductRow(
         product,
         branchId
     ) {
+
         const branchQuantity =
             getBranchStock(
                 product,
@@ -820,16 +1562,22 @@
         let stockClass =
             "stock-good";
 
-        if (branchQuantity <= 0) {
+        if (
+            branchQuantity <=
+            0
+        ) {
+
             stockStatus =
                 "Out of Stock";
 
             stockClass =
                 "stock-out";
+
         } else if (
             branchQuantity <=
             lowStock
         ) {
+
             stockStatus =
                 "Low Stock";
 
@@ -837,15 +1585,43 @@
                 "stock-low";
         }
 
+
+        const productImageHTML =
+            product.image
+                ? `
+                    <img
+                        src="${escapeHTML(
+                            product.image
+                        )}"
+                        alt="${escapeHTML(
+                            product.name
+                        )}"
+                        style="
+                            width:55px;
+                            height:55px;
+                            object-fit:cover;
+                            border-radius:10px;
+                            border:1px solid #e1e5eb;
+                            flex-shrink:0;
+                        "
+                    >
+                `
+                : `
+                    <div
+                        class="product-thumbnail-fallback"
+                    >
+                        📦
+                    </div>
+                `;
+
+
         return `
             <tr>
 
                 <td>
                     <div class="product-cell">
 
-                        <div class="product-thumbnail-fallback">
-                            📦
-                        </div>
+                        ${productImageHTML}
 
                         <div>
 
@@ -899,12 +1675,15 @@
                         branchQuantity
                     )}
                     ${escapeHTML(
-                        product.unit || ""
+                        product.unit ||
+                        ""
                     )}
                 </td>
 
                 <td>
-                    <span class="stock-status ${stockClass}">
+                    <span
+                        class="stock-status ${stockClass}"
+                    >
                         ${stockStatus}
                     </span>
                 </td>
@@ -914,8 +1693,9 @@
                         String(
                             product.status ||
                             "active"
-                        ).toLowerCase() ===
-                        "active"
+                        )
+                            .toLowerCase() ===
+                            "active"
                             ? "Active"
                             : "Inactive"
                     }
@@ -955,6 +1735,7 @@
     ========================================== */
 
     function updateInventorySummary() {
+
         const activeBranchId =
             getActiveBranchId();
 
@@ -967,6 +1748,7 @@
                     total,
                     product
                 ) {
+
                     return (
                         total +
                         getBranchStock(
@@ -984,14 +1766,17 @@
                     total,
                     product
                 ) {
+
                     return (
                         total +
-                        getBranchStock(
-                            product,
-                            activeBranchId
-                        ) *
-                        toNumber(
-                            product.costPrice
+                        (
+                            getBranchStock(
+                                product,
+                                activeBranchId
+                            ) *
+                            toNumber(
+                                product.costPrice
+                            )
                         )
                     );
                 },
@@ -1000,7 +1785,10 @@
 
         const lowStockProducts =
             products.filter(
-                function (product) {
+                function (
+                    product
+                ) {
+
                     return (
                         getBranchStock(
                             product,
@@ -1039,31 +1827,40 @@
     }
 
 
+    /* ==========================================
+       CATEGORY FILTER
+    ========================================== */
+
     function updateCategoryFilter() {
-        if (!categoryFilter) {
+
+        if (
+            !categoryFilter
+        ) {
             return;
         }
 
         const selectedValue =
             categoryFilter.value;
 
-        const categories =
-            [
-                ...new Set(
-                    products
-                        .map(
-                            function (
-                                product
-                            ) {
-                                return String(
-                                    product.category ||
-                                    ""
-                                ).trim();
-                            }
-                        )
-                        .filter(Boolean)
-                )
-            ].sort();
+        const categories = [
+            ...new Set(
+                products
+                    .map(
+                        function (
+                            product
+                        ) {
+
+                            return String(
+                                product.category ||
+                                ""
+                            ).trim();
+                        }
+                    )
+                    .filter(
+                        Boolean
+                    )
+            )
+        ].sort();
 
         categoryFilter.innerHTML = `
             <option value="">
@@ -1075,10 +1872,13 @@
                     function (
                         category
                     ) {
+
                         return `
-                            <option value="${escapeHTML(
-                                category
-                            )}">
+                            <option
+                                value="${escapeHTML(
+                                    category
+                                )}"
+                            >
                                 ${escapeHTML(
                                     category
                                 )}
@@ -1094,6 +1894,7 @@
                 selectedValue
             )
         ) {
+
             categoryFilter.value =
                 selectedValue;
         }
@@ -1101,6 +1902,7 @@
 
 
     function refreshInventory() {
+
         updateInventorySummary();
         updateCategoryFilter();
         displayProducts();
@@ -1108,18 +1910,23 @@
 
 
     /* ==========================================
-       BRANCH STOCK HELPERS
+       BRANCH STOCK
     ========================================== */
 
     function getBranchStock(
         product,
         branchId
     ) {
+
         if (
             product.branchStock &&
             typeof product.branchStock ===
-                "object"
+                "object" &&
+            !Array.isArray(
+                product.branchStock
+            )
         ) {
+
             return toNumber(
                 product.branchStock[
                     branchId
@@ -1134,6 +1941,7 @@
     function calculateTotalStock(
         product
     ) {
+
         return sumBranchStock(
             product.branchStock ||
             {}
@@ -1144,6 +1952,7 @@
     function sumBranchStock(
         branchStock
     ) {
+
         return Object.values(
             branchStock
         ).reduce(
@@ -1151,9 +1960,12 @@
                 total,
                 value
             ) {
+
                 return (
                     total +
-                    toNumber(value)
+                    toNumber(
+                        value
+                    )
                 );
             },
             0
@@ -1162,6 +1974,7 @@
 
 
     function getActiveBranchId() {
+
         const activeBranch =
             readStoredObject(
                 ACTIVE_BRANCH_KEY
@@ -1171,6 +1984,7 @@
             activeBranch &&
             activeBranch.id
         ) {
+
             return String(
                 activeBranch.id
             );
@@ -1188,6 +2002,7 @@
             currentUser &&
             currentUser.branchId
         ) {
+
             return String(
                 currentUser.branchId
             );
@@ -1200,6 +2015,7 @@
     function getLowStockLevel(
         product
     ) {
+
         return toNumber(
             product.lowStockLevel ??
             product.lowStock ??
@@ -1209,15 +2025,38 @@
 
 
     /* ==========================================
-       RESET
+       RESET FORM
     ========================================== */
 
     function resetForm() {
-        editingProductId = null;
 
-        if (form) {
+        editingProductId =
+            null;
+
+        productImageData =
+            "";
+
+        if (
+            form
+        ) {
             form.reset();
         }
+
+        if (
+            productImageInput
+        ) {
+
+            productImageInput.value =
+                "";
+        }
+
+        showProductImagePreview(
+            ""
+        );
+
+        setCategoryValue(
+            ""
+        );
 
         setValue(
             "productId",
@@ -1239,12 +2078,21 @@
             "active"
         );
 
-        if (formTitle) {
+        if (
+            formTitle
+        ) {
+
             formTitle.textContent =
                 "Add New Product";
         }
 
-        if (saveButton) {
+        if (
+            saveButton
+        ) {
+
+            saveButton.disabled =
+                false;
+
             saveButton.textContent =
                 "Save Product";
         }
@@ -1256,14 +2104,21 @@
     ========================================== */
 
     function loadProducts() {
+
         try {
+
             const savedProducts =
                 localStorage.getItem(
                     PRODUCTS_KEY
                 );
 
-            if (!savedProducts) {
-                products = [];
+            if (
+                !savedProducts
+            ) {
+
+                products =
+                    [];
+
                 return;
             }
 
@@ -1278,21 +2133,30 @@
                 )
                     ? parsedProducts
                     : [];
-        } catch (error) {
+
+        } catch (
+            error
+        ) {
+
             console.error(
                 "Unable to load products:",
                 error
             );
 
-            products = [];
+            products =
+                [];
         }
     }
 
 
     function saveProducts() {
+
         products =
             products.map(
-                function (product) {
+                function (
+                    product
+                ) {
+
                     return {
                         ...product,
 
@@ -1304,16 +2168,49 @@
                 }
             );
 
-        localStorage.setItem(
-            PRODUCTS_KEY,
-            JSON.stringify(products)
-        );
+        try {
+
+            localStorage.setItem(
+                PRODUCTS_KEY,
+                JSON.stringify(
+                    products
+                )
+            );
+
+        } catch (
+            error
+        ) {
+
+            console.error(
+                "Local inventory save failed:",
+                error
+            );
+
+            if (
+                error &&
+                (
+                    error.name ===
+                        "QuotaExceededError" ||
+                    error.name ===
+                        "NS_ERROR_DOM_QUOTA_REACHED"
+                )
+            ) {
+
+                throw new Error(
+                    "Phone storage for the app is full. Try a smaller product image."
+                );
+            }
+
+            throw error;
+        }
+
 
         document.dispatchEvent(
             new CustomEvent(
                 "jufelix:data-updated",
                 {
                     detail: {
+
                         key:
                             PRODUCTS_KEY,
 
@@ -1329,13 +2226,18 @@
     function readStoredObject(
         storageKey
     ) {
+
         try {
+
             const savedData =
                 localStorage.getItem(
                     storageKey
                 );
 
-            if (!savedData) {
+            if (
+                !savedData
+            ) {
+
                 return null;
             }
 
@@ -1352,35 +2254,51 @@
                     parsedData
                 )
             ) {
+
                 return parsedData;
             }
 
             return null;
-        } catch (error) {
+
+        } catch (
+            error
+        ) {
+
             return null;
         }
     }
 
 
     /* ==========================================
-       GENERAL HELPERS
+       HELPERS
     ========================================== */
 
-    function getValue(id) {
+    function getValue(
+        id
+    ) {
+
         const element =
-            document.getElementById(id);
+            document.getElementById(
+                id
+            );
 
         return element
             ? String(
-                element.value || ""
+                element.value ||
+                ""
             ).trim()
             : "";
     }
 
 
-    function getNumber(id) {
+    function getNumber(
+        id
+    ) {
+
         return toNumber(
-            getValue(id)
+            getValue(
+                id
+            )
         );
     }
 
@@ -1389,13 +2307,21 @@
         id,
         value
     ) {
-        const element =
-            document.getElementById(id);
 
-        if (element) {
+        const element =
+            document.getElementById(
+                id
+            );
+
+        if (
+            element
+        ) {
+
             element.value =
-                value === undefined ||
-                value === null
+                value ===
+                    undefined ||
+                value ===
+                    null
                     ? ""
                     : value;
         }
@@ -1406,19 +2332,30 @@
         id,
         value
     ) {
-        const element =
-            document.getElementById(id);
 
-        if (element) {
+        const element =
+            document.getElementById(
+                id
+            );
+
+        if (
+            element
+        ) {
+
             element.textContent =
                 value;
         }
     }
 
 
-    function toNumber(value) {
+    function toNumber(
+        value
+    ) {
+
         const numberValue =
-            Number(value);
+            Number(
+                value
+            );
 
         return Number.isFinite(
             numberValue
@@ -1428,30 +2365,46 @@
     }
 
 
-    function formatMoney(value) {
+    function formatMoney(
+        value
+    ) {
+
         return new Intl.NumberFormat(
             "en-GH",
             {
-                style: "currency",
-                currency: "GHS",
-                minimumFractionDigits: 2
+                style:
+                    "currency",
+
+                currency:
+                    "GHS",
+
+                minimumFractionDigits:
+                    2
             }
         ).format(
-            toNumber(value)
+            toNumber(
+                value
+            )
         );
     }
 
 
-    function formatNumber(value) {
+    function formatNumber(
+        value
+    ) {
+
         return new Intl.NumberFormat(
             "en-GH"
         ).format(
-            toNumber(value)
+            toNumber(
+                value
+            )
         );
     }
 
 
     function generateSku() {
+
         return (
             "PRD-" +
             Math.floor(
@@ -1463,22 +2416,47 @@
     }
 
 
-    function escapeHTML(value) {
+    function escapeHTML(
+        value
+    ) {
+
         return String(
-            value === undefined ||
-            value === null
+            value ===
+                undefined ||
+            value ===
+                null
                 ? ""
                 : value
         )
-            .replace(/&/g, "&amp;")
-            .replace(/</g, "&lt;")
-            .replace(/>/g, "&gt;")
-            .replace(/"/g, "&quot;")
-            .replace(/'/g, "&#039;");
+            .replace(
+                /&/g,
+                "&amp;"
+            )
+            .replace(
+                /</g,
+                "&lt;"
+            )
+            .replace(
+                />/g,
+                "&gt;"
+            )
+            .replace(
+                /"/g,
+                "&quot;"
+            )
+            .replace(
+                /'/g,
+                "&#039;"
+            );
     }
 
 
+    /* ==========================================
+       PUBLIC API
+    ========================================== */
+
     window.JufelixInventory = {
+
         editProduct:
             editProduct,
 
