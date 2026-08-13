@@ -4326,17 +4326,39 @@
 
 
         Promise.all(
-            operations
-        )
-            .catch(
-                function (error) {
+    operations
+)
+    .then(
+        function () {
 
-                    console.warn(
-                        "Sale saved locally; cloud sync pending:",
-                        error
-                    );
-                }
+            console.log(
+                "✅ Sale and stock synced successfully to Firebase."
             );
+
+            alert(
+                "✅ Firebase sales sync successful."
+            );
+        }
+    )
+    .catch(
+        function (error) {
+
+            console.error(
+                "❌ Firebase sales sync failed:",
+                error
+            );
+
+            alert(
+                "Firebase sales sync failed:\n\n" +
+                (
+                    error &&
+                    error.message
+                        ? error.message
+                        : String(error)
+                )
+            );
+        }
+    );
     }
 
 
