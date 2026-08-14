@@ -1736,6 +1736,120 @@
                 purchase
             );
 
+/* ==================================
+   FIREBASE PURCHASE SYNC
+================================== */
+
+if (
+    window.JufelixPurchasesCloud
+) {
+
+    const cloudTasks = [];
+
+
+    /* Save purchase */
+    cloudTasks.push(
+        window.JufelixPurchasesCloud
+            .savePurchase(
+                purchase
+            )
+    );
+
+
+    /* Sync updated product stock */
+    if (
+        status === "received"
+    ) {
+
+        const updatedProducts =
+            readArray(
+                PRODUCTS_KEY
+            );
+
+
+        const updatedProduct =
+            updatedProducts.find(
+                function (item) {
+
+                    return (
+                        String(item.id) ===
+                        String(product.id)
+                    );
+                }
+            );
+
+
+        if (updatedProduct) {
+
+            cloudTasks.push(
+                window.JufelixPurchasesCloud
+                    .saveProduct(
+                        updatedProduct
+                    )
+            );
+        }
+    }
+
+
+    /* Sync supplier account */
+    if (
+        status === "received" &&
+        supplierData.id
+    ) {
+
+        const updatedSuppliers =
+            readArray(
+                SUPPLIERS_KEY
+            );
+
+
+        const updatedSupplier =
+            updatedSuppliers.find(
+                function (item) {
+
+                    return (
+                        String(item.id) ===
+                        String(
+                            supplierData.id
+                        )
+                    );
+                }
+            );
+
+
+        if (updatedSupplier) {
+
+            cloudTasks.push(
+                window.JufelixPurchasesCloud
+                    .saveSupplier(
+                        updatedSupplier
+                    )
+            );
+        }
+    }
+
+
+    Promise.all(
+        cloudTasks
+    )
+        .then(
+            function () {
+
+                console.log(
+                    "✅ Purchase, stock and supplier synced successfully to Firebase."
+                );
+            }
+        )
+        .catch(
+            function (error) {
+
+                console.error(
+                    "❌ Purchase Firebase sync failed:",
+                    error
+                );
+            }
+        );
+}
 
             if (
                 status ===
