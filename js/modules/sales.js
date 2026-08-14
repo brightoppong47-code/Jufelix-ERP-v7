@@ -4329,17 +4329,13 @@
     operations
 )
     .then(
-        function () {
+    function () {
 
-            console.log(
-                "✅ Sale and stock synced successfully to Firebase."
-            );
-
-            alert(
-                "✅ Firebase sales sync successful."
-            );
-        }
-    )
+        console.log(
+            "✅ Sale and stock synced successfully to Firebase."
+        );
+    }
+)
     .catch(
         function (error) {
 
