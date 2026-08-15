@@ -1178,16 +1178,72 @@ window.JufelixPurchasesCloud = {
 
 
 /* ==========================================
+/* ==========================================
    READY
 ========================================== */
 
 waitForDb()
     .then(
-        function () {
+        async function () {
 
             console.log(
                 "Jufelix Purchases Cloud ready."
             );
+
+
+            /* ==========================================
+               UPLOAD EXISTING LOCAL DATA
+            ========================================== */
+
+            try {
+
+                await syncLocal();
+
+                console.log(
+                    "Existing purchases synced to Firebase."
+                );
+
+            } catch (
+                error
+            ) {
+
+                console.error(
+                    "Initial purchase sync failed:",
+                    error
+                );
+            }
+
+
+            /* ==========================================
+               START REALTIME FIREBASE LISTENERS
+            ========================================== */
+
+            try {
+
+                listen(
+                    function (
+                        type,
+                        records
+                    ) {
+
+                        console.log(
+                            "Purchases cloud update:",
+                            type,
+                            records.length
+                        );
+                    }
+                );
+
+            } catch (
+                error
+            ) {
+
+                console.warn(
+                    "Purchases realtime listener failed:",
+                    error
+                );
+            }
+
         }
     )
     .catch(
@@ -1209,5 +1265,6 @@ waitForDb()
                     "jufelix:purchases-cloud-ready"
                 )
             );
+
         }
     );
