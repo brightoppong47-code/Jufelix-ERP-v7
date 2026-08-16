@@ -1,11 +1,12 @@
 /* ==========================================
    JUFELIX ERP v7.0 PROFESSIONAL
-   COMPLETE STOCK TRANSFERS MODULE
+   STOCK TRANSFERS MODULE
 
    + Branch-Aware Stock
    + Local Storage
    + Firebase Transfer Sync
    + Firebase Product Stock Sync
+   + Cloud Bridge Wait/Retry
    + Prevent Double Stock Movement
 
    File:
@@ -78,9 +79,7 @@
         cacheElements();
 
 
-        if (
-            !elements.transferForm
-        ) {
+        if (!elements.transferForm) {
 
             console.error(
                 "Transfers: #transferForm was not found."
@@ -91,7 +90,7 @@
 
 
         /*
-         * Use our own validation.
+         * We perform our own validation.
          */
         elements.transferForm.noValidate =
             true;
@@ -223,9 +222,6 @@
             );
 
         elements.saveButton =
-            document.getElementById(
-                "saveTransferButton"
-            ) ||
             document.querySelector(
                 '#transferForm button[type="submit"]'
             );
@@ -238,35 +234,15 @@
 
     function connectEvents() {
 
+        /*
+         * Only one save handler.
+         * This avoids double-saving on mobile.
+         */
         elements.transferForm
             .addEventListener(
                 "submit",
                 handleTransferSubmit
             );
-
-
-        /*
-         * Reliable Save button for mobile.
-         */
-        if (
-            elements.saveButton
-        ) {
-
-            elements.saveButton
-                .addEventListener(
-                    "click",
-                    function (
-                        event
-                    ) {
-
-                        event.preventDefault();
-
-                        handleTransferSubmit(
-                            event
-                        );
-                    }
-                );
-        }
 
 
         elements.transferForm
@@ -282,16 +258,12 @@
             );
 
 
-        if (
-            elements.resetButton
-        ) {
+        if (elements.resetButton) {
 
             elements.resetButton
                 .addEventListener(
                     "click",
-                    function (
-                        event
-                    ) {
+                    function (event) {
 
                         event.preventDefault();
 
@@ -301,9 +273,7 @@
         }
 
 
-        if (
-            elements.fromBranch
-        ) {
+        if (elements.fromBranch) {
 
             elements.fromBranch
                 .addEventListener(
@@ -322,9 +292,7 @@
         }
 
 
-        if (
-            elements.toBranch
-        ) {
+        if (elements.toBranch) {
 
             elements.toBranch
                 .addEventListener(
@@ -339,9 +307,7 @@
         }
 
 
-        if (
-            elements.transferProduct
-        ) {
+        if (elements.transferProduct) {
 
             elements.transferProduct
                 .addEventListener(
@@ -351,9 +317,7 @@
         }
 
 
-        if (
-            elements.transferSearch
-        ) {
+        if (elements.transferSearch) {
 
             elements.transferSearch
                 .addEventListener(
@@ -363,9 +327,7 @@
         }
 
 
-        if (
-            elements.transferStatusFilter
-        ) {
+        if (elements.transferStatusFilter) {
 
             elements.transferStatusFilter
                 .addEventListener(
@@ -375,9 +337,7 @@
         }
 
 
-        if (
-            elements.transferDateFilter
-        ) {
+        if (elements.transferDateFilter) {
 
             elements.transferDateFilter
                 .addEventListener(
@@ -385,13 +345,31 @@
                     displayTransfers
                 );
         }
+
+
+        window.addEventListener(
+            "storage",
+            function (event) {
+
+                if (
+                    [
+                        PRODUCTS_KEY,
+                        BRANCHES_KEY,
+                        TRANSFERS_KEY
+                    ].includes(
+                        event.key
+                    )
+                ) {
+
+                    refreshTransfers();
+                }
+            }
+        );
 
 
         document.addEventListener(
             "jufelix:data-updated",
-            function (
-                event
-            ) {
+            function (event) {
 
                 const key =
                     event &&
@@ -401,36 +379,9 @@
 
 
                 if (
-                    !key ||
-                    [
-                        PRODUCTS_KEY,
-                        BRANCHES_KEY,
-                        TRANSFERS_KEY
-                    ].indexOf(
-                        key
-                    ) !== -1
-                ) {
-
-                    refreshTransfers();
-                }
-            }
-        );
-
-
-        window.addEventListener(
-            "storage",
-            function (
-                event
-            ) {
-
-                if (
-                    [
-                        PRODUCTS_KEY,
-                        BRANCHES_KEY,
-                        TRANSFERS_KEY
-                    ].indexOf(
-                        event.key
-                    ) !== -1
+                    key === PRODUCTS_KEY ||
+                    key === BRANCHES_KEY ||
+                    key === TRANSFERS_KEY
                 ) {
 
                     refreshTransfers();
@@ -441,7 +392,7 @@
 
 
     /* ==========================================
-       LOAD DATA
+       LOAD
     ========================================== */
 
     function loadData() {
@@ -476,40 +427,29 @@
         branches =
             branches
                 .map(
-                    function (
-                        branch
-                    ) {
+                    function (branch) {
 
                         const isHeadOffice =
-                            branch.isHeadOffice ===
-                                true ||
+                            branch.isHeadOffice === true ||
 
                             String(
-                                branch.type ||
-                                ""
-                            )
-                                .toLowerCase() ===
+                                branch.type || ""
+                            ).toLowerCase() ===
                                 "head-office" ||
 
                             String(
-                                branch.id ||
-                                ""
-                            )
-                                .toLowerCase() ===
+                                branch.id || ""
+                            ).toLowerCase() ===
                                 DEFAULT_BRANCH_ID;
 
 
-                        if (
-                            !isHeadOffice
-                        ) {
+                        if (!isHeadOffice) {
 
                             return branch;
                         }
 
 
-                        if (
-                            found
-                        ) {
+                        if (found) {
 
                             return null;
                         }
@@ -519,39 +459,37 @@
                             true;
 
 
-                        return Object.assign(
-                            {},
-                            branch,
-                            {
+                        return {
 
-                                id:
-                                    DEFAULT_BRANCH_ID,
+                            ...branch,
 
-                                branchName:
-                                    branch.branchName ||
-                                    branch.name ||
-                                    "Head Office",
+                            id:
+                                DEFAULT_BRANCH_ID,
 
-                                name:
-                                    branch.name ||
-                                    branch.branchName ||
-                                    "Head Office",
+                            branchName:
+                                branch.branchName ||
+                                branch.name ||
+                                "Head Office",
 
-                                code:
-                                    branch.code ||
-                                    "HO",
+                            name:
+                                branch.name ||
+                                branch.branchName ||
+                                "Head Office",
 
-                                type:
-                                    "head-office",
+                            code:
+                                branch.code ||
+                                "HO",
 
-                                isHeadOffice:
-                                    true,
+                            type:
+                                "head-office",
 
-                                status:
-                                    branch.status ||
-                                    "active"
-                            }
-                        );
+                            isHeadOffice:
+                                true,
+
+                            status:
+                                branch.status ||
+                                "active"
+                        };
                     }
                 )
                 .filter(
@@ -559,9 +497,7 @@
                 );
 
 
-        if (
-            !found
-        ) {
+        if (!found) {
 
             branches.unshift({
 
@@ -591,7 +527,7 @@
 
 
     /* ==========================================
-       MIGRATE PRODUCT STOCK
+       PRODUCT STOCK MIGRATION
     ========================================== */
 
     function migrateProductsToBranchStock() {
@@ -602,15 +538,11 @@
 
         products =
             products.map(
-                function (
-                    product
-                ) {
+                function (product) {
 
-                    const item =
-                        Object.assign(
-                            {},
-                            product
-                        );
+                    const item = {
+                        ...product
+                    };
 
 
                     if (
@@ -640,12 +572,13 @@
                     if (
                         item.branchStock[
                             DEFAULT_BRANCH_ID
-                        ] ===
-                            undefined &&
+                        ] === undefined &&
                         toNumber(
                             item.quantity
-                        ) >
-                            0
+                        ) > 0 &&
+                        Object.keys(
+                            item.branchStock
+                        ).length === 0
                     ) {
 
                         item.branchStock[
@@ -671,9 +604,7 @@
             );
 
 
-        if (
-            changed
-        ) {
+        if (changed) {
 
             saveStoredArray(
                 PRODUCTS_KEY,
@@ -701,25 +632,19 @@
         const activeBranches =
             branches
                 .filter(
-                    function (
-                        branch
-                    ) {
+                    function (branch) {
 
                         return (
                             String(
                                 branch.status ||
                                 "active"
-                            )
-                                .toLowerCase() ===
+                            ).toLowerCase() ===
                             "active"
                         );
                     }
                 )
                 .sort(
-                    function (
-                        a,
-                        b
-                    ) {
+                    function (a, b) {
 
                         return getBranchName(
                             a
@@ -735,9 +660,7 @@
         const options =
             activeBranches
                 .map(
-                    function (
-                        branch
-                    ) {
+                    function (branch) {
 
                         return (
                             '<option value="' +
@@ -769,19 +692,10 @@
 
 
     /* ==========================================
-       PRODUCT DROPDOWN
+       PRODUCTS
     ========================================== */
 
     function populateProductDropdown() {
-
-        if (
-            !elements.transferProduct ||
-            !elements.fromBranch
-        ) {
-
-            return;
-        }
-
 
         const sourceBranchId =
             elements.fromBranch.value;
@@ -791,18 +705,11 @@
             '<option value="">Select product</option>';
 
 
-        if (
-            elements.availableTransferStock
-        ) {
-
-            elements.availableTransferStock.value =
-                "";
-        }
+        elements.availableTransferStock.value =
+            "";
 
 
-        if (
-            !sourceBranchId
-        ) {
+        if (!sourceBranchId) {
 
             return;
         }
@@ -817,17 +724,14 @@
         const availableProducts =
             products
                 .filter(
-                    function (
-                        product
-                    ) {
+                    function (product) {
 
                         const active =
                             String(
                                 product.status ||
                                 "active"
-                            )
-                                .toLowerCase() !==
-                            "inactive";
+                            ).toLowerCase() !==
+                                "inactive";
 
 
                         return (
@@ -835,24 +739,18 @@
                             getBranchStock(
                                 product,
                                 sourceBranchId
-                            ) >
-                                0
+                            ) > 0
                         );
                     }
                 )
                 .sort(
-                    function (
-                        a,
-                        b
-                    ) {
+                    function (a, b) {
 
                         return String(
-                            a.name ||
-                            ""
+                            a.name || ""
                         ).localeCompare(
                             String(
-                                b.name ||
-                                ""
+                                b.name || ""
                             )
                         );
                     }
@@ -860,8 +758,7 @@
 
 
         if (
-            availableProducts.length ===
-            0
+            availableProducts.length === 0
         ) {
 
             elements.transferProduct.innerHTML =
@@ -876,9 +773,7 @@
 
             availableProducts
                 .map(
-                    function (
-                        product
-                    ) {
+                    function (product) {
 
                         const stock =
                             getBranchStock(
@@ -889,8 +784,7 @@
 
                         const unit =
                             product.unit
-                                ? " " +
-                                  product.unit
+                                ? " " + product.unit
                                 : "";
 
 
@@ -900,17 +794,22 @@
                                 product.id
                             ) +
                             '">' +
+
                             escapeHTML(
                                 product.name ||
                                 "Unnamed Product"
                             ) +
+
                             " — " +
+
                             formatNumber(
                                 stock
                             ) +
+
                             escapeHTML(
                                 unit
                             ) +
+
                             "</option>"
                         );
                     }
@@ -919,20 +818,7 @@
     }
 
 
-    /* ==========================================
-       AVAILABLE STOCK
-    ========================================== */
-
     function updateAvailableStock() {
-
-        if (
-            !elements.transferProduct ||
-            !elements.fromBranch
-        ) {
-
-            return;
-        }
-
 
         const product =
             getProductById(
@@ -954,38 +840,29 @@
                 : 0;
 
 
-        if (
-            elements.availableTransferStock
-        ) {
-
-            elements.availableTransferStock.value =
-                product &&
-                branchId
-                    ? formatNumber(
+        elements.availableTransferStock.value =
+            product &&
+            branchId
+                ? (
+                    formatNumber(
                         stock
                     ) +
-                      (
-                          product.unit
-                              ? " " +
-                                product.unit
-                              : ""
-                      )
-                    : "";
-        }
-
-
-        if (
-            elements.transferQuantity
-        ) {
-
-            elements.transferQuantity.max =
-                stock >
-                    0
-                    ? String(
-                        stock
+                    (
+                        product.unit
+                            ? " " +
+                              product.unit
+                            : ""
                     )
-                    : "";
-        }
+                )
+                : "";
+
+
+        elements.transferQuantity.max =
+            stock > 0
+                ? String(
+                    stock
+                )
+                : "";
     }
 
 
@@ -998,27 +875,21 @@
     ) {
 
         const fromId =
-            elements.fromBranch
-                ? elements.fromBranch.value
-                : "";
+            elements.fromBranch.value;
 
 
         const toId =
-            elements.toBranch
-                ? elements.toBranch.value
-                : "";
+            elements.toBranch.value;
 
 
         if (
             fromId &&
             toId &&
-            fromId ===
-                toId
+            fromId === toId
         ) {
 
             if (
-                displayMessage !==
-                false
+                displayMessage !== false
             ) {
 
                 showMessageBox(
@@ -1028,13 +899,8 @@
             }
 
 
-            if (
-                elements.toBranch
-            ) {
-
-                elements.toBranch.value =
-                    "";
-            }
+            elements.toBranch.value =
+                "";
 
 
             return false;
@@ -1049,32 +915,21 @@
        SAVE TRANSFER
     ========================================== */
 
-    function handleTransferSubmit(
+    async function handleTransferSubmit(
         event
     ) {
 
-        if (
-            event
-        ) {
-
-            event.preventDefault();
-
-            if (
-                typeof event.stopPropagation ===
-                "function"
-            ) {
-
-                event.stopPropagation();
-            }
-        }
+        event.preventDefault();
 
 
-        if (
-            saveInProgress
-        ) {
+        if (saveInProgress) {
 
             return;
         }
+
+
+        let transfer = null;
+        let updatedProduct = null;
 
 
         try {
@@ -1127,9 +982,7 @@
             }
 
 
-            if (
-                !fromBranchId
-            ) {
+            if (!fromBranchId) {
 
                 throw new Error(
                     "Select the source branch."
@@ -1137,9 +990,7 @@
             }
 
 
-            if (
-                !toBranchId
-            ) {
+            if (!toBranchId) {
 
                 throw new Error(
                     "Select the destination branch."
@@ -1159,9 +1010,7 @@
             }
 
 
-            if (
-                !productId
-            ) {
+            if (!productId) {
 
                 throw new Error(
                     "Select a product."
@@ -1173,8 +1022,7 @@
                 !Number.isFinite(
                     quantity
                 ) ||
-                quantity <=
-                    0
+                quantity <= 0
             ) {
 
                 throw new Error(
@@ -1197,9 +1045,7 @@
 
             const productIndex =
                 products.findIndex(
-                    function (
-                        product
-                    ) {
+                    function (product) {
 
                         return (
                             String(
@@ -1225,8 +1071,7 @@
 
 
             if (
-                productIndex ===
-                -1
+                productIndex === -1
             ) {
 
                 throw new Error(
@@ -1235,21 +1080,21 @@
             }
 
 
-            const product =
-                Object.assign(
-                    {},
-                    products[
-                        productIndex
-                    ]
-                );
+            const product = {
+
+                ...products[
+                    productIndex
+                ]
+            };
 
 
-            product.branchStock =
-                Object.assign(
-                    {},
+            product.branchStock = {
+
+                ...(
                     product.branchStock ||
                     {}
-                );
+                )
+            };
 
 
             const availableStock =
@@ -1288,15 +1133,15 @@
             );
 
 
-            const transferNumber =
-                generateTransferNumber();
-
-
             const now =
                 new Date();
 
 
-            const transfer = {
+            const transferNumber =
+                generateTransferNumber();
+
+
+            transfer = {
 
                 id:
                     transferNumber,
@@ -1357,12 +1202,8 @@
 
 
                 notes:
-                    elements.transferNotes
-                        ? elements
-                            .transferNotes
-                            .value
-                            .trim()
-                        : "",
+                    elements.transferNotes.value
+                        .trim(),
 
 
                 createdBy:
@@ -1382,7 +1223,8 @@
 
 
             /* ==================================
-               MOVE STOCK ONCE — LOCALLY
+               STOCK MOVEMENT
+               LOCAL ONLY — ONCE
             ================================== */
 
             if (
@@ -1431,9 +1273,13 @@
                 ) {
 
                     throw new Error(
-                        "The inventory could not be updated."
+                        "Inventory could not be updated."
                     );
                 }
+
+
+                updatedProduct =
+                    product;
             }
 
 
@@ -1454,7 +1300,7 @@
             ) {
 
                 throw new Error(
-                    "The transfer record could not be saved."
+                    "Transfer record could not be saved."
                 );
             }
 
@@ -1472,25 +1318,33 @@
 
 
             /* ==================================
-               FIREBASE SYNC
+               FIREBASE
             ================================== */
 
-            syncTransferToCloud(
-                transfer,
-                status ===
-                    "completed"
-                    ? product
-                    : null
-            );
+            const cloudResult =
+                await syncTransferToCloud(
+                    transfer,
+                    updatedProduct
+                );
 
 
-            showMessageBox(
-                status ===
-                    "completed"
-                    ? "Stock transfer completed successfully."
-                    : "Pending transfer saved successfully.",
-                "success"
-            );
+            if (cloudResult) {
+
+                showMessageBox(
+                    status ===
+                        "completed"
+                        ? "Transfer completed and synced to Firebase."
+                        : "Pending transfer saved and synced to Firebase.",
+                    "success"
+                );
+
+            } else {
+
+                showMessageBox(
+                    "Transfer saved locally. Firebase sync failed.",
+                    "error"
+                );
+            }
 
 
             resetTransferForm();
@@ -1498,9 +1352,7 @@
             refreshTransfers();
 
 
-        } catch (
-            error
-        ) {
+        } catch (error) {
 
             console.error(
                 "Transfer save error:",
@@ -1529,109 +1381,263 @@
 
 
     /* ==========================================
+       WAIT FOR CLOUD MODULE
+    ========================================== */
+
+    function waitForTransfersCloud(
+        timeout = 10000
+    ) {
+
+        return new Promise(
+            function (
+                resolve,
+                reject
+            ) {
+
+                const started =
+                    Date.now();
+
+
+                function check() {
+
+                    if (
+                        window.JufelixTransfersCloud &&
+                        typeof window
+                            .JufelixTransfersCloud
+                            .saveTransfer ===
+                            "function"
+                    ) {
+
+                        resolve(
+                            window.JufelixTransfersCloud
+                        );
+
+                        return;
+                    }
+
+
+                    if (
+                        Date.now() -
+                        started >
+                        timeout
+                    ) {
+
+                        reject(
+                            new Error(
+                                "Transfers Cloud module did not load."
+                            )
+                        );
+
+                        return;
+                    }
+
+
+                    setTimeout(
+                        check,
+                        100
+                    );
+                }
+
+
+                check();
+            }
+        );
+    }
+
+
+    /* ==========================================
        FIREBASE SYNC
     ========================================== */
 
-    function syncTransferToCloud(
+    async function syncTransferToCloud(
         transfer,
         updatedProduct
     ) {
 
-        if (
-            !window.JufelixTransfersCloud
-        ) {
+        try {
 
-            console.warn(
-                "⚠️ Transfers Cloud is not ready. Transfer remains saved locally."
+            console.log(
+                "☁️ Preparing Firebase transfer sync:",
+                transfer.transferNumber
             );
 
-            return;
+
+            const cloud =
+                await waitForTransfersCloud();
+
+
+            console.log(
+                "✅ Transfers Cloud API detected."
+            );
+
+
+            /*
+             * First save transfer.
+             */
+            await cloud.saveTransfer(
+                transfer
+            );
+
+
+            console.log(
+                "✅ Transfer document uploaded:",
+                transfer.transferNumber
+            );
+
+
+            /*
+             * Then upload final stock state.
+             */
+            if (
+                updatedProduct &&
+                typeof cloud.saveProduct ===
+                    "function"
+            ) {
+
+                await cloud.saveProduct(
+                    updatedProduct
+                );
+
+
+                console.log(
+                    "✅ Updated branch stock uploaded:",
+                    updatedProduct.name ||
+                    updatedProduct.id
+                );
+            }
+
+
+            return true;
+
+
+        } catch (error) {
+
+            console.error(
+                "❌ TRANSFER FIREBASE SYNC FAILED:",
+                error
+            );
+
+
+            showFirebaseError(
+                error
+            );
+
+
+            return false;
         }
+    }
 
 
-        const tasks =
-            [];
+    /* ==========================================
+       VISIBLE FIREBASE ERROR
+    ========================================== */
+
+    function showFirebaseError(
+        error
+    ) {
+
+        const code =
+            error &&
+            error.code
+                ? error.code
+                : "unknown";
 
 
-        if (
-            typeof window
-                .JufelixTransfersCloud
-                .saveTransfer ===
-            "function"
-        ) {
+        const message =
+            error &&
+            error.message
+                ? error.message
+                : String(
+                    error ||
+                    "Unknown Firebase error"
+                );
 
-            tasks.push(
-                window
-                    .JufelixTransfersCloud
-                    .saveTransfer(
-                        transfer
-                    )
+
+        let box =
+            document.getElementById(
+                "transferFirebaseError"
+            );
+
+
+        if (!box) {
+
+            box =
+                document.createElement(
+                    "div"
+                );
+
+
+            box.id =
+                "transferFirebaseError";
+
+
+            box.style.position =
+                "fixed";
+
+            box.style.left =
+                "12px";
+
+            box.style.right =
+                "12px";
+
+            box.style.bottom =
+                "12px";
+
+            box.style.zIndex =
+                "999999";
+
+            box.style.padding =
+                "16px";
+
+            box.style.background =
+                "#7f1d1d";
+
+            box.style.color =
+                "#ffffff";
+
+            box.style.borderRadius =
+                "12px";
+
+            box.style.fontSize =
+                "14px";
+
+            box.style.lineHeight =
+                "1.6";
+
+            box.style.boxShadow =
+                "0 10px 35px rgba(0,0,0,.35)";
+
+
+            document.body.appendChild(
+                box
             );
         }
 
 
-        /*
-         * Upload FINAL product stock.
-         *
-         * Cloud bridge does NOT perform
-         * another stock movement.
-         */
-        if (
-            updatedProduct &&
-            typeof window
-                .JufelixTransfersCloud
-                .saveProduct ===
-            "function"
-        ) {
-
-            tasks.push(
-                window
-                    .JufelixTransfersCloud
-                    .saveProduct(
-                        updatedProduct
-                    )
+        box.innerHTML =
+            "<strong>FIREBASE TRANSFER ERROR</strong><br>" +
+            "Code: " +
+            escapeHTML(
+                code
+            ) +
+            "<br>" +
+            "Message: " +
+            escapeHTML(
+                message
             );
-        }
 
 
-        if (
-            tasks.length ===
-            0
-        ) {
+        window.setTimeout(
+            function () {
 
-            return;
-        }
+                if (box) {
 
-
-        Promise.all(
-            tasks
-        )
-            .then(
-                function () {
-
-                    console.log(
-                        "✅ Transfer and stock synced successfully to Firebase:",
-                        transfer.transferNumber
-                    );
+                    box.remove();
                 }
-            )
-            .catch(
-                function (
-                    error
-                ) {
 
-                    console.error(
-                        "❌ Transfer Firebase sync failed:",
-                        error
-                    );
-
-
-                    showMessageBox(
-                        "Transfer saved locally. Firebase sync will retry.",
-                        "error"
-                    );
-                }
-            );
+            },
+            12000
+        );
     }
 
 
@@ -1653,28 +1659,20 @@
 
 
         if (
-            elements.fromBranch &&
             elements.fromBranch.value
         ) {
 
-            const selectedProductId =
-                elements.transferProduct
-                    ? elements
-                        .transferProduct
-                        .value
-                    : "";
+            const selectedProduct =
+                elements.transferProduct.value;
 
 
             populateProductDropdown();
 
 
-            if (
-                selectedProductId &&
-                elements.transferProduct
-            ) {
+            if (selectedProduct) {
 
                 elements.transferProduct.value =
-                    selectedProductId;
+                    selectedProduct;
             }
 
 
@@ -1691,16 +1689,13 @@
 
         const completed =
             transfers.filter(
-                function (
-                    transfer
-                ) {
+                function (transfer) {
 
                     return (
                         String(
                             transfer.status ||
                             "completed"
-                        )
-                            .toLowerCase() ===
+                        ).toLowerCase() ===
                         "completed"
                     );
                 }
@@ -1709,16 +1704,13 @@
 
         const pending =
             transfers.filter(
-                function (
-                    transfer
-                ) {
+                function (transfer) {
 
                     return (
                         String(
                             transfer.status ||
                             ""
-                        )
-                            .toLowerCase() ===
+                        ).toLowerCase() ===
                         "pending"
                     );
                 }
@@ -1771,7 +1763,7 @@
 
 
     /* ==========================================
-       DISPLAY
+       DISPLAY TRANSFERS
     ========================================== */
 
     function displayTransfers() {
@@ -1786,11 +1778,8 @@
 
         const searchText =
             String(
-                elements.transferSearch
-                    ? elements
-                        .transferSearch
-                        .value
-                    : ""
+                elements.transferSearch.value ||
+                ""
             )
                 .trim()
                 .toLowerCase();
@@ -1798,30 +1787,22 @@
 
         const statusFilter =
             String(
-                elements.transferStatusFilter
-                    ? elements
-                        .transferStatusFilter
-                        .value
-                    : ""
+                elements.transferStatusFilter.value ||
+                ""
             )
+                .trim()
                 .toLowerCase();
 
 
         const dateFilter =
-            elements.transferDateFilter
-                ? elements
-                    .transferDateFilter
-                    .value ||
-                  ""
-                : "";
+            elements.transferDateFilter.value ||
+            "";
 
 
         const filtered =
             transfers
                 .filter(
-                    function (
-                        transfer
-                    ) {
+                    function (transfer) {
 
                         const searchable =
                             [
@@ -1844,101 +1825,75 @@
                                 .toLowerCase();
 
 
-                        const transferStatus =
+                        const status =
                             String(
                                 transfer.status ||
                                 "completed"
-                            )
-                                .toLowerCase();
+                            ).toLowerCase();
 
 
-                        const transferDate =
+                        const date =
                             getTransferDate(
                                 transfer
                             );
 
 
-                        const matchesSearch =
-                            !searchText ||
-                            searchable.indexOf(
-                                searchText
-                            ) !==
-                                -1;
-
-
-                        const matchesStatus =
-                            !statusFilter ||
-                            transferStatus ===
-                                statusFilter;
-
-
-                        const matchesDate =
-                            !dateFilter ||
-                            transferDate ===
-                                dateFilter;
-
-
                         return (
-                            matchesSearch &&
-                            matchesStatus &&
-                            matchesDate
+                            (
+                                !searchText ||
+                                searchable.includes(
+                                    searchText
+                                )
+                            ) &&
+                            (
+                                !statusFilter ||
+                                status ===
+                                    statusFilter
+                            ) &&
+                            (
+                                !dateFilter ||
+                                date ===
+                                    dateFilter
+                            )
                         );
                     }
                 )
                 .sort(
-                    function (
-                        a,
-                        b
-                    ) {
+                    function (a, b) {
 
                         return (
-                            new Date(
-                                b.createdAt ||
-                                getTransferDate(
-                                    b
-                                ) ||
-                                0
-                            ).getTime() -
-
-                            new Date(
-                                a.createdAt ||
-                                getTransferDate(
-                                    a
-                                ) ||
-                                0
-                            ).getTime()
+                            getTimestamp(
+                                b
+                            ) -
+                            getTimestamp(
+                                a
+                            )
                         );
                     }
                 );
 
 
         if (
-            filtered.length ===
-            0
+            filtered.length === 0
         ) {
 
-            elements.transferTableBody
-                .innerHTML =
+            elements.transferTableBody.innerHTML =
                 '<tr><td colspan="8" class="table-empty">No matching stock transfers found.</td></tr>';
 
             return;
         }
 
 
-        elements.transferTableBody
-            .innerHTML =
+        elements.transferTableBody.innerHTML =
             filtered
                 .map(
-                    function (
-                        transfer
-                    ) {
+                    function (transfer) {
 
                         const status =
                             String(
                                 transfer.status ||
                                 "completed"
-                            )
-                                .toLowerCase();
+                            ).toLowerCase();
 
 
                         const statusClass =
@@ -1948,87 +1903,89 @@
                                 : "status-completed";
 
 
-                        return (
-                            "<tr>" +
+                        return `
+                            <tr>
 
-                            "<td><strong>" +
-                            escapeHTML(
-                                transfer.transferNumber ||
-                                transfer.id ||
-                                "—"
-                            ) +
-                            "</strong></td>" +
+                                <td>
+                                    <strong>
+                                        ${escapeHTML(
+                                            transfer.transferNumber ||
+                                            transfer.id ||
+                                            "—"
+                                        )}
+                                    </strong>
+                                </td>
 
-                            "<td>" +
-                            escapeHTML(
-                                formatDate(
-                                    getTransferDate(
-                                        transfer
-                                    )
-                                )
-                            ) +
-                            "</td>" +
+                                <td>
+                                    ${escapeHTML(
+                                        formatDate(
+                                            getTransferDate(
+                                                transfer
+                                            )
+                                        )
+                                    )}
+                                </td>
 
-                            "<td>" +
-                            escapeHTML(
-                                transfer.fromBranchName ||
-                                getBranchNameById(
-                                    transfer.fromBranchId
-                                )
-                            ) +
-                            "</td>" +
+                                <td>
+                                    ${escapeHTML(
+                                        transfer.fromBranchName ||
+                                        getBranchNameById(
+                                            transfer.fromBranchId
+                                        )
+                                    )}
+                                </td>
 
-                            "<td>" +
-                            escapeHTML(
-                                transfer.toBranchName ||
-                                getBranchNameById(
-                                    transfer.toBranchId
-                                )
-                            ) +
-                            "</td>" +
+                                <td>
+                                    ${escapeHTML(
+                                        transfer.toBranchName ||
+                                        getBranchNameById(
+                                            transfer.toBranchId
+                                        )
+                                    )}
+                                </td>
 
-                            "<td>" +
-                            escapeHTML(
-                                transfer.productName ||
-                                getProductNameById(
-                                    transfer.productId
-                                )
-                            ) +
-                            "</td>" +
+                                <td>
+                                    ${escapeHTML(
+                                        transfer.productName ||
+                                        getProductNameById(
+                                            transfer.productId
+                                        )
+                                    )}
+                                </td>
 
-                            "<td>" +
-                            formatNumber(
-                                transfer.quantity
-                            ) +
-                            (
-                                transfer.unit
-                                    ? " " +
-                                      escapeHTML(
-                                          transfer.unit
-                                      )
-                                    : ""
-                            ) +
-                            "</td>" +
+                                <td>
+                                    ${formatNumber(
+                                        transfer.quantity
+                                    )}
+                                    ${
+                                        transfer.unit
+                                            ? " " +
+                                              escapeHTML(
+                                                  transfer.unit
+                                              )
+                                            : ""
+                                    }
+                                </td>
 
-                            '<td><span class="status-badge ' +
-                            statusClass +
-                            '">' +
-                            escapeHTML(
-                                capitalize(
-                                    status
-                                )
-                            ) +
-                            "</span></td>" +
+                                <td>
+                                    <span class="status-badge ${statusClass}">
+                                        ${escapeHTML(
+                                            capitalize(
+                                                status
+                                            )
+                                        )}
+                                    </span>
+                                </td>
 
-                            "<td>" +
-                            escapeHTML(
-                                transfer.notes ||
-                                "—"
-                            ) +
-                            "</td>" +
+                                <td>
+                                    ${escapeHTML(
+                                        transfer.notes ||
+                                        "—"
+                                    )}
+                                </td>
 
-                            "</tr>"
-                        );
+                            </tr>
+                        `;
                     }
                 )
                 .join("");
@@ -2036,18 +1993,10 @@
 
 
     /* ==========================================
-       RESET
+       RESET FORM
     ========================================== */
 
     function resetTransferForm() {
-
-        if (
-            !elements.transferForm
-        ) {
-
-            return;
-        }
-
 
         elements.transferForm.reset();
 
@@ -2057,92 +2006,47 @@
 
     function applyTransferDefaults() {
 
-        if (
-            elements.transferNumber
-        ) {
-
-            elements.transferNumber.value =
-                generateTransferNumber();
-        }
+        elements.transferNumber.value =
+            generateTransferNumber();
 
 
-        if (
-            elements.transferDate
-        ) {
-
-            elements.transferDate.value =
-                getLocalDateKey(
-                    new Date()
-                );
-        }
+        elements.transferDate.value =
+            getLocalDateKey(
+                new Date()
+            );
 
 
-        if (
-            elements.transferStatus
-        ) {
-
-            elements.transferStatus.value =
-                "completed";
-        }
+        elements.transferStatus.value =
+            "completed";
 
 
-        if (
-            elements.availableTransferStock
-        ) {
-
-            elements.availableTransferStock.value =
-                "";
-        }
+        elements.availableTransferStock.value =
+            "";
 
 
-        if (
-            elements.transferQuantity
-        ) {
-
-            elements.transferQuantity.value =
-                "";
-        }
+        elements.transferQuantity.value =
+            "";
 
 
-        if (
-            elements.transferNotes
-        ) {
-
-            elements.transferNotes.value =
-                "";
-        }
+        elements.transferNotes.value =
+            "";
 
 
-        if (
-            elements.fromBranch
-        ) {
-
-            elements.fromBranch.value =
-                "";
-        }
+        elements.fromBranch.value =
+            "";
 
 
-        if (
-            elements.toBranch
-        ) {
-
-            elements.toBranch.value =
-                "";
-        }
+        elements.toBranch.value =
+            "";
 
 
-        if (
-            elements.transferProduct
-        ) {
-
-            elements.transferProduct.innerHTML =
-                '<option value="">Select product</option>';
-        }
+        elements.transferProduct.innerHTML =
+            '<option value="">Select product</option>';
     }
 
 
     /* ==========================================
-       RECORD HELPERS
+       LOOKUPS
     ========================================== */
 
     function getBranchById(
@@ -2151,9 +2055,7 @@
 
         return (
             branches.find(
-                function (
-                    branch
-                ) {
+                function (branch) {
 
                     return (
                         String(
@@ -2176,9 +2078,7 @@
 
         return (
             products.find(
-                function (
-                    product
-                ) {
+                function (product) {
 
                     return (
                         String(
@@ -2245,9 +2145,7 @@
         branchId
     ) {
 
-        if (
-            !product
-        ) {
+        if (!product) {
 
             return 0;
         }
@@ -2270,10 +2168,12 @@
         }
 
 
-        return String(
-            branchId
-        ) ===
+        return (
+            String(
+                branchId
+            ) ===
             DEFAULT_BRANCH_ID
+        )
             ? toNumber(
                 product.quantity
             )
@@ -2285,21 +2185,19 @@
         branchStock
     ) {
 
-        return Object.keys(
+        return Object.values(
             branchStock ||
             {}
         ).reduce(
             function (
                 total,
-                key
+                value
             ) {
 
                 return (
                     total +
                     toNumber(
-                        branchStock[
-                            key
-                        ]
+                        value
                     )
                 );
             },
@@ -2322,8 +2220,7 @@
             now.getFullYear() +
 
             String(
-                now.getMonth() +
-                1
+                now.getMonth() + 1
             ).padStart(
                 2,
                 "0"
@@ -2347,11 +2244,9 @@
 
 
         transfers.forEach(
-            function (
-                transfer
-            ) {
+            function (transfer) {
 
-                const number =
+                const value =
                     String(
                         transfer.transferNumber ||
                         transfer.id ||
@@ -2360,10 +2255,9 @@
 
 
                 if (
-                    number.indexOf(
+                    !value.startsWith(
                         prefix
-                    ) !==
-                    0
+                    )
                 ) {
 
                     return;
@@ -2371,22 +2265,19 @@
 
 
                 const match =
-                    number.match(
+                    value.match(
                         /(\d+)$/
                     );
 
 
-                if (
-                    match
-                ) {
+                if (match) {
 
                     highest =
                         Math.max(
                             highest,
                             Number(
                                 match[1]
-                            ) ||
-                            0
+                            ) || 0
                         );
                 }
             }
@@ -2397,8 +2288,7 @@
             prefix +
             "-" +
             String(
-                highest +
-                1
+                highest + 1
             ).padStart(
                 4,
                 "0"
@@ -2422,15 +2312,19 @@
             );
 
 
-        return currentUser
-            ? (
-                currentUser.fullName ||
-                currentUser.name ||
-                currentUser.username ||
-                currentUser.email ||
-                "System"
-            )
-            : "System";
+        if (!currentUser) {
+
+            return "System";
+        }
+
+
+        return (
+            currentUser.fullName ||
+            currentUser.name ||
+            currentUser.username ||
+            currentUser.email ||
+            "System"
+        );
     }
 
 
@@ -2450,18 +2344,12 @@
                 );
 
 
-            if (
-                !saved
-            ) {
-
-                return [];
-            }
-
-
             const parsed =
-                JSON.parse(
-                    saved
-                );
+                saved
+                    ? JSON.parse(
+                        saved
+                    )
+                    : [];
 
 
             return Array.isArray(
@@ -2471,9 +2359,7 @@
                 : [];
 
 
-        } catch (
-            error
-        ) {
+        } catch (error) {
 
             console.error(
                 "Unable to read:",
@@ -2499,9 +2385,7 @@
                 );
 
 
-            if (
-                !saved
-            ) {
+            if (!saved) {
 
                 return null;
             }
@@ -2525,9 +2409,7 @@
                 : null;
 
 
-        } catch (
-            error
-        ) {
+        } catch (error) {
 
             return null;
         }
@@ -2552,9 +2434,7 @@
             return true;
 
 
-        } catch (
-            error
-        ) {
+        } catch (error) {
 
             console.error(
                 "Unable to save:",
@@ -2581,7 +2461,6 @@
 
             new CustomEvent(
                 "jufelix:data-updated",
-
                 {
                     detail: {
 
@@ -2594,30 +2473,11 @@
                 }
             )
         );
-
-
-        document.dispatchEvent(
-
-            new CustomEvent(
-                "jufelix:dataChanged",
-
-                {
-                    detail: {
-
-                        module:
-                            "transfers",
-
-                        key:
-                            key
-                    }
-                }
-            )
-        );
     }
 
 
     /* ==========================================
-       DATE HELPERS
+       DATES
     ========================================== */
 
     function getTransferDate(
@@ -2633,6 +2493,31 @@
     }
 
 
+    function getTimestamp(
+        transfer
+    ) {
+
+        const value =
+            transfer.createdAt ||
+            transfer.transferDate ||
+            transfer.date ||
+            0;
+
+
+        const timestamp =
+            new Date(
+                value
+            ).getTime();
+
+
+        return Number.isNaN(
+            timestamp
+        )
+            ? 0
+            : timestamp;
+    }
+
+
     function getLocalDateKey(
         date
     ) {
@@ -2640,16 +2525,13 @@
         return (
             date.getFullYear() +
             "-" +
-
             String(
-                date.getMonth() +
-                1
+                date.getMonth() + 1
             ).padStart(
                 2,
                 "0"
             ) +
             "-" +
-
             String(
                 date.getDate()
             ).padStart(
@@ -2664,60 +2546,31 @@
         value
     ) {
 
-        if (
-            !value
-        ) {
+        if (!value) {
 
             return "—";
         }
 
 
-        let dateKey;
-
-
-        if (
+        const normalized =
             /^\d{4}-\d{2}-\d{2}$/.test(
                 String(
                     value
                 )
             )
-        ) {
-
-            dateKey =
-                String(
+                ? String(
                     value
-                );
-
-        } else {
-
-            const parsed =
-                new Date(
-                    value
-                );
-
-
-            if (
-                Number.isNaN(
-                    parsed.getTime()
                 )
-            ) {
-
-                return String(
-                    value
+                : getLocalDateKey(
+                    new Date(
+                        value
+                    )
                 );
-            }
-
-
-            dateKey =
-                getLocalDateKey(
-                    parsed
-                );
-        }
 
 
         const date =
             new Date(
-                dateKey +
+                normalized +
                 "T00:00:00"
             );
 
@@ -2754,20 +2607,6 @@
        FORMATTERS
     ========================================== */
 
-    function formatNumber(
-        value
-    ) {
-
-        return new Intl.NumberFormat(
-            "en-GH"
-        ).format(
-            toNumber(
-                value
-            )
-        );
-    }
-
-
     function toNumber(
         value
     ) {
@@ -2783,6 +2622,20 @@
         )
             ? number
             : 0;
+    }
+
+
+    function formatNumber(
+        value
+    ) {
+
+        return new Intl.NumberFormat(
+            "en-GH"
+        ).format(
+            toNumber(
+                value
+            )
+        );
     }
 
 
@@ -2813,9 +2666,7 @@
         value
     ) {
 
-        if (
-            element
-        ) {
+        if (element) {
 
             element.textContent =
                 value;
@@ -2828,47 +2679,28 @@
     ) {
 
         return String(
-            value ===
-                undefined ||
-            value ===
-                null
+            value === undefined ||
+            value === null
                 ? ""
                 : value
         )
-            .replace(
-                /&/g,
-                "&amp;"
-            )
-            .replace(
-                /</g,
-                "&lt;"
-            )
-            .replace(
-                />/g,
-                "&gt;"
-            )
-            .replace(
-                /"/g,
-                "&quot;"
-            )
-            .replace(
-                /'/g,
-                "&#039;"
-            );
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
     }
 
 
     /* ==========================================
-       SAVE BUTTON
+       BUTTON
     ========================================== */
 
     function setSaveButtonState(
         saving
     ) {
 
-        if (
-            !elements.saveButton
-        ) {
+        if (!elements.saveButton) {
 
             return;
         }
@@ -2886,7 +2718,7 @@
 
 
     /* ==========================================
-       MESSAGE
+       TOAST
     ========================================== */
 
     function showMessageBox(
@@ -2900,9 +2732,7 @@
             );
 
 
-        if (
-            !toast
-        ) {
+        if (!toast) {
 
             toast =
                 document.createElement(
@@ -2927,7 +2757,7 @@
                 "99999";
 
             toast.style.maxWidth =
-                "360px";
+                "380px";
 
             toast.style.padding =
                 "14px 18px";
@@ -2941,9 +2771,6 @@
             toast.style.fontWeight =
                 "700";
 
-            toast.style.transition =
-                "opacity .25s ease, transform .25s ease";
-
 
             document.body.appendChild(
                 toast
@@ -2951,13 +2778,8 @@
         }
 
 
-        const isError =
-            type ===
-            "error";
-
-
         toast.style.background =
-            isError
+            type === "error"
                 ? "#dc3545"
                 : "#198754";
 
@@ -2970,14 +2792,6 @@
             message;
 
 
-        toast.style.opacity =
-            "1";
-
-
-        toast.style.transform =
-            "translateY(0)";
-
-
         window.clearTimeout(
             showMessageBox.timer
         );
@@ -2987,14 +2801,10 @@
             window.setTimeout(
                 function () {
 
-                    toast.style.opacity =
-                        "0";
+                    toast.remove();
 
-
-                    toast.style.transform =
-                        "translateY(12px)";
                 },
-                3500
+                4500
             );
     }
 
@@ -3012,7 +2822,24 @@
             resetTransferForm,
 
         getBranchStock:
-            getBranchStock
+            getBranchStock,
+
+        syncCloud:
+            function () {
+
+                if (
+                    window.JufelixTransfersCloud &&
+                    typeof window
+                        .JufelixTransfersCloud
+                        .syncLocal ===
+                        "function"
+                ) {
+
+                    return window
+                        .JufelixTransfersCloud
+                        .syncLocal();
+                }
+            }
     };
 
 })();
