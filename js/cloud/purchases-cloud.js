@@ -4,13 +4,6 @@
 
    File:
    js/cloud/purchases-cloud.js
-
-   Responsibilities:
-   - Sync purchases to Firestore
-   - Sync received stock changes safely
-   - Sync supplier account changes
-   - Preserve branchStock
-   - Preserve local product images
 ========================================== */
 
 import {
@@ -77,13 +70,13 @@ function waitForDb(
 
                 if (
                     Date.now() -
-                        startedAt >
+                    startedAt >
                     timeout
                 ) {
 
                     reject(
                         new Error(
-                            "Firebase was not ready."
+                            "Firebase database was not ready."
                         )
                     );
 
@@ -105,6 +98,58 @@ function waitForDb(
 
 
 /* ==========================================
+   FIREBASE AUTH CHECK
+========================================== */
+
+function checkFirebaseUser() {
+
+    const firebase =
+        window.JufelixFirebase;
+
+
+    if (
+        !firebase ||
+        !firebase.auth
+    ) {
+
+        console.warn(
+            "⚠️ Firebase Auth object is unavailable."
+        );
+
+        return null;
+    }
+
+
+    const user =
+        firebase.auth.currentUser;
+
+
+    if (!user) {
+
+        console.error(
+            "❌ FIREBASE AUTH ERROR: No Firebase user is signed in."
+        );
+
+        console.error(
+            "Firestore rules require request.auth != null."
+        );
+
+        return null;
+    }
+
+
+    console.log(
+        "✅ Firebase authenticated user:",
+        user.uid,
+        user.email || ""
+    );
+
+
+    return user;
+}
+
+
+/* ==========================================
    CLEAN DATA
 ========================================== */
 
@@ -115,6 +160,7 @@ function cleanValue(
     if (
         value === undefined
     ) {
+
         return null;
     }
 
@@ -122,8 +168,9 @@ function cleanValue(
     if (
         value === null ||
         typeof value !==
-            "object"
+        "object"
     ) {
+
         return value;
     }
 
@@ -169,6 +216,83 @@ function cleanValue(
 
 
 /* ==========================================
+   FIREBASE ERROR REPORTER
+========================================== */
+
+function reportFirebaseError(
+    operation,
+    error
+) {
+
+    console.error(
+        "===================================="
+    );
+
+    console.error(
+        "❌ FIREBASE OPERATION FAILED"
+    );
+
+    console.error(
+        "Operation:",
+        operation
+    );
+
+    console.error(
+        "Code:",
+        error &&
+        error.code
+            ? error.code
+            : "unknown"
+    );
+
+    console.error(
+        "Message:",
+        error &&
+        error.message
+            ? error.message
+            : error
+    );
+
+    console.error(
+        "===================================="
+    );
+
+
+    if (
+        error &&
+        (
+            error.code ===
+            "permission-denied" ||
+
+            String(
+                error.message ||
+                ""
+            )
+                .toLowerCase()
+                .includes(
+                    "permission"
+                )
+        )
+    ) {
+
+        console.error(
+            "⚠️ Firestore Security Rules rejected this operation."
+        );
+
+
+        if (
+            !checkFirebaseUser()
+        ) {
+
+            console.error(
+                "⚠️ The likely cause is that your ERP user is logged in locally, but Firebase Authentication has no signed-in user."
+            );
+        }
+    }
+}
+
+
+/* ==========================================
    PRODUCT PREPARATION
 ========================================== */
 
@@ -197,7 +321,7 @@ function prepareProductForCloud(
 
             if (
                 typeof value ===
-                    "string" &&
+                "string" &&
                 value.startsWith(
                     "data:image/"
                 )
@@ -228,45 +352,78 @@ async function savePurchase(
     purchase
 ) {
 
-    const database =
-        await waitForDb();
+    try {
+
+        const database =
+            await waitForDb();
 
 
-    if (
-        !purchase ||
-        !purchase.id
-    ) {
+        if (
+            !purchase ||
+            !purchase.id
+        ) {
 
-        throw new Error(
-            "Purchase ID is missing."
+            throw new Error(
+                "Purchase ID is missing."
+            );
+        }
+
+
+        console.log(
+            "☁️ Uploading purchase:",
+            purchase.purchaseNo ||
+            purchase.id
         );
-    }
 
 
-    await setDoc(
+        await setDoc(
 
-        doc(
-            database,
-            "purchases",
-            String(
-                purchase.id
-            )
-        ),
-
-        {
-            ...cleanValue(
-                purchase
+            doc(
+                database,
+                "purchases",
+                String(
+                    purchase.id
+                )
             ),
 
-            cloudUpdatedAt:
-                serverTimestamp()
-        },
+            {
+                ...cleanValue(
+                    purchase
+                ),
 
-        {
-            merge:
-                true
-        }
-    );
+                cloudUpdatedAt:
+                    serverTimestamp()
+            },
+
+            {
+                merge:
+                    true
+            }
+        );
+
+
+        console.log(
+            "✅ Purchase uploaded to Firestore:",
+            purchase.purchaseNo ||
+            purchase.id
+        );
+
+
+        return true;
+
+
+    } catch (
+        error
+    ) {
+
+        reportFirebaseError(
+            "SAVE PURCHASE",
+            error
+        );
+
+
+        throw error;
+    }
 }
 
 
@@ -278,40 +435,66 @@ async function saveProduct(
     product
 ) {
 
-    const database =
-        await waitForDb();
+    try {
+
+        const database =
+            await waitForDb();
 
 
-    if (
-        !product ||
-        !product.id
+        if (
+            !product ||
+            !product.id
+        ) {
+
+            throw new Error(
+                "Product ID is missing."
+            );
+        }
+
+
+        await setDoc(
+
+            doc(
+                database,
+                "products",
+                String(
+                    product.id
+                )
+            ),
+
+            prepareProductForCloud(
+                product
+            ),
+
+            {
+                merge:
+                    true
+            }
+        );
+
+
+        console.log(
+            "✅ Product stock synced:",
+            product.name ||
+            product.id
+        );
+
+
+        return true;
+
+
+    } catch (
+        error
     ) {
 
-        throw new Error(
-            "Product ID is missing."
+        reportFirebaseError(
+            "SAVE PRODUCT",
+            error
         );
+
+
+        throw error;
     }
-
-
-    await setDoc(
-
-        doc(
-            database,
-            "products",
-            String(
-                product.id
-            )
-        ),
-
-        prepareProductForCloud(
-            product
-        ),
-
-        {
-            merge:
-                true
-        }
-    );
 }
 
 
@@ -323,65 +506,101 @@ async function saveSupplier(
     supplier
 ) {
 
-    const database =
-        await waitForDb();
+    try {
+
+        const database =
+            await waitForDb();
 
 
-    if (
-        !supplier ||
-        !supplier.id
-    ) {
+        if (
+            !supplier ||
+            !supplier.id
+        ) {
 
-        throw new Error(
-            "Supplier ID is missing."
-        );
-    }
+            throw new Error(
+                "Supplier ID is missing."
+            );
+        }
 
 
-    await setDoc(
+        await setDoc(
 
-        doc(
-            database,
-            "suppliers",
-            String(
-                supplier.id
-            )
-        ),
-
-        {
-            ...cleanValue(
-                supplier
+            doc(
+                database,
+                "suppliers",
+                String(
+                    supplier.id
+                )
             ),
 
-            cloudUpdatedAt:
-                serverTimestamp()
-        },
+            {
+                ...cleanValue(
+                    supplier
+                ),
 
-        {
-            merge:
-                true
-        }
-    );
+                cloudUpdatedAt:
+                    serverTimestamp()
+            },
+
+            {
+                merge:
+                    true
+            }
+        );
+
+
+        console.log(
+            "✅ Supplier synced:",
+            supplier.name ||
+            supplier.id
+        );
+
+
+        return true;
+
+
+    } catch (
+        error
+    ) {
+
+        reportFirebaseError(
+            "SAVE SUPPLIER",
+            error
+        );
+
+
+        throw error;
+    }
 }
 
 
 /* ==========================================
-   INITIAL LOCAL SYNC
+   INITIAL LOCAL PURCHASE SYNC
 ========================================== */
 
-async function syncLocal(
-    purchases,
-    suppliers
-) {
+async function syncLocal() {
+
+    await waitForDb();
+
 
     const localPurchases =
-        Array.isArray(
-            purchases
-        )
-            ? purchases
-            : readArray(
-                PURCHASES_KEY
-            );
+        readArray(
+            PURCHASES_KEY
+        );
+
+
+    console.log(
+        "☁️ Local purchases waiting for sync:",
+        localPurchases.length
+    );
+
+
+    let successfulPurchases =
+        0;
+
+
+    let failedPurchases =
+        0;
 
 
     for (
@@ -390,38 +609,56 @@ async function syncLocal(
     ) {
 
         if (
-            purchase &&
-            purchase.id
+            !purchase ||
+            !purchase.id
         ) {
 
-            try {
+            continue;
+        }
 
-                await savePurchase(
-                    purchase
-                );
 
-            } catch (
-                error
-            ) {
+        try {
 
-                console.warn(
-                    "Existing purchase sync failed:",
-                    purchase.id,
-                    error
-                );
-            }
+            await savePurchase(
+                purchase
+            );
+
+
+            successfulPurchases++;
+
+
+        } catch (
+            error
+        ) {
+
+            failedPurchases++;
+
+
+            console.error(
+                "Purchase sync failed:",
+                purchase.purchaseNo ||
+                purchase.id
+            );
         }
     }
 
 
+    console.log(
+        "Purchase cloud sync result:",
+        {
+            successful:
+                successfulPurchases,
+
+            failed:
+                failedPurchases
+        }
+    );
+
+
     const localSuppliers =
-        Array.isArray(
-            suppliers
-        )
-            ? suppliers
-            : readArray(
-                SUPPLIERS_KEY
-            );
+        readArray(
+            SUPPLIERS_KEY
+        );
 
 
     for (
@@ -430,28 +667,42 @@ async function syncLocal(
     ) {
 
         if (
-            supplier &&
-            supplier.id
+            !supplier ||
+            !supplier.id
         ) {
 
-            try {
+            continue;
+        }
 
-                await saveSupplier(
-                    supplier
-                );
 
-            } catch (
-                error
-            ) {
+        try {
 
-                console.warn(
-                    "Existing supplier sync failed:",
-                    supplier.id,
-                    error
-                );
-            }
+            await saveSupplier(
+                supplier
+            );
+
+
+        } catch (
+            error
+        ) {
+
+            console.warn(
+                "Supplier sync failed:",
+                supplier.name ||
+                supplier.id
+            );
         }
     }
+
+
+    return {
+
+        purchasesSynced:
+            successfulPurchases,
+
+        purchasesFailed:
+            failedPurchases
+    };
 }
 
 
@@ -476,9 +727,14 @@ function listen(
                 if (
                     cancelled
                 ) {
+
                     return;
                 }
 
+
+                /* ==================================
+                   PURCHASES
+                ================================== */
 
                 stopPurchases =
                     onSnapshot(
@@ -499,6 +755,7 @@ function listen(
                                     ) {
 
                                         return {
+
                                             id:
                                                 item.id,
 
@@ -541,9 +798,24 @@ function listen(
                                     merged
                                 );
                             }
+                        },
+
+
+                        function (
+                            error
+                        ) {
+
+                            reportFirebaseError(
+                                "PURCHASE LISTENER",
+                                error
+                            );
                         }
                     );
 
+
+                /* ==================================
+                   PRODUCTS
+                ================================== */
 
                 stopProducts =
                     onSnapshot(
@@ -564,6 +836,7 @@ function listen(
                                     ) {
 
                                         return {
+
                                             id:
                                                 item.id,
 
@@ -606,9 +879,24 @@ function listen(
                                     mergedProducts
                                 );
                             }
+                        },
+
+
+                        function (
+                            error
+                        ) {
+
+                            reportFirebaseError(
+                                "PRODUCT LISTENER",
+                                error
+                            );
                         }
                     );
 
+
+                /* ==================================
+                   SUPPLIERS
+                ================================== */
 
                 stopSuppliers =
                     onSnapshot(
@@ -629,6 +917,7 @@ function listen(
                                     ) {
 
                                         return {
+
                                             id:
                                                 item.id,
 
@@ -671,6 +960,17 @@ function listen(
                                     merged
                                 );
                             }
+                        },
+
+
+                        function (
+                            error
+                        ) {
+
+                            reportFirebaseError(
+                                "SUPPLIER LISTENER",
+                                error
+                            );
                         }
                     );
             }
@@ -680,8 +980,8 @@ function listen(
                 error
             ) {
 
-                console.warn(
-                    "Purchases cloud listener unavailable:",
+                reportFirebaseError(
+                    "START LISTENERS",
                     error
                 );
             }
@@ -697,6 +997,7 @@ function listen(
         if (
             stopPurchases
         ) {
+
             stopPurchases();
         }
 
@@ -704,6 +1005,7 @@ function listen(
         if (
             stopProducts
         ) {
+
             stopProducts();
         }
 
@@ -711,6 +1013,7 @@ function listen(
         if (
             stopSuppliers
         ) {
+
             stopSuppliers();
         }
     };
@@ -730,7 +1033,13 @@ function mergeProductsSafely(
         new Map();
 
 
-    localProducts.forEach(
+    (
+        Array.isArray(
+            localProducts
+        )
+            ? localProducts
+            : []
+    ).forEach(
         function (
             product
         ) {
@@ -744,6 +1053,7 @@ function mergeProductsSafely(
                     String(
                         product.id
                     ),
+
                     {
                         ...product
                     }
@@ -753,7 +1063,13 @@ function mergeProductsSafely(
     );
 
 
-    cloudProducts.forEach(
+    (
+        Array.isArray(
+            cloudProducts
+        )
+            ? cloudProducts
+            : []
+    ).forEach(
         function (
             cloudProduct
         ) {
@@ -762,6 +1078,7 @@ function mergeProductsSafely(
                 !cloudProduct ||
                 !cloudProduct.id
             ) {
+
                 return;
             }
 
@@ -893,6 +1210,7 @@ function mergeRecords(
                     String(
                         row.id
                     ),
+
                     {
                         ...row
                     }
@@ -917,6 +1235,7 @@ function mergeRecords(
                 !row ||
                 !row.id
             ) {
+
                 return;
             }
 
@@ -929,6 +1248,7 @@ function mergeRecords(
 
             map.set(
                 id,
+
                 {
                     ...(
                         map.get(
@@ -963,7 +1283,7 @@ function normalizeBranchStock(
     if (
         !branchStock ||
         typeof branchStock !==
-            "object" ||
+        "object" ||
         Array.isArray(
             branchStock
         )
@@ -1036,6 +1356,7 @@ function removeCloudFields(
 ) {
 
     const result = {
+
         ...(
             data ||
             {}
@@ -1080,9 +1401,17 @@ function readArray(
             ? parsed
             : [];
 
+
     } catch (
         error
     ) {
+
+        console.error(
+            "Cloud storage read failed:",
+            key,
+            error
+        );
+
 
         return [];
     }
@@ -1173,11 +1502,13 @@ window.JufelixPurchasesCloud = {
         syncLocal,
 
     listen:
-        listen
+        listen,
+
+    checkFirebaseUser:
+        checkFirebaseUser
 };
 
 
-/* ==========================================
 /* ==========================================
    READY
 ========================================== */
@@ -1187,63 +1518,53 @@ waitForDb()
         async function () {
 
             console.log(
-                "Jufelix Purchases Cloud ready."
+                "✅ Jufelix Purchases Cloud ready."
             );
 
 
-            /* ==========================================
-               UPLOAD EXISTING LOCAL DATA
-            ========================================== */
+            /*
+             * Show Firebase authentication
+             * status immediately.
+             */
+            checkFirebaseUser();
+
 
             try {
 
-                await syncLocal();
+                const result =
+                    await syncLocal();
+
 
                 console.log(
-                    "Existing purchases synced to Firebase."
+                    "Initial purchases cloud sync:",
+                    result
                 );
+
 
             } catch (
                 error
             ) {
 
-                console.error(
-                    "Initial purchase sync failed:",
+                reportFirebaseError(
+                    "INITIAL LOCAL SYNC",
                     error
                 );
             }
 
 
-            /* ==========================================
-               START REALTIME FIREBASE LISTENERS
-            ========================================== */
+            listen(
+                function (
+                    type,
+                    records
+                ) {
 
-            try {
-
-                listen(
-                    function (
+                    console.log(
+                        "☁️ Firebase realtime update:",
                         type,
-                        records
-                    ) {
-
-                        console.log(
-                            "Purchases cloud update:",
-                            type,
-                            records.length
-                        );
-                    }
-                );
-
-            } catch (
-                error
-            ) {
-
-                console.warn(
-                    "Purchases realtime listener failed:",
-                    error
-                );
-            }
-
+                        records.length
+                    );
+                }
+            );
         }
     )
     .catch(
@@ -1251,8 +1572,8 @@ waitForDb()
             error
         ) {
 
-            console.warn(
-                "Purchases Cloud starting offline:",
+            reportFirebaseError(
+                "PURCHASE CLOUD STARTUP",
                 error
             );
         }
@@ -1265,6 +1586,5 @@ waitForDb()
                     "jufelix:purchases-cloud-ready"
                 )
             );
-
         }
     );
