@@ -7,7 +7,9 @@
    + Paid / Partial / Credit
    + Amount Paid / Amount Due
    + Stock Ledger
+   + Firebase Cloud Sync
    + Mobile-Friendly Selects
+   + Reliable Save Purchase Button
 
    File:
    js/modules/purchases.js
@@ -51,13 +53,11 @@
     ========================================== */
 
     let products = [];
-
     let purchases = [];
-
     let branches = [];
-
     let suppliers = [];
 
+    let saveInProgress = false;
 
     const el = {};
 
@@ -87,6 +87,17 @@
         }
 
 
+        /*
+         * IMPORTANT
+         *
+         * We use our own JavaScript validation.
+         * Native browser validation can fail
+         * silently because our real select
+         * elements are hidden on mobile.
+         */
+        el.form.noValidate = true;
+
+
         loadData();
 
         ensureHeadOffice();
@@ -107,7 +118,7 @@
 
 
         console.log(
-            "Jufelix Purchases module loaded."
+            "✅ Jufelix Purchases module loaded."
         );
     }
 
@@ -123,72 +134,60 @@
                 "purchaseForm"
             );
 
-
         el.number =
             document.getElementById(
                 "purchaseNo"
             );
-
 
         el.date =
             document.getElementById(
                 "purchaseDate"
             );
 
-
         el.branch =
             document.getElementById(
                 "purchaseBranch"
             );
-
 
         el.supplier =
             document.getElementById(
                 "purchaseSupplier"
             );
 
-
         el.customSupplierGroup =
             document.getElementById(
                 "customSupplierGroup"
             );
-
 
         el.customSupplier =
             document.getElementById(
                 "customSupplierName"
             );
 
-
         el.product =
             document.getElementById(
                 "purchaseProduct"
             );
-
 
         el.status =
             document.getElementById(
                 "purchaseStatus"
             );
 
-
         el.quantity =
             document.getElementById(
                 "purchaseQty"
             );
-
 
         el.cost =
             document.getElementById(
                 "purchaseCost"
             );
 
-
         el.total =
             document.getElementById(
                 "purchaseTotal"
             );
-
 
         el.reference =
             document.getElementById(
@@ -205,24 +204,20 @@
                 "purchasePaymentStatus"
             );
 
-
         el.paymentMethod =
             document.getElementById(
                 "purchasePaymentMethod"
             );
-
 
         el.amountPaid =
             document.getElementById(
                 "purchaseAmountPaid"
             );
 
-
         el.amountDue =
             document.getElementById(
                 "purchaseAmountDue"
             );
-
 
         el.paymentSummary =
             document.getElementById(
@@ -239,30 +234,25 @@
                 "purchaseSearch"
             );
 
-
         el.statusFilter =
             document.getElementById(
                 "purchaseStatusFilter"
             );
-
 
         el.dateFilter =
             document.getElementById(
                 "purchaseDateFilter"
             );
 
-
         el.tableBody =
             document.getElementById(
                 "purchaseTableBody"
             );
 
-
         el.resetButton =
             document.getElementById(
                 "resetPurchaseButton"
             );
-
 
         el.saveButton =
             document.getElementById(
@@ -277,10 +267,36 @@
 
     function connectEvents() {
 
+        /*
+         * Keyboard / normal form submit.
+         */
         el.form.addEventListener(
             "submit",
             savePurchase
         );
+
+
+        /*
+         * RELIABLE MOBILE SAVE BUTTON
+         *
+         * We prevent the browser's normal
+         * submission and call our save function
+         * directly.
+         */
+        if (el.saveButton) {
+
+            el.saveButton.addEventListener(
+                "click",
+                function (event) {
+
+                    event.preventDefault();
+
+                    savePurchase(
+                        event
+                    );
+                }
+            );
+        }
 
 
         if (el.product) {
@@ -308,7 +324,6 @@
                 calculateTotal
             );
 
-
             el.quantity.addEventListener(
                 "change",
                 calculateTotal
@@ -322,7 +337,6 @@
                 "input",
                 calculateTotal
             );
-
 
             el.cost.addEventListener(
                 "change",
@@ -350,7 +364,6 @@
                 "input",
                 calculatePayment
             );
-
 
             el.amountPaid.addEventListener(
                 "change",
@@ -394,7 +407,6 @@
 
                     event.preventDefault();
 
-
                     prepareNewPurchase(
                         true
                     );
@@ -404,7 +416,7 @@
 
 
         /* ======================================
-           OTHER TAB / WINDOW DATA CHANGES
+           OTHER TAB / WINDOW CHANGES
         ====================================== */
 
         window.addEventListener(
@@ -440,12 +452,25 @@
 
         document.addEventListener(
             "jufelix:data-updated",
-            function () {
+            function (event) {
 
-                suppliers =
-                    readArray(
-                        SUPPLIERS_KEY
-                    );
+                const key =
+                    event &&
+                    event.detail
+                        ? event.detail.key
+                        : "";
+
+
+                if (
+                    !key ||
+                    key === SUPPLIERS_KEY
+                ) {
+
+                    suppliers =
+                        readArray(
+                            SUPPLIERS_KEY
+                        );
+                }
             }
         );
     }
@@ -462,18 +487,15 @@
                 PRODUCTS_KEY
             );
 
-
         purchases =
             readArray(
                 PURCHASES_KEY
             );
 
-
         branches =
             readArray(
                 BRANCHES_KEY
             );
-
 
         suppliers =
             readArray(
@@ -814,8 +836,11 @@
             !isCustom;
 
 
+        /*
+         * We do our own validation.
+         */
         el.customSupplier.required =
-            isCustom;
+            false;
 
 
         if (!isCustom) {
@@ -1010,7 +1035,6 @@
             el.amountPaid.readOnly =
                 true;
 
-
             el.amountPaid.value =
                 total.toFixed(2);
 
@@ -1022,15 +1046,10 @@
             el.amountPaid.readOnly =
                 true;
 
-
             el.amountPaid.value =
                 "0.00";
 
         } else {
-
-            /*
-             * PARTLY PAID
-             */
 
             el.amountPaid.readOnly =
                 false;
@@ -1129,10 +1148,6 @@
             }
 
 
-            /*
-             * Do not allow negative paid amount.
-             */
-
             amountPaid =
                 Math.max(
                     0,
@@ -1140,11 +1155,6 @@
                 );
         }
 
-
-        /*
-         * For display only we clamp due to zero.
-         * Saving still validates overpayments.
-         */
 
         const amountDue =
             Math.max(
@@ -1220,7 +1230,32 @@
         event
     ) {
 
-        event.preventDefault();
+        if (event) {
+
+            event.preventDefault();
+
+            if (
+                typeof event.stopPropagation ===
+                "function"
+            ) {
+
+                event.stopPropagation();
+            }
+        }
+
+
+        /*
+         * Prevent accidental double-save.
+         */
+        if (saveInProgress) {
+
+            return;
+        }
+
+
+        console.log(
+            "💾 Save Purchase clicked."
+        );
 
 
         loadData();
@@ -1477,12 +1512,6 @@
         }
 
 
-        /*
-         * Credit / partial purchases must use
-         * a registered supplier because we need
-         * an account to store the balance.
-         */
-
         if (
             status ===
                 "received" &&
@@ -1512,15 +1541,14 @@
             );
 
 
+        saveInProgress =
+            true;
+
+
         setSaveButtonState(
             true
         );
 
-
-        /*
-         * Snapshots allow us to restore
-         * important local data if something fails.
-         */
 
         const oldProducts =
             readArray(
@@ -1670,7 +1698,7 @@
 
 
             /* ==================================
-               RECEIVED = STOCK + SUPPLIER
+               RECEIVED = STOCK
             ================================== */
 
             if (
@@ -1705,10 +1733,9 @@
             );
 
 
-            /*
-             * Supplier account is changed only
-             * for RECEIVED purchases.
-             */
+            /* ==================================
+               SUPPLIER ACCOUNT
+            ================================== */
 
             if (
                 status ===
@@ -1736,120 +1763,22 @@
                 purchase
             );
 
-/* ==================================
-   FIREBASE PURCHASE SYNC
-================================== */
 
-if (
-    window.JufelixPurchasesCloud
-) {
+            /* ==================================
+               FIREBASE CLOUD SYNC
+            ================================== */
 
-    const cloudTasks = [];
-
-
-    /* Save purchase */
-    cloudTasks.push(
-        window.JufelixPurchasesCloud
-            .savePurchase(
-                purchase
-            )
-    );
-
-
-    /* Sync updated product stock */
-    if (
-        status === "received"
-    ) {
-
-        const updatedProducts =
-            readArray(
-                PRODUCTS_KEY
+            syncPurchaseToCloud(
+                purchase,
+                product,
+                supplierData,
+                status
             );
 
 
-        const updatedProduct =
-            updatedProducts.find(
-                function (item) {
-
-                    return (
-                        String(item.id) ===
-                        String(product.id)
-                    );
-                }
-            );
-
-
-        if (updatedProduct) {
-
-            cloudTasks.push(
-                window.JufelixPurchasesCloud
-                    .saveProduct(
-                        updatedProduct
-                    )
-            );
-        }
-    }
-
-
-    /* Sync supplier account */
-    if (
-        status === "received" &&
-        supplierData.id
-    ) {
-
-        const updatedSuppliers =
-            readArray(
-                SUPPLIERS_KEY
-            );
-
-
-        const updatedSupplier =
-            updatedSuppliers.find(
-                function (item) {
-
-                    return (
-                        String(item.id) ===
-                        String(
-                            supplierData.id
-                        )
-                    );
-                }
-            );
-
-
-        if (updatedSupplier) {
-
-            cloudTasks.push(
-                window.JufelixPurchasesCloud
-                    .saveSupplier(
-                        updatedSupplier
-                    )
-            );
-        }
-    }
-
-
-    Promise.all(
-        cloudTasks
-    )
-        .then(
-            function () {
-
-                console.log(
-                    "✅ Purchase, stock and supplier synced successfully to Firebase."
-                );
-            }
-        )
-        .catch(
-            function (error) {
-
-                console.error(
-                    "❌ Purchase Firebase sync failed:",
-                    error
-                );
-            }
-        );
-}
+            /* ==================================
+               SUCCESS MESSAGE
+            ================================== */
 
             if (
                 status ===
@@ -1893,18 +1822,24 @@ if (
             refreshPurchases();
 
 
+            console.log(
+                "✅ Purchase saved locally:",
+                purchase.purchaseNo
+            );
+
+
         } catch (error) {
 
             console.error(
-                "Purchase save error:",
+                "❌ Purchase save error:",
                 error
             );
 
 
             /*
-             * Restore data if any part failed.
+             * Restore data if local transaction
+             * failed.
              */
-
             writeArray(
                 PRODUCTS_KEY,
                 oldProducts
@@ -1932,10 +1867,8 @@ if (
             products =
                 oldProducts;
 
-
             purchases =
                 oldPurchases;
-
 
             suppliers =
                 oldSuppliers;
@@ -1950,8 +1883,205 @@ if (
 
         } finally {
 
+            saveInProgress =
+                false;
+
+
             setSaveButtonState(
                 false
+            );
+        }
+    }
+
+
+    /* ==========================================
+       FIREBASE PURCHASE SYNC
+    ========================================== */
+
+    function syncPurchaseToCloud(
+        purchase,
+        product,
+        supplierData,
+        status
+    ) {
+
+        if (
+            !window.JufelixPurchasesCloud
+        ) {
+
+            console.warn(
+                "⚠️ Purchases Cloud API is not ready. Purchase remains saved locally."
+            );
+
+            return;
+        }
+
+
+        const cloudTasks = [];
+
+
+        try {
+
+            if (
+                typeof window
+                    .JufelixPurchasesCloud
+                    .savePurchase ===
+                "function"
+            ) {
+
+                cloudTasks.push(
+                    window
+                        .JufelixPurchasesCloud
+                        .savePurchase(
+                            purchase
+                        )
+                );
+            }
+
+
+            /* ==================================
+               UPDATED PRODUCT STOCK
+            ================================== */
+
+            if (
+                status ===
+                "received" &&
+                typeof window
+                    .JufelixPurchasesCloud
+                    .saveProduct ===
+                "function"
+            ) {
+
+                const updatedProducts =
+                    readArray(
+                        PRODUCTS_KEY
+                    );
+
+
+                const updatedProduct =
+                    updatedProducts.find(
+                        function (item) {
+
+                            return (
+                                String(
+                                    item.id
+                                ) ===
+                                String(
+                                    product.id
+                                )
+                            );
+                        }
+                    );
+
+
+                if (updatedProduct) {
+
+                    cloudTasks.push(
+                        window
+                            .JufelixPurchasesCloud
+                            .saveProduct(
+                                updatedProduct
+                            )
+                    );
+                }
+            }
+
+
+            /* ==================================
+               UPDATED SUPPLIER
+            ================================== */
+
+            if (
+                status ===
+                    "received" &&
+                supplierData.id &&
+                typeof window
+                    .JufelixPurchasesCloud
+                    .saveSupplier ===
+                    "function"
+            ) {
+
+                const updatedSuppliers =
+                    readArray(
+                        SUPPLIERS_KEY
+                    );
+
+
+                const updatedSupplier =
+                    updatedSuppliers.find(
+                        function (item) {
+
+                            return (
+                                String(
+                                    item.id
+                                ) ===
+                                String(
+                                    supplierData.id
+                                )
+                            );
+                        }
+                    );
+
+
+                if (updatedSupplier) {
+
+                    cloudTasks.push(
+                        window
+                            .JufelixPurchasesCloud
+                            .saveSupplier(
+                                updatedSupplier
+                            )
+                    );
+                }
+            }
+
+
+            if (
+                cloudTasks.length ===
+                0
+            ) {
+
+                return;
+            }
+
+
+            Promise.all(
+                cloudTasks
+            )
+                .then(
+                    function () {
+
+                        console.log(
+                            "✅ Purchase, stock and supplier synced successfully to Firebase."
+                        );
+                    }
+                )
+                .catch(
+                    function (error) {
+
+                        console.error(
+                            "❌ Purchase Firebase sync failed:",
+                            error
+                        );
+
+
+                        /*
+                         * Do NOT delete local purchase.
+                         * Cloud sync can retry later.
+                         */
+                        showToast(
+                            "Purchase saved locally. Firebase sync will retry.",
+                            "error"
+                        );
+                    }
+                );
+
+
+        } catch (error) {
+
+            console.error(
+                "❌ Firebase purchase sync setup failed:",
+                error
             );
         }
     }
@@ -1965,11 +2095,6 @@ if (
         supplierId,
         purchase
     ) {
-
-        /*
-         * Preferred method:
-         * use the Supplier module API.
-         */
 
         if (
             window.JufelixSuppliers &&
@@ -2021,11 +2146,6 @@ if (
             return true;
         }
 
-
-        /*
-         * FALLBACK:
-         * Update local supplier storage directly.
-         */
 
         suppliers =
             readArray(
@@ -2172,11 +2292,9 @@ if (
 
 
         /*
-         * Compatibility:
-         * products created before branchStock
-         * existed belong to Head Office.
+         * Compatibility for old products
+         * created before branchStock existed.
          */
-
         if (
             !Object.prototype
                 .hasOwnProperty.call(
@@ -2475,6 +2593,9 @@ if (
 
             el.customSupplier.value =
                 "";
+
+            el.customSupplier.required =
+                false;
         }
 
 
@@ -2482,13 +2603,6 @@ if (
 
             el.customSupplierGroup.hidden =
                 true;
-        }
-
-
-        if (el.customSupplier) {
-
-            el.customSupplier.required =
-                false;
         }
 
 
@@ -2539,9 +2653,7 @@ if (
 
         populateBranches();
 
-
         calculatePayment();
-
 
         refreshAllMobileButtons();
     }
@@ -2694,7 +2806,6 @@ if (
 
                 </tr>
             `;
-
 
             return;
         }
@@ -2870,7 +2981,6 @@ if (
                                 </td>
 
                             </tr>
-
                         `;
                     }
                 )
@@ -3311,12 +3421,6 @@ if (
         }
 
 
-        /*
-         * Legacy purchases did not store
-         * payment information.
-         * Treat them as paid for display only.
-         */
-
         return "paid";
     }
 
@@ -3346,10 +3450,6 @@ if (
             );
         }
 
-
-        /*
-         * Old purchase compatibility.
-         */
 
         return getPurchaseTotal(
             purchase
@@ -3477,6 +3577,14 @@ if (
 
         select.style.display =
             "none";
+
+
+        /*
+         * Native required validation is not
+         * needed because purchases.js validates.
+         */
+        select.required =
+            false;
 
 
         const button =
@@ -4529,13 +4637,6 @@ if (
         }
 
 
-        /*
-         * Accept:
-         * 500
-         * 500.50
-         * 500,50
-         */
-
         if (
             text.includes(",") &&
             !text.includes(".")
@@ -4811,7 +4912,7 @@ if (
 
         const oldToast =
             document.querySelector(
-                ".toast"
+                ".purchase-toast"
             );
 
 
@@ -4828,7 +4929,7 @@ if (
 
 
         toast.className =
-            "toast" +
+            "toast purchase-toast" +
             (
                 type ===
                 "error"
@@ -4849,7 +4950,10 @@ if (
         window.setTimeout(
             function () {
 
-                toast.remove();
+                if (toast) {
+
+                    toast.remove();
+                }
 
             },
             3200
@@ -4890,6 +4994,21 @@ if (
                 calculateTotal();
 
                 calculatePayment();
+            },
+
+
+        save:
+            function () {
+
+                savePurchase(
+                    {
+                        preventDefault:
+                            function () {},
+
+                        stopPropagation:
+                            function () {}
+                    }
+                );
             }
     };
 
