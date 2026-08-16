@@ -1,20 +1,14 @@
 /* ==========================================
    JUFELIX ERP v7.0 PROFESSIONAL
-   TRANSFERS CLOUD BRIDGE
+   EXPENSES CLOUD BRIDGE
 
    File:
-   js/cloud/transfers-cloud.js
-
-   Responsibilities:
-   - Save transfer records to Firestore
-   - Sync updated product branchStock
-   - Import cloud transfers to local storage
-   - Preserve local product images
-   - Never move stock by itself
+   js/cloud/expenses-cloud.js
 ========================================== */
 
 import {
     collection,
+    deleteDoc,
     doc,
     onSnapshot,
     serverTimestamp,
@@ -22,17 +16,13 @@ import {
 } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js";
 
 
-const PRODUCTS_KEY =
-    "jufelix_products";
-
-const TRANSFERS_KEY =
-    "jufelix_v7_transfers";
+const EXPENSES_KEY =
+    "jufelix_v7_expenses";
 
 
 let db = null;
 
-let stopTransfers = null;
-let stopProducts = null;
+let stopExpenses = null;
 
 
 /* ==========================================
@@ -118,8 +108,7 @@ function cleanValue(
 
     if (
         value === null ||
-        typeof value !==
-            "object"
+        typeof value !== "object"
     ) {
 
         return value;
@@ -167,61 +156,6 @@ function cleanValue(
 
 
 /* ==========================================
-   PRODUCT PREPARATION
-========================================== */
-
-function prepareProductForCloud(
-    product
-) {
-
-    const data =
-        cleanValue(
-            product
-        ) || {};
-
-
-    /*
-     * Keep large base64 images local.
-     */
-    [
-        "image",
-        "imageData",
-        "photo"
-    ].forEach(
-        function (
-            field
-        ) {
-
-            const value =
-                data[field];
-
-
-            if (
-                typeof value ===
-                    "string" &&
-                value.startsWith(
-                    "data:image/"
-                )
-            ) {
-
-                delete data[field];
-
-                data.imageStoredLocally =
-                    true;
-            }
-        }
-    );
-
-
-    data.cloudUpdatedAt =
-        serverTimestamp();
-
-
-    return data;
-}
-
-
-/* ==========================================
    FIREBASE ERROR
 ========================================== */
 
@@ -231,7 +165,7 @@ function reportError(
 ) {
 
     console.error(
-        "❌ Transfers Firebase error:",
+        "❌ Expenses Firebase error:",
         operation,
         error
     );
@@ -240,22 +174,22 @@ function reportError(
     if (
         error &&
         error.code ===
-            "permission-denied"
+        "permission-denied"
     ) {
 
         console.error(
-            "Firestore rules rejected the Transfers operation."
+            "Firestore rules rejected the Expenses operation."
         );
     }
 }
 
 
 /* ==========================================
-   SAVE TRANSFER
+   SAVE / UPDATE EXPENSE
 ========================================== */
 
-async function saveTransfer(
-    transfer
+async function saveExpense(
+    expense
 ) {
 
     try {
@@ -265,12 +199,12 @@ async function saveTransfer(
 
 
         if (
-            !transfer ||
-            !transfer.id
+            !expense ||
+            !expense.id
         ) {
 
             throw new Error(
-                "Transfer ID is missing."
+                "Expense ID is missing."
             );
         }
 
@@ -279,15 +213,15 @@ async function saveTransfer(
 
             doc(
                 database,
-                "transfers",
+                "expenses",
                 String(
-                    transfer.id
+                    expense.id
                 )
             ),
 
             {
                 ...cleanValue(
-                    transfer
+                    expense
                 ),
 
                 cloudUpdatedAt:
@@ -302,9 +236,9 @@ async function saveTransfer(
 
 
         console.log(
-            "✅ Transfer synced to Firebase:",
-            transfer.transferNumber ||
-            transfer.id
+            "✅ Expense synced to Firebase:",
+            expense.expenseNumber ||
+            expense.id
         );
 
 
@@ -316,7 +250,7 @@ async function saveTransfer(
     ) {
 
         reportError(
-            "SAVE TRANSFER",
+            "SAVE EXPENSE",
             error
         );
 
@@ -327,11 +261,11 @@ async function saveTransfer(
 
 
 /* ==========================================
-   SAVE UPDATED PRODUCT STOCK
+   DELETE EXPENSE
 ========================================== */
 
-async function saveProduct(
-    product
+async function deleteExpense(
+    expenseId
 ) {
 
     try {
@@ -340,42 +274,28 @@ async function saveProduct(
             await waitForDb();
 
 
-        if (
-            !product ||
-            !product.id
-        ) {
+        if (!expenseId) {
 
             throw new Error(
-                "Product ID is missing."
+                "Expense ID is missing."
             );
         }
 
 
-        await setDoc(
-
+        await deleteDoc(
             doc(
                 database,
-                "products",
+                "expenses",
                 String(
-                    product.id
+                    expenseId
                 )
-            ),
-
-            prepareProductForCloud(
-                product
-            ),
-
-            {
-                merge:
-                    true
-            }
+            )
         );
 
 
         console.log(
-            "✅ Transfer stock synced:",
-            product.name ||
-            product.id
+            "✅ Expense deleted from Firebase:",
+            expenseId
         );
 
 
@@ -387,7 +307,7 @@ async function saveProduct(
     ) {
 
         reportError(
-            "SAVE TRANSFER PRODUCT",
+            "DELETE EXPENSE",
             error
         );
 
@@ -398,7 +318,7 @@ async function saveProduct(
 
 
 /* ==========================================
-   SYNC EXISTING LOCAL TRANSFERS
+   SYNC EXISTING LOCAL EXPENSES
 ========================================== */
 
 async function syncLocal() {
@@ -406,27 +326,34 @@ async function syncLocal() {
     await waitForDb();
 
 
-    const localTransfers =
+    const expenses =
         readArray(
-            TRANSFERS_KEY
+            EXPENSES_KEY
         );
+
+
+    console.log(
+        "☁️ Expenses waiting for cloud sync:",
+        expenses.length
+    );
 
 
     let successful =
         0;
+
 
     let failed =
         0;
 
 
     for (
-        const transfer of
-        localTransfers
+        const expense of
+        expenses
     ) {
 
         if (
-            !transfer ||
-            !transfer.id
+            !expense ||
+            !expense.id
         ) {
 
             continue;
@@ -435,8 +362,8 @@ async function syncLocal() {
 
         try {
 
-            await saveTransfer(
-                transfer
+            await saveExpense(
+                expense
             );
 
 
@@ -453,29 +380,23 @@ async function syncLocal() {
 
 
     console.log(
-        "Transfers cloud sync finished:",
+        "Expenses cloud sync finished:",
         {
-            successful:
-                successful,
-
-            failed:
-                failed
+            successful,
+            failed
         }
     );
 
 
     return {
-        successful:
-            successful,
-
-        failed:
-            failed
+        successful,
+        failed
     };
 }
 
 
 /* ==========================================
-   REALTIME LISTENERS
+   REALTIME LISTENER
 ========================================== */
 
 function listen(
@@ -492,31 +413,24 @@ function listen(
                 database
             ) {
 
-                if (
-                    cancelled
-                ) {
-
+                if (cancelled) {
                     return;
                 }
 
 
-                /* ==================================
-                   TRANSFERS
-                ================================== */
-
-                stopTransfers =
+                stopExpenses =
                     onSnapshot(
 
                         collection(
                             database,
-                            "transfers"
+                            "expenses"
                         ),
 
                         function (
                             snapshot
                         ) {
 
-                            const cloudTransfers =
+                            const cloudExpenses =
                                 snapshot.docs.map(
                                     function (
                                         item
@@ -538,31 +452,30 @@ function listen(
                             const merged =
                                 mergeRecords(
                                     readArray(
-                                        TRANSFERS_KEY
+                                        EXPENSES_KEY
                                     ),
-                                    cloudTransfers
+                                    cloudExpenses
                                 );
 
 
                             saveArray(
-                                TRANSFERS_KEY,
+                                EXPENSES_KEY,
                                 merged
                             );
 
 
                             dispatchDataUpdated(
-                                TRANSFERS_KEY,
+                                EXPENSES_KEY,
                                 merged
                             );
 
 
                             if (
                                 typeof onChange ===
-                                    "function"
+                                "function"
                             ) {
 
                                 onChange(
-                                    "transfers",
                                     merged
                                 );
                             }
@@ -574,88 +487,7 @@ function listen(
                         ) {
 
                             reportError(
-                                "TRANSFER LISTENER",
-                                error
-                            );
-                        }
-                    );
-
-
-                /* ==================================
-                   PRODUCTS
-                ================================== */
-
-                stopProducts =
-                    onSnapshot(
-
-                        collection(
-                            database,
-                            "products"
-                        ),
-
-                        function (
-                            snapshot
-                        ) {
-
-                            const cloudProducts =
-                                snapshot.docs.map(
-                                    function (
-                                        item
-                                    ) {
-
-                                        return {
-
-                                            id:
-                                                item.id,
-
-                                            ...removeCloudFields(
-                                                item.data()
-                                            )
-                                        };
-                                    }
-                                );
-
-
-                            const mergedProducts =
-                                mergeProductsSafely(
-                                    readArray(
-                                        PRODUCTS_KEY
-                                    ),
-                                    cloudProducts
-                                );
-
-
-                            saveArray(
-                                PRODUCTS_KEY,
-                                mergedProducts
-                            );
-
-
-                            dispatchDataUpdated(
-                                PRODUCTS_KEY,
-                                mergedProducts
-                            );
-
-
-                            if (
-                                typeof onChange ===
-                                    "function"
-                            ) {
-
-                                onChange(
-                                    "products",
-                                    mergedProducts
-                                );
-                            }
-                        },
-
-
-                        function (
-                            error
-                        ) {
-
-                            reportError(
-                                "TRANSFER PRODUCT LISTENER",
+                                "EXPENSE LISTENER",
                                 error
                             );
                         }
@@ -668,7 +500,7 @@ function listen(
             ) {
 
                 reportError(
-                    "START TRANSFER LISTENERS",
+                    "START EXPENSE LISTENER",
                     error
                 );
             }
@@ -682,23 +514,12 @@ function listen(
 
 
         if (
-            stopTransfers
+            stopExpenses
         ) {
 
-            stopTransfers();
+            stopExpenses();
 
-            stopTransfers =
-                null;
-        }
-
-
-        if (
-            stopProducts
-        ) {
-
-            stopProducts();
-
-            stopProducts =
+            stopExpenses =
                 null;
         }
     };
@@ -706,162 +527,7 @@ function listen(
 
 
 /* ==========================================
-   SAFE PRODUCT MERGE
-========================================== */
-
-function mergeProductsSafely(
-    localProducts,
-    cloudProducts
-) {
-
-    const map =
-        new Map();
-
-
-    (
-        Array.isArray(
-            localProducts
-        )
-            ? localProducts
-            : []
-    ).forEach(
-        function (
-            product
-        ) {
-
-            if (
-                product &&
-                product.id
-            ) {
-
-                map.set(
-                    String(
-                        product.id
-                    ),
-
-                    {
-                        ...product
-                    }
-                );
-            }
-        }
-    );
-
-
-    (
-        Array.isArray(
-            cloudProducts
-        )
-            ? cloudProducts
-            : []
-    ).forEach(
-        function (
-            cloudProduct
-        ) {
-
-            if (
-                !cloudProduct ||
-                !cloudProduct.id
-            ) {
-
-                return;
-            }
-
-
-            const id =
-                String(
-                    cloudProduct.id
-                );
-
-
-            const localProduct =
-                map.get(
-                    id
-                ) || {};
-
-
-            const localImage =
-                localProduct.image ||
-                localProduct.imageData ||
-                localProduct.photo ||
-                "";
-
-
-            const cloudImage =
-                cloudProduct.image ||
-                cloudProduct.imageUrl ||
-                "";
-
-
-            const merged = {
-
-                ...localProduct,
-
-                ...cloudProduct,
-
-                id:
-                    id
-            };
-
-
-            /*
-             * Firestore branchStock is treated as
-             * the latest authoritative stock map.
-             */
-            if (
-                cloudProduct.branchStock &&
-                typeof cloudProduct.branchStock ===
-                    "object" &&
-                !Array.isArray(
-                    cloudProduct.branchStock
-                )
-            ) {
-
-                merged.branchStock =
-                    normalizeBranchStock(
-                        cloudProduct.branchStock
-                    );
-
-
-                merged.quantity =
-                    sumBranchStock(
-                        merged.branchStock
-                    );
-            }
-
-
-            if (
-                cloudImage
-            ) {
-
-                merged.image =
-                    cloudImage;
-
-            } else if (
-                localImage
-            ) {
-
-                merged.image =
-                    localImage;
-            }
-
-
-            map.set(
-                id,
-                merged
-            );
-        }
-    );
-
-
-    return Array.from(
-        map.values()
-    );
-}
-
-
-/* ==========================================
-   GENERIC MERGE
+   MERGE
 ========================================== */
 
 function mergeRecords(
@@ -956,81 +622,6 @@ function mergeRecords(
 
 
 /* ==========================================
-   BRANCH STOCK
-========================================== */
-
-function normalizeBranchStock(
-    branchStock
-) {
-
-    if (
-        !branchStock ||
-        typeof branchStock !==
-            "object" ||
-        Array.isArray(
-            branchStock
-        )
-    ) {
-
-        return {};
-    }
-
-
-    const result = {};
-
-
-    Object.keys(
-        branchStock
-    ).forEach(
-        function (
-            key
-        ) {
-
-            result[
-                String(
-                    key
-                )
-            ] =
-                toNumber(
-                    branchStock[
-                        key
-                    ]
-                );
-        }
-    );
-
-
-    return result;
-}
-
-
-function sumBranchStock(
-    branchStock
-) {
-
-    return Object.values(
-        normalizeBranchStock(
-            branchStock
-        )
-    ).reduce(
-        function (
-            total,
-            value
-        ) {
-
-            return (
-                total +
-                toNumber(
-                    value
-                )
-            );
-        },
-        0
-    );
-}
-
-
-/* ==========================================
    CLOUD FIELDS
 ========================================== */
 
@@ -1090,8 +681,7 @@ function readArray(
     ) {
 
         console.error(
-            "Transfer cloud storage read failed:",
-            key,
+            "Unable to read expenses storage:",
             error
         );
 
@@ -1145,38 +735,16 @@ function dispatchDataUpdated(
 
 
 /* ==========================================
-   NUMBER
-========================================== */
-
-function toNumber(
-    value
-) {
-
-    const number =
-        Number(
-            value
-        );
-
-
-    return Number.isFinite(
-        number
-    )
-        ? number
-        : 0;
-}
-
-
-/* ==========================================
    PUBLIC API
 ========================================== */
 
-window.JufelixTransfersCloud = {
+window.JufelixExpensesCloud = {
 
-    saveTransfer:
-        saveTransfer,
+    saveExpense:
+        saveExpense,
 
-    saveProduct:
-        saveProduct,
+    deleteExpense:
+        deleteExpense,
 
     syncLocal:
         syncLocal,
@@ -1195,7 +763,7 @@ waitForDb()
         async function () {
 
             console.log(
-                "✅ Jufelix Transfers Cloud ready."
+                "✅ Jufelix Expenses Cloud ready."
             );
 
 
@@ -1208,7 +776,7 @@ waitForDb()
             ) {
 
                 reportError(
-                    "INITIAL TRANSFER SYNC",
+                    "INITIAL EXPENSE SYNC",
                     error
                 );
             }
@@ -1216,13 +784,11 @@ waitForDb()
 
             listen(
                 function (
-                    type,
                     records
                 ) {
 
                     console.log(
-                        "☁️ Transfer Firebase update:",
-                        type,
+                        "☁️ Expenses Firebase update:",
                         records.length
                     );
                 }
@@ -1235,7 +801,7 @@ waitForDb()
         ) {
 
             reportError(
-                "TRANSFER CLOUD STARTUP",
+                "EXPENSE CLOUD STARTUP",
                 error
             );
         }
@@ -1245,7 +811,7 @@ waitForDb()
 
             document.dispatchEvent(
                 new CustomEvent(
-                    "jufelix:transfers-cloud-ready"
+                    "jufelix:expenses-cloud-ready"
                 )
             );
         }
