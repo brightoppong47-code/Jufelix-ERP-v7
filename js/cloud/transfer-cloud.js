@@ -237,16 +237,117 @@ function reportError(
     );
 
 
-    if (
-        error &&
-        error.code ===
-            "permission-denied"
-    ) {
+    const code =
+        error && error.code
+            ? error.code
+            : "unknown";
 
-        console.error(
-            "Firestore rules rejected the Transfers operation."
+
+    const message =
+        error && error.message
+            ? error.message
+            : "Unknown Firebase error";
+
+
+    let box =
+        document.getElementById(
+            "transferFirebaseDebug"
+        );
+
+
+    if (!box) {
+
+        box =
+            document.createElement(
+                "div"
+            );
+
+
+        box.id =
+            "transferFirebaseDebug";
+
+
+        box.style.position =
+            "fixed";
+
+        box.style.left =
+            "12px";
+
+        box.style.right =
+            "12px";
+
+        box.style.bottom =
+            "12px";
+
+        box.style.zIndex =
+            "999999";
+
+        box.style.padding =
+            "15px";
+
+        box.style.borderRadius =
+            "10px";
+
+        box.style.background =
+            "#7f1d1d";
+
+        box.style.color =
+            "#ffffff";
+
+        box.style.fontSize =
+            "14px";
+
+        box.style.lineHeight =
+            "1.5";
+
+        box.style.boxShadow =
+            "0 8px 30px rgba(0,0,0,.35)";
+
+
+        document.body.appendChild(
+            box
         );
     }
+
+
+    box.innerHTML =
+        "<strong>TRANSFER FIREBASE ERROR</strong><br>" +
+        "Operation: " +
+        escapeDebug(operation) +
+        "<br>" +
+        "Code: " +
+        escapeDebug(code) +
+        "<br>" +
+        "Message: " +
+        escapeDebug(message);
+
+
+    if (
+        code ===
+        "permission-denied"
+    ) {
+
+        box.innerHTML +=
+            "<br><br>Firestore Security Rules rejected this transfer.";
+    }
+}
+
+
+function escapeDebug(
+    value
+) {
+
+    return String(
+        value === undefined ||
+        value === null
+            ? ""
+            : value
+    )
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
 }
 
 
