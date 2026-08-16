@@ -2,6 +2,13 @@
    JUFELIX ERP v7.0 PROFESSIONAL
    EXPENSES MODULE
 
+   + Branch-Aware Expenses
+   + Create / Edit / Delete
+   + Firebase Cloud Sync
+   + Offline Local Storage
+   + Expense Summary
+   + Reliable Save Button
+
    File:
    js/modules/expenses.js
 ========================================== */
@@ -36,7 +43,10 @@
 
     let expenses = [];
     let branches = [];
+
     let editingExpenseId = null;
+
+    let saveInProgress = false;
 
 
     const el = {};
@@ -56,6 +66,7 @@
 
         cacheElements();
 
+
         if (!el.form) {
 
             console.error(
@@ -64,6 +75,14 @@
 
             return;
         }
+
+
+        /*
+         * We use JavaScript validation.
+         * Prevent browser validation from
+         * silently blocking the form.
+         */
+        el.form.noValidate = true;
 
 
         loadExpenses();
@@ -82,7 +101,7 @@
 
 
         console.log(
-            "Jufelix Expenses module loaded successfully."
+            "✅ Jufelix Expenses module loaded successfully."
         );
     }
 
@@ -232,11 +251,32 @@
         );
 
 
+        /*
+         * Reliable mobile Save button.
+         */
+        if (el.saveButton) {
+
+            el.saveButton.addEventListener(
+                "click",
+                function (event) {
+
+                    event.preventDefault();
+
+                    saveExpense(
+                        event
+                    );
+                }
+            );
+        }
+
+
         if (el.clearButton) {
 
             el.clearButton.addEventListener(
                 "click",
-                function () {
+                function (event) {
+
+                    event.preventDefault();
 
                     prepareNewExpense(
                         true
@@ -337,7 +377,24 @@
         event
     ) {
 
-        event.preventDefault();
+        if (event) {
+
+            event.preventDefault();
+
+            if (
+                typeof event.stopPropagation ===
+                "function"
+            ) {
+
+                event.stopPropagation();
+            }
+        }
+
+
+        if (saveInProgress) {
+
+            return;
+        }
 
 
         loadExpenses();
@@ -371,6 +428,7 @@
                 ).trim() ||
                 generateExpenseNumber(),
 
+
             date:
                 String(
                     el.date
@@ -378,8 +436,10 @@
                         : ""
                 ).trim(),
 
+
             branchId:
                 branchId,
+
 
             branchName:
                 branch
@@ -388,12 +448,14 @@
                     )
                     : "Head Office",
 
+
             category:
                 String(
                     el.category
                         ? el.category.value
                         : ""
                 ).trim(),
+
 
             description:
                 String(
@@ -402,12 +464,14 @@
                         : ""
                 ).trim(),
 
+
             amount:
                 toNumber(
                     el.amount
                         ? el.amount.value
                         : 0
                 ),
+
 
             paymentMethod:
                 String(
@@ -416,6 +480,7 @@
                         : "cash"
                 ).trim() ||
                 "cash",
+
 
             status:
                 String(
@@ -427,6 +492,7 @@
                     .toLowerCase() ||
                 "paid",
 
+
             vendor:
                 String(
                     el.vendor
@@ -434,12 +500,14 @@
                         : ""
                 ).trim(),
 
+
             reference:
                 String(
                     el.reference
                         ? el.reference.value
                         : ""
                 ).trim(),
+
 
             notes:
                 String(
@@ -450,9 +518,13 @@
         };
 
 
+        /* ======================================
+           VALIDATION
+        ====================================== */
+
         if (!expenseData.date) {
 
-            alert(
+            showMessage(
                 "Select the expense date."
             );
 
@@ -462,7 +534,7 @@
 
         if (!expenseData.branchId) {
 
-            alert(
+            showMessage(
                 "Select a branch."
             );
 
@@ -472,7 +544,7 @@
 
         if (!expenseData.category) {
 
-            alert(
+            showMessage(
                 "Select an expense category."
             );
 
@@ -482,7 +554,7 @@
 
         if (!expenseData.description) {
 
-            alert(
+            showMessage(
                 "Enter the expense description."
             );
 
@@ -494,10 +566,11 @@
             !Number.isFinite(
                 expenseData.amount
             ) ||
-            expenseData.amount <= 0
+            expenseData.amount <=
+                0
         ) {
 
-            alert(
+            showMessage(
                 "Enter a valid expense amount."
             );
 
@@ -510,48 +583,100 @@
             null;
 
 
-        if (wasEditing) {
-
-            const updated =
-                updateExpense(
-                    expenseData
-                );
+        saveInProgress =
+            true;
 
 
-            if (!updated) {
-                return;
-            }
-
-        } else {
-
-            createExpense(
-                expenseData
-            );
-        }
-
-
-        if (
-            !saveExpenses()
-        ) {
-
-            return;
-        }
-
-
-        loadExpenses();
-
-        refreshExpenses();
-
-        prepareNewExpense(
+        setSaveButtonState(
             true
         );
 
 
-        alert(
-            wasEditing
-                ? "Expense updated successfully."
-                : "Expense saved successfully."
-        );
+        try {
+
+            let savedExpense = null;
+
+
+            if (wasEditing) {
+
+                savedExpense =
+                    updateExpense(
+                        expenseData
+                    );
+
+
+                if (!savedExpense) {
+
+                    return;
+                }
+
+            } else {
+
+                savedExpense =
+                    createExpense(
+                        expenseData
+                    );
+            }
+
+
+            if (
+                !saveExpenses()
+            ) {
+
+                return;
+            }
+
+
+            /*
+             * Cloud save runs independently.
+             * Local save remains valid if the
+             * device temporarily has no internet.
+             */
+            syncExpenseToCloud(
+                savedExpense
+            );
+
+
+            loadExpenses();
+
+            refreshExpenses();
+
+            prepareNewExpense(
+                true
+            );
+
+
+            showMessage(
+                wasEditing
+                    ? "Expense updated successfully."
+                    : "Expense saved successfully."
+            );
+
+
+        } catch (error) {
+
+            console.error(
+                "Expense save error:",
+                error
+            );
+
+
+            showMessage(
+                error.message ||
+                "The expense could not be saved."
+            );
+
+
+        } finally {
+
+            saveInProgress =
+                false;
+
+
+            setSaveButtonState(
+                false
+            );
+        }
     }
 
 
@@ -568,22 +693,34 @@
                 .toISOString();
 
 
-        expenses.push({
+        const expense = {
 
             id:
                 createExpenseId(),
 
+
             ...expenseData,
+
 
             recordedBy:
                 getCurrentUserName(),
 
+
             createdAt:
                 now,
 
+
             updatedAt:
                 now
-        });
+        };
+
+
+        expenses.push(
+            expense
+        );
+
+
+        return expense;
     }
 
 
@@ -616,11 +753,11 @@
             -1
         ) {
 
-            alert(
+            showMessage(
                 "Expense not found."
             );
 
-            return false;
+            return null;
         }
 
 
@@ -630,28 +767,31 @@
             ];
 
 
-        expenses[
-            index
-        ] = {
+        const updatedExpense = {
 
             ...existing,
 
             ...expenseData,
 
+
             id:
                 existing.id,
+
 
             recordedBy:
                 existing.recordedBy ||
                 getCurrentUserName(),
+
 
             createdAt:
                 existing.createdAt ||
                 new Date()
                     .toISOString(),
 
+
             updatedBy:
                 getCurrentUserName(),
+
 
             updatedAt:
                 new Date()
@@ -659,7 +799,76 @@
         };
 
 
-        return true;
+        expenses[
+            index
+        ] =
+            updatedExpense;
+
+
+        return updatedExpense;
+    }
+
+
+    /* ==========================================
+       FIREBASE SAVE / UPDATE
+    ========================================== */
+
+    function syncExpenseToCloud(
+        expense
+    ) {
+
+        if (
+            !expense ||
+            !expense.id
+        ) {
+
+            return;
+        }
+
+
+        if (
+            !window.JufelixExpensesCloud ||
+            typeof window
+                .JufelixExpensesCloud
+                .saveExpense !==
+                "function"
+        ) {
+
+            console.warn(
+                "⚠️ Expenses Cloud is not ready. Expense remains saved locally."
+            );
+
+            return;
+        }
+
+
+        window
+            .JufelixExpensesCloud
+            .saveExpense(
+                expense
+            )
+            .then(
+                function () {
+
+                    console.log(
+                        "✅ Expense saved to Firebase:",
+                        expense.expenseNumber ||
+                        expense.id
+                    );
+                }
+            )
+            .catch(
+                function (error) {
+
+                    console.error(
+                        "❌ Expense Firebase sync failed:",
+                        error
+                    );
+
+
+                    showCloudWarning();
+                }
+            );
     }
 
 
@@ -692,7 +901,7 @@
 
         if (!expense) {
 
-            alert(
+            showMessage(
                 "Expense not found."
             );
 
@@ -836,7 +1045,7 @@
 
         if (!expense) {
 
-            alert(
+            showMessage(
                 "Expense not found."
             );
 
@@ -851,6 +1060,7 @@
 
 
         if (!confirmed) {
+
             return;
         }
 
@@ -879,6 +1089,14 @@
         }
 
 
+        /*
+         * Delete from Firebase too.
+         */
+        deleteExpenseFromCloud(
+            expenseId
+        );
+
+
         if (
             String(
                 editingExpenseId
@@ -899,9 +1117,62 @@
         refreshExpenses();
 
 
-        alert(
+        showMessage(
             "Expense deleted successfully."
         );
+    }
+
+
+    /* ==========================================
+       FIREBASE DELETE
+    ========================================== */
+
+    function deleteExpenseFromCloud(
+        expenseId
+    ) {
+
+        if (
+            !window.JufelixExpensesCloud ||
+            typeof window
+                .JufelixExpensesCloud
+                .deleteExpense !==
+                "function"
+        ) {
+
+            console.warn(
+                "⚠️ Expenses Cloud delete is unavailable."
+            );
+
+            return;
+        }
+
+
+        window
+            .JufelixExpensesCloud
+            .deleteExpense(
+                expenseId
+            )
+            .then(
+                function () {
+
+                    console.log(
+                        "✅ Expense deleted from Firebase:",
+                        expenseId
+                    );
+                }
+            )
+            .catch(
+                function (error) {
+
+                    console.error(
+                        "❌ Firebase expense delete failed:",
+                        error
+                    );
+
+
+                    showCloudWarning();
+                }
+            );
     }
 
 
@@ -920,10 +1191,6 @@
             return;
         }
 
-
-        /*
-         * Always read newest data.
-         */
 
         expenses =
             readArray(
@@ -1207,6 +1474,7 @@
     function connectTableActions() {
 
         if (!el.tableBody) {
+
             return;
         }
 
@@ -1520,6 +1788,7 @@
     function populateBranchDropdown() {
 
         if (!el.branch) {
+
             return;
         }
 
@@ -1708,6 +1977,9 @@
 
             el.saveButton.textContent =
                 "Save Expense";
+
+            el.saveButton.disabled =
+                false;
         }
     }
 
@@ -1756,6 +2028,7 @@
 
             return true;
 
+
         } catch (error) {
 
             console.error(
@@ -1764,7 +2037,7 @@
             );
 
 
-            alert(
+            showMessage(
                 "The expense could not be saved."
             );
 
@@ -1803,6 +2076,7 @@
             )
                 ? parsed
                 : [];
+
 
         } catch (error) {
 
@@ -1853,6 +2127,7 @@
                 ? parsed
                 : null;
 
+
         } catch (error) {
 
             return null;
@@ -1877,7 +2152,15 @@
 
             return true;
 
+
         } catch (error) {
+
+            console.error(
+                "Unable to write storage:",
+                key,
+                error
+            );
+
 
             return false;
         }
@@ -2162,6 +2445,7 @@
     ) {
 
         if (!value) {
+
             return "";
         }
 
@@ -2477,6 +2761,63 @@
 
 
     /* ==========================================
+       SAVE BUTTON STATE
+    ========================================== */
+
+    function setSaveButtonState(
+        saving
+    ) {
+
+        if (!el.saveButton) {
+
+            return;
+        }
+
+
+        el.saveButton.disabled =
+            saving;
+
+
+        if (saving) {
+
+            el.saveButton.textContent =
+                editingExpenseId
+                    ? "Updating..."
+                    : "Saving...";
+
+        } else {
+
+            el.saveButton.textContent =
+                editingExpenseId
+                    ? "Update Expense"
+                    : "Save Expense";
+        }
+    }
+
+
+    /* ==========================================
+       MESSAGES
+    ========================================== */
+
+    function showMessage(
+        message
+    ) {
+
+        alert(
+            message
+        );
+    }
+
+
+    function showCloudWarning() {
+
+        console.warn(
+            "Expense remains available locally and can sync later."
+        );
+    }
+
+
+    /* ==========================================
        PUBLIC API
     ========================================== */
 
@@ -2485,8 +2826,10 @@
         editExpense:
             editExpense,
 
+
         deleteExpense:
             deleteExpense,
+
 
         refresh:
             function () {
@@ -2501,6 +2844,7 @@
 
                 refreshExpenses();
             },
+
 
         resetForm:
             function () {
