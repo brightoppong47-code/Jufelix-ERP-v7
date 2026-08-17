@@ -2,7 +2,6 @@
 <html lang="en">
 
 <head>
-
     <meta charset="UTF-8">
 
     <meta
@@ -17,13 +16,13 @@
 
     <title>Stock Transfers | Jufelix ERP v7.0</title>
 
+    <!-- GLOBAL STYLES -->
     <link rel="stylesheet" href="assets/css/variables.css">
     <link rel="stylesheet" href="assets/css/base.css">
     <link rel="stylesheet" href="assets/css/components.css">
     <link rel="stylesheet" href="assets/css/style.css">
 
     <style>
-
         * {
             box-sizing: border-box;
         }
@@ -68,6 +67,8 @@
             line-height: 1.6;
         }
 
+        /* SUMMARY */
+
         .transfer-summary {
             display: grid;
             grid-template-columns:
@@ -101,6 +102,8 @@
             font-weight: 800;
         }
 
+        /* PANELS */
+
         .transfer-panel {
             margin-bottom: 24px;
             padding: 22px;
@@ -121,6 +124,8 @@
             font-size: 13px;
             line-height: 1.6;
         }
+
+        /* FORM */
 
         .transfer-form {
             display: grid;
@@ -173,6 +178,8 @@
             background: #f8fafc;
         }
 
+        /* BUTTONS */
+
         .form-actions {
             grid-column: 1 / -1;
             display: flex;
@@ -196,11 +203,17 @@
             color: #ffffff;
         }
 
+        .primary-button:hover {
+            background: #084298;
+        }
+
         .secondary-button {
             border: 1px solid #cfd5df;
             background: #ffffff;
             color: #374151;
         }
+
+        /* FILTERS */
 
         .transfer-toolbar {
             display: grid;
@@ -210,6 +223,8 @@
             gap: 13px;
             margin-bottom: 18px;
         }
+
+        /* TABLE */
 
         .table-wrapper {
             width: 100%;
@@ -261,8 +276,9 @@
             color: #9ca3af !important;
         }
 
-        @media screen and (max-width: 1100px) {
+        /* RESPONSIVE */
 
+        @media screen and (max-width: 1100px) {
             .transfer-summary {
                 grid-template-columns:
                     repeat(2, minmax(170px, 1fr));
@@ -270,7 +286,6 @@
         }
 
         @media screen and (max-width: 900px) {
-
             .main-content {
                 width: 100%;
                 max-width: 100%;
@@ -287,7 +302,6 @@
         }
 
         @media screen and (max-width: 700px) {
-
             .transfer-summary,
             .transfer-toolbar {
                 grid-template-columns: 1fr;
@@ -307,7 +321,6 @@
         }
 
         @media screen and (max-width: 480px) {
-
             .transfers-page {
                 padding: 12px;
             }
@@ -316,80 +329,72 @@
                 font-size: 29px;
             }
         }
-
     </style>
-
 </head>
 
 <body>
 
+    <!-- SIDEBAR -->
     <aside
         id="sidebar"
         class="sidebar"
     ></aside>
 
+
+    <!-- MAIN CONTENT -->
     <main class="main-content">
 
+        <!-- TOPBAR -->
         <header
             id="topbar"
             class="topbar"
         ></header>
 
+
         <div class="transfers-page">
+
+            <!-- PAGE TITLE -->
 
             <section class="page-heading">
 
                 <h1>Stock Transfers</h1>
 
                 <p>
-                    Move products safely between branches and keep transfer records.
+                    Move products safely between branches
+                    and keep complete stock movement records.
                 </p>
 
             </section>
 
+
+            <!-- SUMMARY -->
+
             <section class="transfer-summary">
 
                 <article class="summary-card">
-
                     <h3>Total Transfers</h3>
-
-                    <p id="totalTransfers">
-                        0
-                    </p>
-
+                    <p id="totalTransfers">0</p>
                 </article>
 
                 <article class="summary-card">
-
                     <h3>Completed Transfers</h3>
-
-                    <p id="completedTransfers">
-                        0
-                    </p>
-
+                    <p id="completedTransfers">0</p>
                 </article>
 
                 <article class="summary-card">
-
                     <h3>Pending Transfers</h3>
-
-                    <p id="pendingTransfers">
-                        0
-                    </p>
-
+                    <p id="pendingTransfers">0</p>
                 </article>
 
                 <article class="summary-card">
-
                     <h3>Total Units Moved</h3>
-
-                    <p id="totalUnitsMoved">
-                        0
-                    </p>
-
+                    <p id="totalUnitsMoved">0</p>
                 </article>
 
             </section>
+
+
+            <!-- NEW TRANSFER -->
 
             <section class="transfer-panel">
 
@@ -398,15 +403,20 @@
                     <h2>New Stock Transfer</h2>
 
                     <p>
-                        Select the source branch, destination branch and product quantity.
+                        Select the source branch,
+                        destination branch,
+                        product and quantity.
                     </p>
 
                 </div>
+
 
                 <form
                     id="transferForm"
                     class="transfer-form"
                 >
+
+                    <!-- TRANSFER NUMBER -->
 
                     <div class="form-group">
 
@@ -423,6 +433,9 @@
 
                     </div>
 
+
+                    <!-- DATE -->
+
                     <div class="form-group">
 
                         <label for="transferDate">
@@ -437,6 +450,9 @@
                         >
 
                     </div>
+
+
+                    <!-- FROM BRANCH -->
 
                     <div class="form-group">
 
@@ -458,6 +474,9 @@
 
                     </div>
 
+
+                    <!-- TO BRANCH -->
+
                     <div class="form-group">
 
                         <label for="toBranch">
@@ -477,6 +496,9 @@
                         </select>
 
                     </div>
+
+
+                    <!-- PRODUCT -->
 
                     <div class="form-group">
 
@@ -498,6 +520,9 @@
 
                     </div>
 
+
+                    <!-- AVAILABLE STOCK -->
+
                     <div class="form-group">
 
                         <label for="availableTransferStock">
@@ -512,6 +537,9 @@
                         >
 
                     </div>
+
+
+                    <!-- QUANTITY -->
 
                     <div class="form-group">
 
@@ -530,6 +558,9 @@
                         >
 
                     </div>
+
+
+                    <!-- STATUS -->
 
                     <div class="form-group">
 
@@ -554,6 +585,9 @@
 
                     </div>
 
+
+                    <!-- NOTES -->
+
                     <div class="form-group full-width">
 
                         <label for="transferNotes">
@@ -568,10 +602,14 @@
 
                     </div>
 
+
+                    <!-- BUTTONS -->
+
                     <div class="form-actions">
 
                         <button
                             type="reset"
+                            id="resetTransferBtn"
                             class="secondary-button"
                         >
                             Reset
@@ -579,6 +617,7 @@
 
                         <button
                             type="submit"
+                            id="saveTransferBtn"
                             class="primary-button"
                         >
                             Save Transfer
@@ -589,6 +628,9 @@
                 </form>
 
             </section>
+
+
+            <!-- TRANSFER HISTORY -->
 
             <section class="transfer-panel">
 
@@ -602,6 +644,9 @@
 
                 </div>
 
+
+                <!-- FILTERS -->
+
                 <div class="transfer-toolbar">
 
                     <input
@@ -610,6 +655,7 @@
                         class="form-control"
                         placeholder="Search by transfer number, product or branch"
                     >
+
 
                     <select
                         id="transferStatusFilter"
@@ -630,6 +676,7 @@
 
                     </select>
 
+
                     <input
                         type="date"
                         id="transferDateFilter"
@@ -638,6 +685,9 @@
 
                 </div>
 
+
+                <!-- TABLE -->
+
                 <div class="table-wrapper">
 
                     <table class="transfer-table">
@@ -645,7 +695,6 @@
                         <thead>
 
                             <tr>
-
                                 <th>Transfer No.</th>
                                 <th>Date</th>
                                 <th>From</th>
@@ -654,10 +703,10 @@
                                 <th>Quantity</th>
                                 <th>Status</th>
                                 <th>Notes</th>
-
                             </tr>
 
                         </thead>
+
 
                         <tbody id="transferTableBody">
 
@@ -684,17 +733,89 @@
 
     </main>
 
-<!-- FIREBASE CONNECTION -->
-<script
-    type="module"
-    src="js/core/firebase.js?v=702"
-></script>
 
-<!-- TRANSFERS MODULE -->
-<script src="js/modules/transfers.js?v=704"></script>
+    <!-- ==========================================
+         FIREBASE CONFIGURATION
+    =========================================== -->
 
-<!-- TRANSFERS CLOUD -->
-<script src="js/cloud/transfers-cloud.js?v=707"></script>
+    <script
+        src="config/firebase-config.js?v=701"
+    ></script>
+
+
+    <!-- ==========================================
+         FIREBASE CONNECTION
+
+         firebase.js uses ES module imports,
+         therefore type="module" is required.
+    =========================================== -->
+
+    <script
+        type="module"
+        src="js/core/firebase.js?v=702"
+    ></script>
+
+
+    <!-- ==========================================
+         CORE
+    =========================================== -->
+
+    <script src="js/core/config.js?v=580"></script>
+
+    <script src="js/core/storage.js?v=580"></script>
+
+    <script src="js/core/permissions.js?v=550"></script>
+
+    <script src="js/core/theme.js?v=580"></script>
+
+    <script src="js/core/auth-guard.js?v=650"></script>
+
+    <script src="js/core/database.js?v=580"></script>
+
+
+    <!-- ==========================================
+         COMPONENTS
+    =========================================== -->
+
+    <script src="js/components/sidebar.js?v=610"></script>
+
+    <script src="js/components/topbar.js?v=620"></script>
+
+
+    <!-- ==========================================
+         TRANSFER SERVICE
+    =========================================== -->
+
+    <script
+        src="js/services/transfer.service.js?v=580"
+    ></script>
+
+
+    <!-- ==========================================
+         TRANSFERS LOCAL MODULE
+    =========================================== -->
+
+    <script
+        src="js/modules/transfers.js?v=704"
+    ></script>
+
+
+    <!-- ==========================================
+         TRANSFERS FIREBASE CLOUD BRIDGE
+
+         IMPORTANT:
+         transfers-cloud.js contains:
+         import {...} from Firebase
+
+         Therefore it MUST be type="module".
+    =========================================== -->
+
+    <script
+        type="module"
+        src="js/cloud/transfers-cloud.js?v=708"
+    ></script>
+
 
 </body>
+
 </html>
