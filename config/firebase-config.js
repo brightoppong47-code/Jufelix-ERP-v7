@@ -1,19 +1,15 @@
 /* =========================================
+   JUFELIX ERP V7
    FIREBASE CONFIGURATION
-
-   Firebase will be connected during the
-   Firebase Integration module.
-
-   Do not add private information here yet.
 ========================================= */
 
 window.JUFELIX_FIREBASE_CONFIG = {
-    apiKey: "",
-    authDomain: "",
-    projectId: "",
-    storageBucket: "",
-    messagingSenderId: "",
-    appId: ""
+    apiKey: "AIzaSyAC3sMFu0LnchFFP1Wrqc_r_fcZWSOWt5I",
+    authDomain: "jufelix-erp-v7.firebaseapp.com",
+    projectId: "jufelix-erp-v7",
+    storageBucket: "jufelix-erp-v7.firebasestorage.app",
+    messagingSenderId: "1012255951864",
+    appId: "1:1012255951864:web:539c79ddb4433f1dcb640d"
 };
 
-window.JUFELIX_FIREBASE_ENABLED = false;
+window.JUFELIX_FIREBASE_ENABLED = true;
