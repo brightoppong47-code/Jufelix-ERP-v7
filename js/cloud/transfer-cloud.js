@@ -1,248 +1,364 @@
-import {
-    doc,
-    setDoc,
-    serverTimestamp
-} from "https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js";
+/* ==========================================
+   JUFELIX ERP v7.0 PROFESSIONAL
+   TRANSFERS CLOUD BRIDGE
+
+   NO FIREBASE IMPORTS HERE.
+   Uses window.JufelixFirebase.
+========================================== */
+
+(function () {
+    "use strict";
 
 
-console.log("Transfers Cloud file started");
+    const TRANSFERS_KEY =
+        "jufelix_v7_transfers";
 
 
-function waitForFirebase() {
+    /* ==========================================
+       WAIT FOR FIREBASE
+    ========================================== */
 
-    return new Promise(function (resolve, reject) {
+    function waitForFirebase(
+        timeout
+    ) {
 
-        let attempts = 0;
+        timeout =
+            timeout ||
+            15000;
 
-        const timer = setInterval(function () {
 
-            attempts++;
-
-            if (
-                window.JufelixFirebase &&
-                window.JufelixFirebase.db
+        return new Promise(
+            function (
+                resolve,
+                reject
             ) {
 
-                clearInterval(timer);
+                const started =
+                    Date.now();
 
-                resolve(
-                    window.JufelixFirebase.db
-                );
 
-                return;
+                function check() {
+
+                    if (
+                        window.JufelixFirebase &&
+                        window.JufelixFirebase.ready ===
+                            true &&
+                        typeof window
+                            .JufelixFirebase
+                            .saveDocument ===
+                            "function"
+                    ) {
+
+                        resolve(
+                            window.JufelixFirebase
+                        );
+
+                        return;
+                    }
+
+
+                    if (
+                        Date.now() -
+                        started >
+                        timeout
+                    ) {
+
+                        reject(
+                            new Error(
+                                "Firebase connection API was not ready."
+                            )
+                        );
+
+                        return;
+                    }
+
+
+                    setTimeout(
+                        check,
+                        100
+                    );
+                }
+
+
+                check();
             }
+        );
+    }
 
 
-            if (attempts >= 150) {
+    /* ==========================================
+       CLEAN PRODUCT
+    ========================================== */
 
-                clearInterval(timer);
+    function prepareProduct(
+        product
+    ) {
 
-                reject(
-                    new Error(
-                        "Firebase database was not ready."
+        const data = {
+            ...product
+        };
+
+
+        [
+            "image",
+            "imageData",
+            "photo"
+        ].forEach(
+            function (
+                field
+            ) {
+
+                if (
+                    typeof data[field] ===
+                        "string" &&
+                    data[field].startsWith(
+                        "data:image/"
                     )
-                );
+                ) {
+
+                    delete data[field];
+
+                    data.imageStoredLocally =
+                        true;
+                }
             }
-
-        }, 100);
-
-    });
-}
-
-
-async function saveTransfer(transfer) {
-
-    if (!transfer || !transfer.id) {
-
-        throw new Error(
-            "Transfer ID is missing."
         );
+
+
+        return data;
     }
 
 
-    const db =
-        await waitForFirebase();
+    /* ==========================================
+       SAVE TRANSFER
+    ========================================== */
 
-
-    await setDoc(
-
-        doc(
-            db,
-            "transfers",
-            String(transfer.id)
-        ),
-
-        {
-            ...transfer,
-
-            cloudUpdatedAt:
-                serverTimestamp()
-        },
-
-        {
-            merge: true
-        }
-    );
-
-
-    console.log(
-        "Transfer uploaded:",
-        transfer.id
-    );
-
-
-    return true;
-}
-
-
-async function saveProduct(product) {
-
-    if (!product || !product.id) {
-
-        throw new Error(
-            "Product ID is missing."
-        );
-    }
-
-
-    const db =
-        await waitForFirebase();
-
-
-    const data = {
-        ...product
-    };
-
-
-    /*
-     * Do not send large local base64 images
-     * to Firestore.
-     */
-    if (
-        typeof data.image === "string" &&
-        data.image.startsWith("data:image/")
+    async function saveTransfer(
+        transfer
     ) {
 
-        delete data.image;
-    }
+        if (
+            !transfer ||
+            !transfer.id
+        ) {
 
-
-    if (
-        typeof data.imageData === "string" &&
-        data.imageData.startsWith("data:image/")
-    ) {
-
-        delete data.imageData;
-    }
-
-
-    if (
-        typeof data.photo === "string" &&
-        data.photo.startsWith("data:image/")
-    ) {
-
-        delete data.photo;
-    }
-
-
-    await setDoc(
-
-        doc(
-            db,
-            "products",
-            String(product.id)
-        ),
-
-        {
-            ...data,
-
-            cloudUpdatedAt:
-                serverTimestamp()
-        },
-
-        {
-            merge: true
-        }
-    );
-
-
-    return true;
-}
-
-
-async function syncLocal() {
-
-    let transfers = [];
-
-
-    try {
-
-        transfers =
-            JSON.parse(
-                localStorage.getItem(
-                    "jufelix_v7_transfers"
-                ) || "[]"
+            throw new Error(
+                "Transfer ID is missing."
             );
-
-
-        if (!Array.isArray(transfers)) {
-
-            transfers = [];
         }
 
-    } catch (error) {
 
-        transfers = [];
+        const firebase =
+            await waitForFirebase();
+
+
+        await firebase.saveDocument(
+
+            "transfers",
+
+            transfer.id,
+
+            transfer
+        );
+
+
+        console.log(
+            "✅ Transfer uploaded to Firebase:",
+            transfer.transferNumber ||
+            transfer.id
+        );
+
+
+        return true;
     }
 
 
-    let successful = 0;
-    let failed = 0;
+    /* ==========================================
+       SAVE PRODUCT
+    ========================================== */
+
+    async function saveProduct(
+        product
+    ) {
+
+        if (
+            !product ||
+            !product.id
+        ) {
+
+            throw new Error(
+                "Product ID is missing."
+            );
+        }
 
 
-    for (const transfer of transfers) {
+        const firebase =
+            await waitForFirebase();
+
+
+        await firebase.saveDocument(
+
+            "products",
+
+            product.id,
+
+            prepareProduct(
+                product
+            )
+        );
+
+
+        console.log(
+            "✅ Transfer stock uploaded to Firebase:",
+            product.name ||
+            product.id
+        );
+
+
+        return true;
+    }
+
+
+    /* ==========================================
+       SYNC EXISTING TRANSFERS
+    ========================================== */
+
+    async function syncLocal() {
+
+        let transfers = [];
+
 
         try {
 
-            await saveTransfer(
-                transfer
-            );
+            const stored =
+                JSON.parse(
+                    localStorage.getItem(
+                        TRANSFERS_KEY
+                    ) ||
+                    "[]"
+                );
 
-            successful++;
 
-        } catch (error) {
+            transfers =
+                Array.isArray(
+                    stored
+                )
+                    ? stored
+                    : [];
 
-            failed++;
+        } catch (
+            error
+        ) {
 
-            console.error(
-                "Transfer upload failed:",
-                error
-            );
+            transfers =
+                [];
         }
+
+
+        let successful =
+            0;
+
+        let failed =
+            0;
+
+
+        for (
+            const transfer of
+            transfers
+        ) {
+
+            try {
+
+                await saveTransfer(
+                    transfer
+                );
+
+
+                successful++;
+
+
+            } catch (
+                error
+            ) {
+
+                failed++;
+
+
+                console.error(
+                    "Existing transfer sync failed:",
+                    transfer.id,
+                    error
+                );
+            }
+        }
+
+
+        return {
+
+            successful:
+                successful,
+
+            failed:
+                failed
+        };
     }
 
 
-    return {
-        successful,
-        failed
+    /* ==========================================
+       PUBLIC API
+    ========================================== */
+
+    window.JufelixTransfersCloud = {
+
+        saveTransfer:
+            saveTransfer,
+
+        saveProduct:
+            saveProduct,
+
+        syncLocal:
+            syncLocal
     };
-}
 
 
-/* ==========================================
-   CREATE API IMMEDIATELY
-========================================== */
-
-window.JufelixTransfersCloud = {
-
-    saveTransfer,
-
-    saveProduct,
-
-    syncLocal
-};
+    console.log(
+        "✅ JufelixTransfersCloud loaded."
+    );
 
 
-console.log(
-    "JufelixTransfersCloud loaded successfully."
-);
+    /* ==========================================
+       SYNC EXISTING TRANSFERS
+    ========================================== */
+
+    window.setTimeout(
+        function () {
+
+            syncLocal()
+                .then(
+                    function (
+                        result
+                    ) {
+
+                        console.log(
+                            "Transfer sync result:",
+                            result
+                        );
+                    }
+                )
+                .catch(
+                    function (
+                        error
+                    ) {
+
+                        console.error(
+                            "Transfer initial sync failed:",
+                            error
+                        );
+                    }
+                );
+
+        },
+        1500
+    );
+
+})();
