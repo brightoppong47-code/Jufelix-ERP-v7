@@ -208,17 +208,74 @@
                 window.location.href = "login.html";
             }
         })();
-    </script>
+<!-- =====================================
+     PDF LIBRARIES
+====================================== -->
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
-   <script src="js/core/storage.js?v=50"></script>
-   <script src="js/core/permissions.js?v=501"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+
+
+<!-- =====================================
+     FIREBASE CONFIGURATION
+====================================== -->
+
+<script src="config/firebase-config.js?v=701"></script>
+
+
+<!-- =====================================
+     FIREBASE CONNECTION
+====================================== -->
+
+<script
+    type="module"
+    src="js/core/firebase.js?v=701"
+></script>
+
+
+<!-- =====================================
+     CORE
+====================================== -->
+
+<script src="js/core/storage.js?v=50"></script>
+
+<script src="js/core/permissions.js?v=501"></script>
+
 <script src="js/core/auth-guard.js?v=650"></script>
+
 <script src="js/core/theme.js?v=580"></script>
+
+
+<!-- =====================================
+     COMPONENTS
+====================================== -->
+
 <script src="js/components/sidebar.js?v=610"></script>
+
 <script src="js/components/topbar.js?v=620"></script>
-<script src="js/modules/reports.js?v=1200"></script>
+
+
+<!-- =====================================
+     CLOUD BRIDGES
+     Keep localStorage refreshed from Firebase
+====================================== -->
+
+<script src="js/cloud/customers-cloud.js?v=701"></script>
+
+<script src="js/cloud/suppliers-cloud.js?v=701"></script>
+
+<script src="js/cloud/branches-cloud.js?v=701"></script>
+
+<script src="js/cloud/transfers-cloud.js?v=709"></script>
+
+
+<!-- =====================================
+     REPORTS MODULE
+====================================== -->
+
+<script src="js/modules/reports.js?v=1201"></script>
+
+
 </body>
 </html>
