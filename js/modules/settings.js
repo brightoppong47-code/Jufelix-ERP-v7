@@ -1,6 +1,14 @@
 /* ==========================================
    JUFELIX ERP v7.0 PROFESSIONAL
-   SETTINGS MODULE - COMPRESSED LOGO VERSION
+   SETTINGS MODULE
+
+   + Company Settings
+   + Compressed Logo
+   + Theme
+   + Reset Business Data
+   + Factory Reset
+   + Firestore Cleanup
+   + Admin Protection
 
    File:
    js/modules/settings.js
@@ -8,6 +16,11 @@
 
 (function () {
     "use strict";
+
+
+    /* ==========================================
+       SETTINGS STORAGE
+    ========================================== */
 
     const SETTINGS_KEY =
         "jufelix_v7_settings";
@@ -21,8 +34,75 @@
     const THEME_KEY =
         "jufelix_v7_theme";
 
+
+    /* ==========================================
+       BUSINESS DATA STORAGE KEYS
+    ========================================== */
+
+    const BUSINESS_STORAGE_KEYS = [
+
+        "jufelix_products",
+
+        "jufelix_v7_sales",
+
+        "jufelix_v7_purchases",
+
+        "jufelix_v7_expenses",
+
+        "jufelix_v7_transfers",
+
+        "jufelix_v7_customers",
+
+        "jufelix_v7_suppliers",
+
+        "jufelix_v7_branches",
+
+        "jufelix_stock_ledger",
+
+        "jufelix_v7_payments",
+
+        "jufelix_v7_supplier_payments"
+    ];
+
+
+    /* ==========================================
+       FIRESTORE COLLECTIONS TO RESET
+
+       USERS ARE DELIBERATELY NOT INCLUDED.
+    ========================================== */
+
+    const FIRESTORE_COLLECTIONS = [
+
+        "products",
+
+        "sales",
+
+        "purchases",
+
+        "expenses",
+
+        "transfers",
+
+        "customers",
+
+        "suppliers",
+
+        "branches"
+    ];
+
+
     let settings = {};
 
+    let firestoreTools =
+        null;
+
+    let resetRunning =
+        false;
+
+
+    /* ==========================================
+       INITIALIZE
+    ========================================== */
 
     document.addEventListener(
         "DOMContentLoaded",
@@ -30,14 +110,11 @@
     );
 
 
-    /* ==========================================
-       INITIALIZE
-    ========================================== */
-
     function initializeSettings() {
 
         settings =
             loadSettings();
+
 
         loadSettingsIntoForm();
 
@@ -45,26 +122,34 @@
 
         connectEvents();
 
+
         applyTheme(
             settings.theme ||
             "jufelix-blue"
         );
 
+
         const savedLogo =
             getSavedLogo();
+
 
         if (savedLogo) {
 
             settings.logo =
                 savedLogo;
 
+
             showLogo(
                 savedLogo
             );
         }
 
+
+        applyDangerZoneSecurity();
+
+
         console.log(
-            "Jufelix Settings initialized."
+            "✅ Jufelix Settings initialized."
         );
     }
 
@@ -80,10 +165,12 @@
                 "saveSettings"
             );
 
+
         const themeSelect =
             document.getElementById(
                 "themeSelect"
             );
+
 
         const logoInput =
             document.getElementById(
@@ -91,10 +178,23 @@
             );
 
 
+        const businessResetButton =
+            document.getElementById(
+                "resetBusinessDataButton"
+            );
+
+
+        const factoryResetButton =
+            document.getElementById(
+                "factoryResetButton"
+            );
+
+
         if (saveButton) {
 
             saveButton.type =
                 "button";
+
 
             saveButton.addEventListener(
                 "click",
@@ -129,6 +229,141 @@
                 handleLogoSelection
             );
         }
+
+
+        if (businessResetButton) {
+
+            businessResetButton.addEventListener(
+                "click",
+                function (event) {
+
+                    event.preventDefault();
+
+                    resetBusinessData();
+                }
+            );
+        }
+
+
+        if (factoryResetButton) {
+
+            factoryResetButton.addEventListener(
+                "click",
+                function (event) {
+
+                    event.preventDefault();
+
+                    factoryReset();
+                }
+            );
+        }
+    }
+
+
+    /* ==========================================
+       ADMIN SECURITY
+    ========================================== */
+
+    function applyDangerZoneSecurity() {
+
+        const dangerZone =
+            document.getElementById(
+                "settingsDangerZone"
+            );
+
+
+        if (!dangerZone) {
+            return;
+        }
+
+
+        if (!isAdministrator()) {
+
+            dangerZone.style.display =
+                "none";
+
+
+            console.warn(
+                "Danger Zone hidden: Administrator access required."
+            );
+
+            return;
+        }
+
+
+        dangerZone.style.display =
+            "";
+    }
+
+
+    function isAdministrator() {
+
+        const user =
+            getCurrentUser();
+
+
+        if (!user) {
+            return false;
+        }
+
+
+        const role =
+            normalizeRole(
+                user.role
+            );
+
+
+        return role ===
+            "admin";
+    }
+
+
+    function normalizeRole(
+        role
+    ) {
+
+        const value =
+            String(
+                role ||
+                ""
+            )
+                .trim()
+                .toLowerCase()
+                .replace(
+                    /_/g,
+                    "-"
+                )
+                .replace(
+                    /\s+/g,
+                    "-"
+                );
+
+
+        if (
+            value === "admin" ||
+            value === "administrator" ||
+            value === "system-administrator"
+        ) {
+
+            return "admin";
+        }
+
+
+        return value;
+    }
+
+
+    function getCurrentUser() {
+
+        return (
+            readObject(
+                "jufelix_v7_current_user"
+            ) ||
+            readObject(
+                "currentUser"
+            ) ||
+            null
+        );
     }
 
 
@@ -142,6 +377,7 @@
             getValue(
                 "companyName"
             );
+
 
         if (!companyName) {
 
@@ -268,11 +504,6 @@
             );
 
 
-            /*
-             * Keep old compatibility data,
-             * but WITHOUT duplicating the logo.
-             */
-
             localStorage.setItem(
                 "companySettings",
                 JSON.stringify(
@@ -295,10 +526,6 @@
             updateVisibleBranding();
 
 
-            /*
-             * Refresh sidebar immediately.
-             */
-
             if (
                 window.JufelixSidebar &&
                 typeof window
@@ -318,6 +545,7 @@
                     {
                         detail: {
                             ...settings,
+
                             logo:
                                 getSavedLogo()
                         }
@@ -331,7 +559,10 @@
                 "success"
             );
 
-        } catch (error) {
+
+        } catch (
+            error
+        ) {
 
             console.error(
                 "Settings save failed:",
@@ -344,6 +575,732 @@
                 "error"
             );
         }
+    }
+
+
+    /* ==========================================
+       RESET BUSINESS DATA
+    ========================================== */
+
+    async function resetBusinessData() {
+
+        if (resetRunning) {
+            return;
+        }
+
+
+        if (!isAdministrator()) {
+
+            showToast(
+                "Administrator access is required.",
+                "error"
+            );
+
+            return;
+        }
+
+
+        const confirmation =
+            getValue(
+                "businessResetConfirmation"
+            )
+                .trim()
+                .toUpperCase();
+
+
+        if (
+            confirmation !==
+            "RESET"
+        ) {
+
+            showToast(
+                'Type RESET before resetting business data.',
+                "error"
+            );
+
+            return;
+        }
+
+
+        const confirmed =
+            window.confirm(
+                "WARNING:\n\n" +
+                "This will permanently delete ALL business records from this device and Firebase.\n\n" +
+                "Products, sales, purchases, expenses, transfers, customers, suppliers and branches will be removed.\n\n" +
+                "Your Admin login and company settings will be preserved.\n\n" +
+                "Continue?"
+            );
+
+
+        if (!confirmed) {
+            return;
+        }
+
+
+        const secondConfirmation =
+            window.confirm(
+                "FINAL CONFIRMATION\n\n" +
+                "This action cannot be undone.\n\n" +
+                "Delete all business data now?"
+            );
+
+
+        if (!secondConfirmation) {
+            return;
+        }
+
+
+        resetRunning =
+            true;
+
+
+        setResetButtonsState(
+            true,
+            "Resetting business data..."
+        );
+
+
+        try {
+
+            /*
+             * Delete cloud data FIRST.
+             * This prevents cloud bridges from
+             * immediately restoring deleted local data.
+             */
+
+            await deleteBusinessDataFromFirestore();
+
+
+            clearLocalBusinessData();
+
+
+            document.dispatchEvent(
+                new CustomEvent(
+                    "jufelix:data-updated",
+                    {
+                        detail: {
+                            key:
+                                "business-reset",
+
+                            reset:
+                                true
+                        }
+                    }
+                )
+            );
+
+
+            const input =
+                document.getElementById(
+                    "businessResetConfirmation"
+                );
+
+
+            if (input) {
+                input.value = "";
+            }
+
+
+            showToast(
+                "Business data reset successfully.",
+                "success"
+            );
+
+
+            window.setTimeout(
+                function () {
+
+                    window.location.href =
+                        "dashboard.html";
+                },
+                1200
+            );
+
+
+        } catch (
+            error
+        ) {
+
+            console.error(
+                "Business reset failed:",
+                error
+            );
+
+
+            showResetError(
+                error
+            );
+
+
+        } finally {
+
+            resetRunning =
+                false;
+
+
+            setResetButtonsState(
+                false
+            );
+        }
+    }
+
+
+    /* ==========================================
+       FACTORY RESET
+    ========================================== */
+
+    async function factoryReset() {
+
+        if (resetRunning) {
+            return;
+        }
+
+
+        if (!isAdministrator()) {
+
+            showToast(
+                "Administrator access is required.",
+                "error"
+            );
+
+            return;
+        }
+
+
+        const confirmation =
+            getValue(
+                "factoryResetConfirmation"
+            )
+                .trim()
+                .toUpperCase();
+
+
+        if (
+            confirmation !==
+            "FACTORY RESET"
+        ) {
+
+            showToast(
+                'Type FACTORY RESET before continuing.',
+                "error"
+            );
+
+            return;
+        }
+
+
+        const confirmed =
+            window.confirm(
+                "FACTORY RESET\n\n" +
+                "This will permanently delete business records and remove company settings, logo, theme, currency and receipt preferences.\n\n" +
+                "Your Firebase Authentication account and Users collection will NOT be deleted.\n\n" +
+                "Continue?"
+            );
+
+
+        if (!confirmed) {
+            return;
+        }
+
+
+        const secondConfirmation =
+            window.confirm(
+                "FINAL FACTORY RESET CONFIRMATION\n\n" +
+                "There is no undo.\n\n" +
+                "Reset Jufelix ERP now?"
+            );
+
+
+        if (!secondConfirmation) {
+            return;
+        }
+
+
+        resetRunning =
+            true;
+
+
+        setResetButtonsState(
+            true,
+            "Factory reset in progress..."
+        );
+
+
+        try {
+
+            await deleteBusinessDataFromFirestore();
+
+
+            clearLocalBusinessData();
+
+
+            clearLocalSettings();
+
+
+            /*
+             * Preserve the authenticated user/session
+             * so the Administrator is not locked out.
+             */
+
+            const user =
+                getCurrentUser();
+
+
+            const activeBranch =
+                readObject(
+                    "jufelix_v7_active_branch"
+                );
+
+
+            if (user) {
+
+                localStorage.setItem(
+                    "jufelix_v7_current_user",
+                    JSON.stringify(
+                        user
+                    )
+                );
+
+
+                localStorage.setItem(
+                    "currentUser",
+                    JSON.stringify(
+                        user
+                    )
+                );
+
+
+                localStorage.setItem(
+                    "loggedIn",
+                    "true"
+                );
+            }
+
+
+            if (activeBranch) {
+
+                localStorage.setItem(
+                    "jufelix_v7_active_branch",
+                    JSON.stringify(
+                        activeBranch
+                    )
+                );
+            }
+
+
+            sessionStorage.setItem(
+                "jufelixSessionActive",
+                "true"
+            );
+
+
+            showToast(
+                "Factory reset completed successfully.",
+                "success"
+            );
+
+
+            window.setTimeout(
+                function () {
+
+                    window.location.href =
+                        "settings.html";
+                },
+                1300
+            );
+
+
+        } catch (
+            error
+        ) {
+
+            console.error(
+                "Factory reset failed:",
+                error
+            );
+
+
+            showResetError(
+                error
+            );
+
+
+        } finally {
+
+            resetRunning =
+                false;
+
+
+            setResetButtonsState(
+                false
+            );
+        }
+    }
+
+
+    /* ==========================================
+       FIRESTORE RESET
+    ========================================== */
+
+    async function deleteBusinessDataFromFirestore() {
+
+        const db =
+            await waitForFirebase();
+
+
+        const tools =
+            await getFirestoreTools();
+
+
+        for (
+            const collectionName of
+            FIRESTORE_COLLECTIONS
+        ) {
+
+            await deleteFirestoreCollection(
+                db,
+                tools,
+                collectionName
+            );
+        }
+    }
+
+
+    async function deleteFirestoreCollection(
+        db,
+        tools,
+        collectionName
+    ) {
+
+        console.log(
+            "Deleting Firestore collection:",
+            collectionName
+        );
+
+
+        const reference =
+            tools.collection(
+                db,
+                collectionName
+            );
+
+
+        const snapshot =
+            await tools.getDocs(
+                reference
+            );
+
+
+        if (
+            snapshot.empty
+        ) {
+
+            console.log(
+                "Collection already empty:",
+                collectionName
+            );
+
+            return;
+        }
+
+
+        /*
+         * Firestore batches support up to
+         * 500 write operations.
+         * Use smaller batches for safety.
+         */
+
+        const documents =
+            snapshot.docs;
+
+
+        const BATCH_SIZE =
+            400;
+
+
+        for (
+            let start = 0;
+            start < documents.length;
+            start += BATCH_SIZE
+        ) {
+
+            const batch =
+                tools.writeBatch(
+                    db
+                );
+
+
+            documents
+                .slice(
+                    start,
+                    start +
+                    BATCH_SIZE
+                )
+                .forEach(
+                    function (
+                        documentSnapshot
+                    ) {
+
+                        batch.delete(
+                            documentSnapshot.ref
+                        );
+                    }
+                );
+
+
+            await batch.commit();
+        }
+
+
+        console.log(
+            "✅ Firestore collection cleared:",
+            collectionName
+        );
+    }
+
+
+    /* ==========================================
+       FIREBASE TOOLS
+    ========================================== */
+
+    async function getFirestoreTools() {
+
+        if (firestoreTools) {
+
+            return firestoreTools;
+        }
+
+
+        firestoreTools =
+            await import(
+                "https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js"
+            );
+
+
+        return firestoreTools;
+    }
+
+
+    function waitForFirebase(
+        timeout = 15000
+    ) {
+
+        return new Promise(
+            function (
+                resolve,
+                reject
+            ) {
+
+                const started =
+                    Date.now();
+
+
+                function check() {
+
+                    if (
+                        window.JufelixFirebase &&
+                        window.JufelixFirebase.db
+                    ) {
+
+                        resolve(
+                            window.JufelixFirebase.db
+                        );
+
+                        return;
+                    }
+
+
+                    if (
+                        Date.now() -
+                        started >
+                        timeout
+                    ) {
+
+                        reject(
+                            new Error(
+                                "Firebase database was not ready."
+                            )
+                        );
+
+                        return;
+                    }
+
+
+                    setTimeout(
+                        check,
+                        100
+                    );
+                }
+
+
+                check();
+            }
+        );
+    }
+
+
+    /* ==========================================
+       LOCAL RESET
+    ========================================== */
+
+    function clearLocalBusinessData() {
+
+        BUSINESS_STORAGE_KEYS.forEach(
+            function (
+                key
+            ) {
+
+                localStorage.removeItem(
+                    key
+                );
+            }
+        );
+
+
+        /*
+         * Compatibility keys from older
+         * Jufelix versions.
+         */
+
+        [
+            "products",
+            "sales",
+            "purchases",
+            "expenses",
+            "customers",
+            "suppliers",
+            "transfers",
+            "stockLedger",
+            "stock_ledger"
+        ].forEach(
+            function (
+                key
+            ) {
+
+                localStorage.removeItem(
+                    key
+                );
+            }
+        );
+    }
+
+
+    function clearLocalSettings() {
+
+        [
+            SETTINGS_KEY,
+
+            COMPANY_KEY,
+
+            LOGO_KEY,
+
+            THEME_KEY,
+
+            "companySettings",
+
+            "theme",
+
+            "companyLogo"
+        ].forEach(
+            function (
+                key
+            ) {
+
+                localStorage.removeItem(
+                    key
+                );
+            }
+        );
+    }
+
+
+    /* ==========================================
+       RESET UI
+    ========================================== */
+
+    function setResetButtonsState(
+        working,
+        message
+    ) {
+
+        const businessButton =
+            document.getElementById(
+                "resetBusinessDataButton"
+            );
+
+
+        const factoryButton =
+            document.getElementById(
+                "factoryResetButton"
+            );
+
+
+        if (businessButton) {
+
+            businessButton.disabled =
+                working;
+
+
+            businessButton.textContent =
+                working
+                    ? (
+                        message ||
+                        "Working..."
+                    )
+                    : "🧹 Reset Business Data";
+        }
+
+
+        if (factoryButton) {
+
+            factoryButton.disabled =
+                working;
+
+
+            factoryButton.textContent =
+                working
+                    ? (
+                        message ||
+                        "Working..."
+                    )
+                    : "🗑️ Factory Reset ERP";
+        }
+    }
+
+
+    function showResetError(
+        error
+    ) {
+
+        const code =
+            String(
+                error &&
+                error.code ||
+                ""
+            );
+
+
+        if (
+            code ===
+            "permission-denied"
+        ) {
+
+            showToast(
+                "Firebase denied the reset. Make sure you are signed in as Administrator and your Firestore Rules allow Admin deletion.",
+                "error"
+            );
+
+            return;
+        }
+
+
+        showToast(
+            error &&
+            error.message
+                ? error.message
+                : "The reset could not be completed.",
+            "error"
+        );
     }
 
 
@@ -396,6 +1353,7 @@
 
                 return {
                     ...defaults,
+
                     ...JSON.parse(
                         stored
                     )
@@ -411,22 +1369,22 @@
 
             if (companyStored) {
 
-                const company =
-                    JSON.parse(
-                        companyStored
-                    );
-
-
                 return {
                     ...defaults,
-                    ...company
+
+                    ...JSON.parse(
+                        companyStored
+                    )
                 };
             }
 
 
             return defaults;
 
-        } catch (error) {
+
+        } catch (
+            error
+        ) {
 
             console.error(
                 "Unable to load settings:",
@@ -450,25 +1408,30 @@
             settings.companyName
         );
 
+
         setValue(
             "companyPhone",
             settings.phone
         );
+
 
         setValue(
             "companyEmail",
             settings.email
         );
 
+
         setValue(
             "companyTaxId",
             settings.taxId
         );
 
+
         setValue(
             "companyAddress",
             settings.address
         );
+
 
         setValue(
             "currency",
@@ -476,11 +1439,13 @@
             "GHS"
         );
 
+
         setValue(
             "themeSelect",
             settings.theme ||
             "jufelix-blue"
         );
+
 
         setValue(
             "receiptFooter",
@@ -556,7 +1521,10 @@
                 "success"
             );
 
-        } catch (error) {
+
+        } catch (
+            error
+        ) {
 
             console.error(
                 "Logo processing failed:",
@@ -603,6 +1571,7 @@
                                 let width =
                                     image.width;
 
+
                                 let height =
                                     image.height;
 
@@ -624,9 +1593,11 @@
                                                 width
                                             );
 
+
                                         width =
                                             maxSize;
                                     }
+
 
                                 } else {
 
@@ -642,6 +1613,7 @@
                                                 height
                                             );
 
+
                                         height =
                                             maxSize;
                                     }
@@ -649,24 +1621,23 @@
 
 
                                 const canvas =
-                                    document
-                                        .createElement(
-                                            "canvas"
-                                        );
+                                    document.createElement(
+                                        "canvas"
+                                    );
 
 
                                 canvas.width =
                                     width;
+
 
                                 canvas.height =
                                     height;
 
 
                                 const context =
-                                    canvas
-                                        .getContext(
-                                            "2d"
-                                        );
+                                    canvas.getContext(
+                                        "2d"
+                                    );
 
 
                                 context.clearRect(
@@ -703,6 +1674,7 @@
                                             "Compressed logo is still too large."
                                         )
                                     );
+
 
                                     return;
                                 }
@@ -760,7 +1732,10 @@
                 ""
             );
 
-        } catch (error) {
+
+        } catch (
+            error
+        ) {
 
             return "";
         }
@@ -811,6 +1786,7 @@
                 themeName
             );
 
+
             return;
         }
 
@@ -829,12 +1805,7 @@
     function loadUserInformation() {
 
         const user =
-            readObject(
-                "jufelix_v7_current_user"
-            ) ||
-            readObject(
-                "currentUser"
-            );
+            getCurrentUser();
 
 
         const branch =
@@ -899,7 +1870,9 @@
                 "[data-company-name]"
             )
             .forEach(
-                function (element) {
+                function (
+                    element
+                ) {
 
                     element.textContent =
                         settings.companyName;
@@ -990,6 +1963,7 @@
 
 
             if (!stored) {
+
                 return null;
             }
 
@@ -1011,7 +1985,10 @@
                 ? parsed
                 : null;
 
-        } catch (error) {
+
+        } catch (
+            error
+        ) {
 
             return null;
         }
@@ -1081,6 +2058,7 @@
 
 
         if (existing) {
+
             existing.remove();
         }
 
@@ -1102,6 +2080,7 @@
         Object.assign(
             toast.style,
             {
+
                 position:
                     "fixed",
 
@@ -1164,7 +2143,7 @@
                 toast.remove();
 
             },
-            3500
+            4000
         );
     }
 
@@ -1178,18 +2157,31 @@
         save:
             saveAllSettings,
 
+
         get:
             function () {
 
                 return {
+
                     ...settings,
+
                     logo:
                         getSavedLogo()
                 };
             },
 
+
         applyTheme:
-            applyTheme
+            applyTheme,
+
+
+        resetBusinessData:
+            resetBusinessData,
+
+
+        factoryReset:
+            factoryReset
     };
+
 
 })();
