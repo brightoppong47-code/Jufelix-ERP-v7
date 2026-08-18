@@ -734,88 +734,35 @@
     </main>
 
 
-    <!-- ==========================================
-         FIREBASE CONFIGURATION
-    =========================================== -->
+<!-- FIREBASE CONFIGURATION -->
+<script src="config/firebase-config.js?v=701"></script>
 
-    <script
-        src="config/firebase-config.js?v=701"
-    ></script>
+<!-- FIREBASE CONNECTION -->
+<script
+    type="module"
+    src="js/core/firebase.js?v=701"
+></script>
 
+<!-- CORE -->
+<script src="js/core/config.js?v=580"></script>
+<script src="js/core/storage.js?v=580"></script>
+<script src="js/core/permissions.js?v=550"></script>
+<script src="js/core/theme.js?v=580"></script>
+<script src="js/core/auth-guard.js?v=650"></script>
+<script src="js/core/database.js?v=580"></script>
 
-    <!-- ==========================================
-         FIREBASE CONNECTION
+<!-- COMPONENTS -->
+<script src="js/components/sidebar.js?v=610"></script>
+<script src="js/components/topbar.js?v=620"></script>
 
-         firebase.js uses ES module imports,
-         therefore type="module" is required.
-    =========================================== -->
+<!-- TRANSFER SERVICE -->
+<script src="js/services/transfer.service.js?v=580"></script>
 
-    <script
-        type="module"
-        src="js/core/firebase.js?v=701"
-    ></script>
+<!-- TRANSFERS CLOUD -->
+<script src="js/cloud/transfers-cloud.js?v=709"></script>
 
-
-    <!-- ==========================================
-         CORE
-    =========================================== -->
-
-    <script src="js/core/config.js?v=580"></script>
-
-    <script src="js/core/storage.js?v=580"></script>
-
-    <script src="js/core/permissions.js?v=550"></script>
-
-    <script src="js/core/theme.js?v=580"></script>
-
-    <script src="js/core/auth-guard.js?v=650"></script>
-
-    <script src="js/core/database.js?v=580"></script>
-
-
-    <!-- ==========================================
-         COMPONENTS
-    =========================================== -->
-
-    <script src="js/components/sidebar.js?v=610"></script>
-
-    <script src="js/components/topbar.js?v=620"></script>
-
-
-    <!-- ==========================================
-         TRANSFER SERVICE
-    =========================================== -->
-
-    <script
-        src="js/services/transfer.service.js?v=580"
-    ></script>
-
-
-    <!-- ==========================================
-         TRANSFERS LOCAL MODULE
-    =========================================== -->
-
-    <script
-        src="js/modules/transfers.js?v=704"
-    ></script>
-
-
-    <!-- ==========================================
-         TRANSFERS FIREBASE CLOUD BRIDGE
-
-         IMPORTANT:
-         transfers-cloud.js contains:
-         import {...} from Firebase
-
-         Therefore it MUST be type="module".
-    =========================================== -->
-
-    <script
-        type="module"
-        src="js/cloud/transfers-cloud.js?v=708"
-    ></script>
-
+<!-- TRANSFERS MODULE -->
+<script src="js/modules/transfers.js?v=704"></script>
 
 </body>
-
 </html>
