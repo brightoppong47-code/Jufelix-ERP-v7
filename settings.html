@@ -17,6 +17,11 @@
 
     <title>Settings | Jufelix ERP v7.0</title>
 
+
+    <!-- =========================================
+         STYLES
+    ========================================== -->
+
     <link
         rel="stylesheet"
         href="assets/css/variables.css"
@@ -36,6 +41,7 @@
         rel="stylesheet"
         href="assets/css/style.css"
     >
+
 
     <style>
 
@@ -78,24 +84,51 @@
             line-height: 1.6;
         }
 
+
+        /* =====================================
+           LAYOUT
+        ===================================== */
+
         .settings-layout {
             display: grid;
+
             grid-template-columns:
                 minmax(0, 1fr)
                 minmax(290px, .42fr);
+
             gap: 22px;
             align-items: start;
         }
+
+
+        /* =====================================
+           CARDS
+        ===================================== */
 
         .card {
             width: 100%;
             margin-bottom: 22px;
             padding: 22px;
-            border: 1px solid #edf0f4;
+
+            border:
+                1px solid #edf0f4;
+
             border-radius: 14px;
-            background: var(--card-bg, #ffffff);
+
+            background:
+                var(
+                    --card-bg,
+                    #ffffff
+                );
+
             box-shadow:
-                0 4px 14px rgba(0,0,0,.06);
+                0 4px 14px
+                rgba(
+                    0,
+                    0,
+                    0,
+                    .06
+                );
         }
 
         .card-header {
@@ -109,15 +142,31 @@
 
         .card-header p {
             margin: 0;
-            color: var(--muted, #6b7280);
+
+            color:
+                var(
+                    --muted,
+                    #6b7280
+                );
+
             font-size: 13px;
             line-height: 1.6;
         }
 
+
+        /* =====================================
+           FORM
+        ===================================== */
+
         .form-grid {
             display: grid;
+
             grid-template-columns:
-                repeat(2, minmax(0, 1fr));
+                repeat(
+                    2,
+                    minmax(0, 1fr)
+                );
+
             gap: 17px;
         }
 
@@ -131,7 +180,9 @@
 
         .form-group label {
             display: block;
+
             margin-bottom: 8px;
+
             font-size: 14px;
             font-weight: 700;
         }
@@ -139,26 +190,62 @@
         .form-control {
             width: 100%;
             min-height: 50px;
-            padding: 0 14px;
-            border: 1px solid #d7dce5;
+
+            padding:
+                0 14px;
+
+            border:
+                1px solid #d7dce5;
+
             border-radius: 9px;
+
             outline: none;
-            background: var(--surface, #ffffff);
-            color: var(--text-color, #1f2937);
+
+            background:
+                var(
+                    --surface,
+                    #ffffff
+                );
+
+            color:
+                var(
+                    --text-color,
+                    #1f2937
+                );
+
             font-size: 16px;
         }
 
         textarea.form-control {
             min-height: 110px;
-            padding: 12px 14px;
+
+            padding:
+                12px 14px;
+
             resize: vertical;
         }
 
         .form-control:focus {
-            border-color: var(--primary, #0b5ed7);
+            border-color:
+                var(
+                    --primary,
+                    #0b5ed7
+                );
+
             box-shadow:
-                0 0 0 3px rgba(11,94,215,.12);
+                0 0 0 3px
+                rgba(
+                    11,
+                    94,
+                    215,
+                    .12
+                );
         }
+
+
+        /* =====================================
+           BUTTONS
+        ===================================== */
 
         .form-actions {
             display: flex;
@@ -169,44 +256,115 @@
 
         .btn {
             min-height: 48px;
-            padding: 0 18px;
+
+            padding:
+                0 18px;
+
             border-radius: 9px;
+
             font-size: 15px;
             font-weight: 700;
+
             cursor: pointer;
         }
 
         .btn-primary {
             border: none;
-            background: var(--primary, #0b5ed7);
+
+            background:
+                var(
+                    --primary,
+                    #0b5ed7
+                );
+
             color: #ffffff;
         }
 
         .btn-secondary {
-            border: 1px solid #cfd5df;
-            background: #ffffff;
-            color: #374151;
+            border:
+                1px solid #cfd5df;
+
+            background:
+                #ffffff;
+
+            color:
+                #374151;
         }
+
+        .btn-danger {
+            border: none;
+
+            background:
+                #dc3545;
+
+            color:
+                #ffffff;
+        }
+
+        .btn-danger:hover {
+            background:
+                #bb2d3b;
+        }
+
+        .btn-warning {
+            border:
+                1px solid #dc3545;
+
+            background:
+                #ffffff;
+
+            color:
+                #b02a37;
+        }
+
+        .btn-warning:hover {
+            background:
+                #fff1f2;
+        }
+
+        .btn:disabled {
+            opacity: .6;
+            cursor: not-allowed;
+        }
+
+
+        /* =====================================
+           LOGO
+        ===================================== */
 
         .logo-area {
             display: grid;
+
             grid-template-columns:
-                115px minmax(0, 1fr);
+                115px
+                minmax(0, 1fr);
+
             gap: 18px;
+
             align-items: center;
         }
 
         .logo-preview {
             width: 115px;
             height: 115px;
-            border: 1px solid #d7dce5;
+
+            border:
+                1px solid #d7dce5;
+
             border-radius: 15px;
+
             overflow: hidden;
+
             display: flex;
             align-items: center;
             justify-content: center;
-            background: #f8fafc;
-            color: #0b5ed7;
+
+            background:
+                #f8fafc;
+
+            color:
+                #0b5ed7;
+
             font-size: 45px;
             font-weight: 900;
         }
@@ -214,37 +372,76 @@
         .logo-preview img {
             width: 100%;
             height: 100%;
+
             object-fit: contain;
+
             padding: 6px;
         }
 
         .setting-info {
             margin-top: 8px;
-            color: var(--muted, #6b7280);
+
+            color:
+                var(
+                    --muted,
+                    #6b7280
+                );
+
             font-size: 12px;
             line-height: 1.5;
         }
 
+
+        /* =====================================
+           THEME PREVIEW
+        ===================================== */
+
         .theme-preview {
             margin-top: 15px;
             padding: 15px;
-            border: 1px solid #e5e7eb;
+
+            border:
+                1px solid #e5e7eb;
+
             border-radius: 10px;
-            background: var(--surface, #ffffff);
+
+            background:
+                var(
+                    --surface,
+                    #ffffff
+                );
         }
 
         .theme-preview-bar {
             height: 18px;
+
             margin-bottom: 10px;
+
             border-radius: 20px;
-            background: var(--primary, #0b5ed7);
+
+            background:
+                var(
+                    --primary,
+                    #0b5ed7
+                );
         }
+
+
+        /* =====================================
+           CLOUD
+        ===================================== */
 
         .cloud-status {
             padding: 15px;
+
             border-radius: 10px;
-            background: #eef6ff;
-            color: #084298;
+
+            background:
+                #eef6ff;
+
+            color:
+                #084298;
+
             font-size: 13px;
             line-height: 1.6;
         }
@@ -254,6 +451,11 @@
             margin-bottom: 5px;
         }
 
+
+        /* =====================================
+           SYSTEM
+        ===================================== */
+
         .system-info {
             display: grid;
             gap: 12px;
@@ -261,10 +463,17 @@
 
         .system-row {
             display: flex;
-            justify-content: space-between;
+
+            justify-content:
+                space-between;
+
             gap: 16px;
+
             padding-bottom: 11px;
-            border-bottom: 1px solid #edf0f4;
+
+            border-bottom:
+                1px solid #edf0f4;
+
             font-size: 13px;
         }
 
@@ -273,12 +482,162 @@
         }
 
         .system-row span {
-            color: var(--muted, #6b7280);
+            color:
+                var(
+                    --muted,
+                    #6b7280
+                );
         }
 
         .system-row strong {
             text-align: right;
         }
+
+
+        /* =====================================
+           DANGER ZONE
+        ===================================== */
+
+        .danger-card {
+            border:
+                1px solid #f1aeb5;
+
+            background:
+                #fffafa;
+        }
+
+        .danger-card .card-header h2 {
+            color:
+                #b02a37;
+        }
+
+        .danger-warning {
+            margin-bottom: 20px;
+            padding: 15px;
+
+            border:
+                1px solid #f1aeb5;
+
+            border-radius: 10px;
+
+            background:
+                #f8d7da;
+
+            color:
+                #842029;
+
+            font-size: 13px;
+            line-height: 1.6;
+        }
+
+        .danger-warning strong {
+            display: block;
+            margin-bottom: 6px;
+        }
+
+        .reset-option {
+            padding:
+                18px 0;
+
+            border-bottom:
+                1px solid #f1d4d7;
+        }
+
+        .reset-option:first-of-type {
+            padding-top: 0;
+        }
+
+        .reset-option:last-child {
+            padding-bottom: 0;
+            border-bottom: none;
+        }
+
+        .reset-option h3 {
+            margin:
+                0 0 7px;
+
+            color:
+                #842029;
+
+            font-size: 17px;
+        }
+
+        .reset-option p {
+            margin:
+                0 0 14px;
+
+            color:
+                #6b4b50;
+
+            font-size: 13px;
+            line-height: 1.6;
+        }
+
+        .reset-list {
+            margin:
+                0 0 15px 18px;
+
+            padding: 0;
+
+            color:
+                #6b4b50;
+
+            font-size: 13px;
+            line-height: 1.8;
+        }
+
+        .reset-confirmation {
+            margin-top: 15px;
+        }
+
+        .reset-confirmation label {
+            display: block;
+
+            margin-bottom: 7px;
+
+            color:
+                #842029;
+
+            font-size: 13px;
+            font-weight: 700;
+        }
+
+        .reset-confirmation .form-control {
+            border-color:
+                #f1aeb5;
+        }
+
+        .reset-actions {
+            display: flex;
+
+            flex-wrap: wrap;
+
+            gap: 10px;
+
+            margin-top: 14px;
+        }
+
+        .admin-protection {
+            margin-top: 15px;
+
+            padding: 12px;
+
+            border-radius: 9px;
+
+            background:
+                #fff3cd;
+
+            color:
+                #664d03;
+
+            font-size: 12px;
+            line-height: 1.6;
+        }
+
+
+        /* =====================================
+           RESPONSIVE
+        ===================================== */
 
         @media screen and (max-width: 1050px) {
 
@@ -287,14 +646,18 @@
             }
         }
 
+
         @media screen and (max-width: 900px) {
 
             .main-content {
                 width: 100%;
+
                 margin-left: 0;
+
                 padding: 16px;
             }
         }
+
 
         @media screen and (max-width: 700px) {
 
@@ -311,13 +674,24 @@
             }
 
             .form-actions {
-                flex-direction: column-reverse;
+                flex-direction:
+                    column-reverse;
             }
 
             .form-actions .btn {
                 width: 100%;
             }
+
+            .reset-actions {
+                flex-direction:
+                    column;
+            }
+
+            .reset-actions .btn {
+                width: 100%;
+            }
         }
+
 
         @media screen and (max-width: 480px) {
 
@@ -342,17 +716,29 @@
 <body>
 
 
+    <!-- =========================================
+         SIDEBAR
+    ========================================== -->
+
     <aside
         id="sidebar"
         class="sidebar"
     ></aside>
 
 
+    <!-- =========================================
+         TOPBAR
+    ========================================== -->
+
     <header
         id="topbar"
         class="topbar"
     ></header>
 
+
+    <!-- =========================================
+         MAIN
+    ========================================== -->
 
     <main class="main-content">
 
@@ -364,8 +750,9 @@
             </h1>
 
             <p>
-                Manage company information, logo,
-                currency, theme and ERP preferences.
+                Manage company information,
+                branding, currency, appearance,
+                cloud settings and ERP maintenance.
             </p>
 
         </div>
@@ -377,7 +764,9 @@
             <div class="settings-layout">
 
 
-                <!-- LEFT COLUMN -->
+                <!-- =================================
+                     LEFT COLUMN
+                ================================== -->
 
                 <div>
 
@@ -488,8 +877,9 @@
                     </section>
 
 
-
-                    <!-- LOGO -->
+                    <!-- =================================
+                         LOGO
+                    ================================== -->
 
                     <section class="card">
 
@@ -500,8 +890,8 @@
                             </h2>
 
                             <p>
-                                Upload the logo displayed throughout
-                                Jufelix ERP.
+                                Upload the logo displayed
+                                throughout Jufelix ERP.
                             </p>
 
                         </div>
@@ -527,8 +917,8 @@
                                 >
 
                                 <div class="setting-info">
-                                    Recommended: square PNG, JPG or WebP.
-                                    Maximum size: 2 MB.
+                                    Recommended: square PNG,
+                                    JPG or WebP.
                                 </div>
 
                             </div>
@@ -539,8 +929,9 @@
                     </section>
 
 
-
-                    <!-- THEME -->
+                    <!-- =================================
+                         THEME
+                    ================================== -->
 
                     <section class="card">
 
@@ -551,8 +942,8 @@
                             </h2>
 
                             <p>
-                                Choose the main colour style for
-                                Jufelix ERP.
+                                Choose the main colour
+                                style for Jufelix ERP.
                             </p>
 
                         </div>
@@ -601,9 +992,9 @@
                             </strong>
 
                             <div class="setting-info">
-                                Changing the selector previews the
-                                theme immediately. Tap Save Settings
-                                to keep it.
+                                Changing the selector previews
+                                the theme immediately.
+                                Tap Save Settings to keep it.
                             </div>
 
                         </div>
@@ -611,8 +1002,9 @@
                     </section>
 
 
-
-                    <!-- BUSINESS -->
+                    <!-- =================================
+                         BUSINESS PREFERENCES
+                    ================================== -->
 
                     <section class="card">
 
@@ -669,8 +1061,9 @@
                     </section>
 
 
-
-                    <!-- RECEIPTS -->
+                    <!-- =================================
+                         RECEIPTS
+                    ================================== -->
 
                     <section class="card">
 
@@ -681,8 +1074,8 @@
                             </h2>
 
                             <p>
-                                Information to display on future
-                                sales receipts.
+                                Information displayed
+                                on sales receipts.
                             </p>
 
                         </div>
@@ -705,8 +1098,9 @@
                     </section>
 
 
-
-                    <!-- SAVE -->
+                    <!-- =================================
+                         SAVE SETTINGS
+                    ================================== -->
 
                     <section class="card">
 
@@ -725,11 +1119,245 @@
                     </section>
 
 
+                    <!-- =================================
+                         DANGER ZONE
+                    ================================== -->
+
+                    <section
+                        id="settingsDangerZone"
+                        class="card danger-card"
+                    >
+
+                        <div class="card-header">
+
+                            <h2>
+                                ⚠️ Danger Zone
+                            </h2>
+
+                            <p>
+                                Administrative tools for resetting
+                                ERP business data.
+                            </p>
+
+                        </div>
+
+
+                        <div class="danger-warning">
+
+                            <strong>
+                                Important
+                            </strong>
+
+                            Reset operations can permanently remove
+                            records from this device and Firebase
+                            Firestore. They cannot be undone.
+
+                        </div>
+
+
+                        <!-- RESET BUSINESS DATA -->
+
+                        <div class="reset-option">
+
+                            <h3>
+                                Reset Business Data
+                            </h3>
+
+                            <p>
+                                Start your operational records again
+                                without removing your administrator
+                                login, company information, logo or theme.
+                            </p>
+
+
+                            <ul class="reset-list">
+
+                                <li>
+                                    Products and inventory
+                                </li>
+
+                                <li>
+                                    Sales
+                                </li>
+
+                                <li>
+                                    Purchases
+                                </li>
+
+                                <li>
+                                    Expenses
+                                </li>
+
+                                <li>
+                                    Transfers
+                                </li>
+
+                                <li>
+                                    Customers
+                                </li>
+
+                                <li>
+                                    Suppliers
+                                </li>
+
+                                <li>
+                                    Branch records
+                                </li>
+
+                                <li>
+                                    Stock ledger
+                                </li>
+
+                                <li>
+                                    Supplier payments
+                                </li>
+
+                            </ul>
+
+
+                            <div class="admin-protection">
+
+                                Your Firebase Authentication account
+                                and administrator login will be preserved.
+
+                                Company settings, logo and theme will
+                                also remain unchanged.
+
+                            </div>
+
+
+                            <div class="reset-confirmation">
+
+                                <label for="businessResetConfirmation">
+
+                                    Type
+                                    <strong>RESET</strong>
+                                    to confirm
+
+                                </label>
+
+
+                                <input
+                                    type="text"
+                                    id="businessResetConfirmation"
+                                    class="form-control"
+                                    placeholder="Type RESET"
+                                    autocomplete="off"
+                                >
+
+                            </div>
+
+
+                            <div class="reset-actions">
+
+                                <button
+                                    type="button"
+                                    id="resetBusinessDataButton"
+                                    class="btn btn-warning"
+                                >
+                                    🧹 Reset Business Data
+                                </button>
+
+                            </div>
+
+                        </div>
+
+
+                        <!-- FACTORY RESET -->
+
+                        <div class="reset-option">
+
+                            <h3>
+                                Factory Reset ERP
+                            </h3>
+
+                            <p>
+                                Completely reset the ERP business
+                                environment and return it to a fresh
+                                configuration.
+                            </p>
+
+
+                            <ul class="reset-list">
+
+                                <li>
+                                    All operational business records
+                                </li>
+
+                                <li>
+                                    Company information
+                                </li>
+
+                                <li>
+                                    Company logo
+                                </li>
+
+                                <li>
+                                    Theme preferences
+                                </li>
+
+                                <li>
+                                    Currency and receipt preferences
+                                </li>
+
+                            </ul>
+
+
+                            <div class="admin-protection">
+
+                                Your Firebase Authentication account
+                                will still be preserved so you are not
+                                locked out of the ERP.
+
+                            </div>
+
+
+                            <div class="reset-confirmation">
+
+                                <label for="factoryResetConfirmation">
+
+                                    Type
+                                    <strong>FACTORY RESET</strong>
+                                    to confirm
+
+                                </label>
+
+
+                                <input
+                                    type="text"
+                                    id="factoryResetConfirmation"
+                                    class="form-control"
+                                    placeholder="Type FACTORY RESET"
+                                    autocomplete="off"
+                                >
+
+                            </div>
+
+
+                            <div class="reset-actions">
+
+                                <button
+                                    type="button"
+                                    id="factoryResetButton"
+                                    class="btn btn-danger"
+                                >
+                                    🗑️ Factory Reset ERP
+                                </button>
+
+                            </div>
+
+                        </div>
+
+
+                    </section>
+
+
                 </div>
 
 
-
-                <!-- RIGHT COLUMN -->
+                <!-- =================================
+                     RIGHT COLUMN
+                ================================== -->
 
                 <aside>
 
@@ -756,16 +1384,16 @@
                                 Firebase Connected
                             </strong>
 
-                            Jufelix ERP is configured for
-                            Firebase Authentication and Firestore.
+                            Jufelix ERP is configured
+                            for Firebase Authentication
+                            and Firestore.
 
                         </div>
 
                     </section>
 
 
-
-                    <!-- SYSTEM -->
+                    <!-- SYSTEM INFORMATION -->
 
                     <section class="card">
 
@@ -863,53 +1491,69 @@
     </main>
 
 
+    <!-- =========================================
+         FIREBASE CONFIGURATION
+    ========================================== -->
 
-    <!-- STORAGE -->
+    <script
+        src="config/firebase-config.js?v=701"
+    ></script>
+
+
+    <!-- =========================================
+         FIREBASE CONNECTION
+    ========================================== -->
+
+    <script
+        type="module"
+        src="js/core/firebase.js?v=701"
+    ></script>
+
+
+    <!-- =========================================
+         CORE
+    ========================================== -->
 
     <script
         src="js/core/storage.js?v=501"
     ></script>
 
 
-    <!-- PERMISSIONS -->
-
     <script
         src="js/core/permissions.js?v=550"
     ></script>
 
 
-    <!-- SECURITY -->
-    
-<script src="js/core/theme.js?v=580"></script>
+    <script
+        src="js/core/theme.js?v=580"
+    ></script>
+
 
     <script
         src="js/core/auth-guard.js?v=650"
     ></script>
 
 
-    <!-- COMPONENTS -->
+    <!-- =========================================
+         COMPONENTS
+    ========================================== -->
 
     <script
         src="js/components/sidebar.js?v=610"
     ></script>
+
 
     <script
         src="js/components/topbar.js?v=620"
     ></script>
 
 
-    <!-- FIREBASE -->
+    <!-- =========================================
+         SETTINGS MODULE
+    ========================================== -->
 
     <script
-        type="module"
-        src="js/core/firebase.js?v=520"
-    ></script>
-
-
-    <!-- SETTINGS -->
-
-    <script
-        src="js/modules/settings.js?v=570"
+        src="js/modules/settings.js?v=571"
     ></script>
 
 
