@@ -6,6 +6,10 @@
    js/modules/reports.js
 
    COMPLETE REPLACEMENT
+   FIXED:
+   + Branch dropdown blinking
+   + Firebase refresh safe
+   + Branch selection preserved
 ========================================== */
 
 (function () {
@@ -47,11 +51,6 @@
 
     ];
 
-
-    /*
-     * IMPORTANT:
-     * These MUST match pdf-preview.html
-     */
 
     const PDF_STORAGE_KEY =
         "jufelix_v7_pdf_preview";
@@ -122,6 +121,11 @@
 
         ensureHeadOffice();
 
+        /*
+         * IMPORTANT:
+         * Populate branch selector ONCE
+         * during initial page load.
+         */
         populateBranchFilter();
 
         connectEvents();
@@ -129,13 +133,14 @@
 
         if (
             el.period &&
+            el.startDate &&
+            el.endDate &&
             !el.startDate.value &&
             !el.endDate.value
         ) {
 
             el.period.value =
                 "month";
-
 
             applyQuickPeriod(
                 "month"
@@ -234,7 +239,6 @@
                         el.period.value
                     );
 
-
                     refreshReports();
 
                 }
@@ -255,7 +259,6 @@
                             "";
 
                     }
-
 
                     refreshReports();
 
@@ -278,7 +281,6 @@
 
                     }
 
-
                     refreshReports();
 
                 }
@@ -291,7 +293,16 @@
 
             el.branch.addEventListener(
                 "change",
-                refreshReports
+                function () {
+
+                    /*
+                     * IMPORTANT:
+                     * We only refresh report data.
+                     * We DO NOT rebuild the select.
+                     */
+                    refreshReports();
+
+                }
             );
 
         }
@@ -317,23 +328,64 @@
         }
 
 
+        /*
+         * Firebase / application updates.
+         *
+         * DO NOT repopulate branch selector here.
+         * Doing that repeatedly causes Android's
+         * native select menu to blink/flicker.
+         */
         document.addEventListener(
             "jufelix:data-updated",
-            refreshReports
+            function () {
+
+                refreshReports();
+
+            }
         );
 
 
         document.addEventListener(
             "jufelix:dataChanged",
-            refreshReports
+            function () {
+
+                refreshReports();
+
+            }
         );
 
 
+        /*
+         * Cross-tab localStorage synchronization.
+         */
         window.addEventListener(
             "storage",
             function (event) {
 
-                const watchedKeys = [
+                /*
+                 * Branch data itself changed.
+                 * This is the ONLY storage event
+                 * that should rebuild the dropdown.
+                 */
+                if (
+                    event.key ===
+                    BRANCHES_KEY
+                ) {
+
+                    loadData();
+
+                    ensureHeadOffice();
+
+                    populateBranchFilter();
+
+                    refreshReports();
+
+                    return;
+
+                }
+
+
+                const reportKeys = [
 
                     PRODUCTS_KEY,
 
@@ -343,8 +395,6 @@
 
                     EXPENSES_KEY,
 
-                    BRANCHES_KEY,
-
                     TRANSFERS_KEY,
 
                     ...PAYMENT_KEYS
@@ -353,7 +403,7 @@
 
 
                 if (
-                    watchedKeys.includes(
+                    reportKeys.includes(
                         event.key
                     )
                 ) {
@@ -484,7 +534,9 @@
     function populateBranchFilter() {
 
         if (!el.branch) {
+
             return;
+
         }
 
 
@@ -523,6 +575,92 @@
                 );
 
 
+        /*
+         * Build expected option signature first.
+         *
+         * If dropdown contents are already correct,
+         * do NOTHING to the DOM.
+         *
+         * This is another protection against
+         * Android select flickering.
+         */
+
+        const newOptions = [
+
+            {
+                value: "",
+                label: "All Branches"
+            },
+
+            ...activeBranches.map(
+                function (branch) {
+
+                    return {
+
+                        value:
+                            String(
+                                branch.id
+                            ),
+
+                        label:
+                            getBranchName(
+                                branch
+                            )
+
+                    };
+
+                }
+            )
+
+        ];
+
+
+        const currentOptions =
+            Array.from(
+                el.branch.options
+            ).map(
+                function (option) {
+
+                    return {
+
+                        value:
+                            option.value,
+
+                        label:
+                            option.textContent.trim()
+
+                    };
+
+                }
+            );
+
+
+        const currentSignature =
+            JSON.stringify(
+                currentOptions
+            );
+
+
+        const newSignature =
+            JSON.stringify(
+                newOptions
+            );
+
+
+        /*
+         * If branch options didn't change,
+         * don't touch the select element.
+         */
+        if (
+            currentSignature ===
+            newSignature
+        ) {
+
+            return;
+
+        }
+
+
         el.branch.innerHTML =
             '<option value="">All Branches</option>' +
 
@@ -547,7 +685,10 @@
                 .join("");
 
 
-        if (
+        /*
+         * Restore previous selected branch.
+         */
+        const previousExists =
             activeBranches.some(
                 function (branch) {
 
@@ -561,11 +702,21 @@
                     );
 
                 }
-            )
+            );
+
+
+        if (
+            previousValue &&
+            previousExists
         ) {
 
             el.branch.value =
                 previousValue;
+
+        } else {
+
+            el.branch.value =
+                "";
 
         }
 
@@ -710,11 +861,24 @@
 
     function refreshReports() {
 
+        /*
+         * Load fresh Firebase/localStorage
+         * synchronized data.
+         */
         loadData();
 
         ensureHeadOffice();
 
-        populateBranchFilter();
+
+        /*
+         * IMPORTANT FIX:
+         *
+         * populateBranchFilter()
+         * is intentionally NOT called here.
+         *
+         * Reports can refresh hundreds of times
+         * without rebuilding the Android select.
+         */
 
 
         const filters =
@@ -917,7 +1081,9 @@
     ) {
 
         if (!value) {
+
             return false;
+
         }
 
 
@@ -928,7 +1094,9 @@
 
 
         if (!normalized) {
+
             return false;
+
         }
 
 
@@ -1594,7 +1762,9 @@
     function renderSalesByProduct() {
 
         if (!el.salesByProductTable) {
+
             return;
+
         }
 
 
@@ -1609,15 +1779,11 @@
 
             el.salesByProductTable.innerHTML = `
                 <tr>
-                    <td
-                        colspan="5"
-                        class="table-empty"
-                    >
+                    <td colspan="5" class="table-empty">
                         No sales data available for this period.
                     </td>
                 </tr>
             `;
-
 
             return;
 
@@ -1658,13 +1824,11 @@
                                     )}
                                 </td>
 
-                                <td
-                                    class="${
-                                        row.grossProfit >= 0
-                                            ? "positive-value"
-                                            : "negative-value"
-                                    }"
-                                >
+                                <td class="${
+                                    row.grossProfit >= 0
+                                        ? "positive-value"
+                                        : "negative-value"
+                                }">
                                     ${formatMoney(
                                         row.grossProfit
                                     )}
@@ -1879,7 +2043,9 @@
     function renderBranchPerformance() {
 
         if (!el.branchPerformanceTable) {
+
             return;
+
         }
 
 
@@ -1894,15 +2060,11 @@
 
             el.branchPerformanceTable.innerHTML = `
                 <tr>
-                    <td
-                        colspan="5"
-                        class="table-empty"
-                    >
+                    <td colspan="5" class="table-empty">
                         No branch performance data available.
                     </td>
                 </tr>
             `;
-
 
             return;
 
@@ -1937,13 +2099,11 @@
                                     )}
                                 </td>
 
-                                <td
-                                    class="${
-                                        row.estimatedProfit >= 0
-                                            ? "positive-value"
-                                            : "negative-value"
-                                    }"
-                                >
+                                <td class="${
+                                    row.estimatedProfit >= 0
+                                        ? "positive-value"
+                                        : "negative-value"
+                                }">
                                     ${formatMoney(
                                         row.estimatedProfit
                                     )}
@@ -2039,7 +2199,9 @@
     function renderExpenseBreakdown() {
 
         if (!el.expenseBreakdownTable) {
+
             return;
+
         }
 
 
@@ -2054,15 +2216,11 @@
 
             el.expenseBreakdownTable.innerHTML = `
                 <tr>
-                    <td
-                        colspan="3"
-                        class="table-empty"
-                    >
+                    <td colspan="3" class="table-empty">
                         No expense data available.
                     </td>
                 </tr>
             `;
-
 
             return;
 
@@ -2292,7 +2450,9 @@
     ) {
 
         if (!el.lowStockReportTable) {
+
             return;
+
         }
 
 
@@ -2309,15 +2469,11 @@
 
             el.lowStockReportTable.innerHTML = `
                 <tr>
-                    <td
-                        colspan="5"
-                        class="table-empty"
-                    >
+                    <td colspan="5" class="table-empty">
                         No low-stock products found.
                     </td>
                 </tr>
             `;
-
 
             return;
 
@@ -2662,7 +2818,9 @@
     function renderRecentTransactions() {
 
         if (!el.recentTransactionsTable) {
+
             return;
+
         }
 
 
@@ -2677,15 +2835,11 @@
 
             el.recentTransactionsTable.innerHTML = `
                 <tr>
-                    <td
-                        colspan="6"
-                        class="table-empty"
-                    >
+                    <td colspan="6" class="table-empty">
                         No recent transactions available.
                     </td>
                 </tr>
             `;
-
 
             return;
 
@@ -2746,9 +2900,7 @@
                                     )}
                                 </td>
 
-                                <td
-                                    class="${className}"
-                                >
+                                <td class="${className}">
                                     ${
                                         row.direction ===
                                         "neutral"
@@ -2907,19 +3059,11 @@
             );
 
 
-            /*
-             * Generate data URI.
-             */
-
             const dataUri =
                 doc.output(
                     "datauristring"
                 );
 
-
-            /*
-             * Extract ONLY the Base64 portion.
-             */
 
             const marker =
                 "base64,";
@@ -2972,10 +3116,6 @@
                 ".pdf";
 
 
-            /*
-             * Clear old preview data first.
-             */
-
             sessionStorage.removeItem(
                 PDF_STORAGE_KEY
             );
@@ -2985,11 +3125,6 @@
                 PDF_FILENAME_KEY
             );
 
-
-            /*
-             * Save EXACT keys expected
-             * by pdf-preview.html.
-             */
 
             sessionStorage.setItem(
                 PDF_STORAGE_KEY,
@@ -3002,10 +3137,6 @@
                 fileName
             );
 
-
-            /*
-             * Small verification before moving.
-             */
 
             const verify =
                 sessionStorage.getItem(
@@ -3021,10 +3152,6 @@
 
             }
 
-
-            /*
-             * Normal HTML navigation only.
-             */
 
             window.location.href =
                 "pdf-preview.html";
@@ -3073,7 +3200,9 @@
     ) {
 
         if (!el.pdfButton) {
+
             return;
+
         }
 
 
@@ -4622,7 +4751,9 @@
 
 
             if (!stored) {
+
                 return [];
+
             }
 
 
@@ -4639,6 +4770,12 @@
                 : [];
 
         } catch (error) {
+
+            console.warn(
+                "Reports could not read:",
+                key,
+                error
+            );
 
             return [];
 
@@ -4716,7 +4853,9 @@
     ) {
 
         if (!value) {
+
             return "";
+
         }
 
 
@@ -5101,6 +5240,19 @@
 
         refresh:
             refreshReports,
+
+        refreshBranches:
+            function () {
+
+                loadData();
+
+                ensureHeadOffice();
+
+                populateBranchFilter();
+
+                refreshReports();
+
+            },
 
         downloadPdf:
             generatePdfPreview,
