@@ -4,6 +4,16 @@
 
    File:
    js/cloud/purchases-cloud.js
+
+   Version: 705
+
+   Handles:
+   + Purchases → Firestore
+   + Product stock → Firestore
+   + Suppliers → Firestore
+   + Same-page local changes
+   + Other-tab storage changes
+   + Firestore realtime downloads
 ========================================== */
 
 import {
@@ -15,6 +25,10 @@ import {
 } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js";
 
 
+/* ==========================================
+   STORAGE KEYS
+========================================== */
+
 const PRODUCTS_KEY =
     "jufelix_products";
 
@@ -25,11 +39,19 @@ const SUPPLIERS_KEY =
     "jufelix_v7_suppliers";
 
 
+/* ==========================================
+   STATE
+========================================== */
+
 let db = null;
 
 let stopPurchases = null;
 let stopProducts = null;
 let stopSuppliers = null;
+
+let purchaseSyncTimer = null;
+let productSyncTimer = null;
+let supplierSyncTimer = null;
 
 
 /* ==========================================
@@ -98,6 +120,70 @@ function waitForDb(
 
 
 /* ==========================================
+   WAIT FOR FIREBASE AUTH
+========================================== */
+
+function waitForFirebaseUser(
+    timeout = 10000
+) {
+
+    return new Promise(
+        function (
+            resolve
+        ) {
+
+            const startedAt =
+                Date.now();
+
+
+            function check() {
+
+                const firebase =
+                    window.JufelixFirebase;
+
+
+                if (
+                    firebase &&
+                    firebase.auth &&
+                    firebase.auth.currentUser
+                ) {
+
+                    resolve(
+                        firebase.auth.currentUser
+                    );
+
+                    return;
+                }
+
+
+                if (
+                    Date.now() -
+                    startedAt >
+                    timeout
+                ) {
+
+                    resolve(
+                        null
+                    );
+
+                    return;
+                }
+
+
+                setTimeout(
+                    check,
+                    150
+                );
+            }
+
+
+            check();
+        }
+    );
+}
+
+
+/* ==========================================
    FIREBASE AUTH CHECK
 ========================================== */
 
@@ -126,12 +212,8 @@ function checkFirebaseUser() {
 
     if (!user) {
 
-        console.error(
-            "❌ FIREBASE AUTH ERROR: No Firebase user is signed in."
-        );
-
-        console.error(
-            "Firestore rules require request.auth != null."
+        console.warn(
+            "⚠️ No Firebase authenticated user yet."
         );
 
         return null;
@@ -150,7 +232,7 @@ function checkFirebaseUser() {
 
 
 /* ==========================================
-   CLEAN DATA
+   CLEAN FIRESTORE DATA
 ========================================== */
 
 function cleanValue(
@@ -167,8 +249,7 @@ function cleanValue(
 
     if (
         value === null ||
-        typeof value !==
-        "object"
+        typeof value !== "object"
     ) {
 
         return value;
@@ -198,8 +279,7 @@ function cleanValue(
         ) {
 
             if (
-                value[key] !==
-                undefined
+                value[key] !== undefined
             ) {
 
                 result[key] =
@@ -216,7 +296,7 @@ function cleanValue(
 
 
 /* ==========================================
-   FIREBASE ERROR REPORTER
+   FIREBASE ERROR
 ========================================== */
 
 function reportFirebaseError(
@@ -265,8 +345,7 @@ function reportFirebaseError(
             "permission-denied" ||
 
             String(
-                error.message ||
-                ""
+                error.message || ""
             )
                 .toLowerCase()
                 .includes(
@@ -285,7 +364,7 @@ function reportFirebaseError(
         ) {
 
             console.error(
-                "⚠️ The likely cause is that your ERP user is logged in locally, but Firebase Authentication has no signed-in user."
+                "⚠️ Firebase Authentication is not signed in."
             );
         }
     }
@@ -320,8 +399,7 @@ function prepareProductForCloud(
 
 
             if (
-                typeof value ===
-                "string" &&
+                typeof value === "string" &&
                 value.startsWith(
                     "data:image/"
                 )
@@ -345,7 +423,7 @@ function prepareProductForCloud(
 
 
 /* ==========================================
-   SAVE PURCHASE
+   SAVE ONE PURCHASE
 ========================================== */
 
 async function savePurchase(
@@ -356,6 +434,9 @@ async function savePurchase(
 
         const database =
             await waitForDb();
+
+
+        await waitForFirebaseUser();
 
 
         if (
@@ -396,14 +477,13 @@ async function savePurchase(
             },
 
             {
-                merge:
-                    true
+                merge: true
             }
         );
 
 
         console.log(
-            "✅ Purchase uploaded to Firestore:",
+            "✅ PURCHASE SAVED TO FIREBASE:",
             purchase.purchaseNo ||
             purchase.id
         );
@@ -428,7 +508,7 @@ async function savePurchase(
 
 
 /* ==========================================
-   SAVE PRODUCT
+   SAVE ONE PRODUCT
 ========================================== */
 
 async function saveProduct(
@@ -439,6 +519,9 @@ async function saveProduct(
 
         const database =
             await waitForDb();
+
+
+        await waitForFirebaseUser();
 
 
         if (
@@ -467,8 +550,7 @@ async function saveProduct(
             ),
 
             {
-                merge:
-                    true
+                merge: true
             }
         );
 
@@ -499,7 +581,7 @@ async function saveProduct(
 
 
 /* ==========================================
-   SAVE SUPPLIER
+   SAVE ONE SUPPLIER
 ========================================== */
 
 async function saveSupplier(
@@ -510,6 +592,9 @@ async function saveSupplier(
 
         const database =
             await waitForDb();
+
+
+        await waitForFirebaseUser();
 
 
         if (
@@ -543,8 +628,7 @@ async function saveSupplier(
             },
 
             {
-                merge:
-                    true
+                merge: true
             }
         );
 
@@ -575,37 +659,29 @@ async function saveSupplier(
 
 
 /* ==========================================
-   INITIAL LOCAL PURCHASE SYNC
+   SYNC ALL PURCHASES
 ========================================== */
 
-async function syncLocal() {
+async function syncPurchases() {
 
-    await waitForDb();
-
-
-    const localPurchases =
+    const purchases =
         readArray(
             PURCHASES_KEY
         );
 
 
     console.log(
-        "☁️ Local purchases waiting for sync:",
-        localPurchases.length
+        "☁️ Syncing purchases:",
+        purchases.length
     );
 
 
-    let successfulPurchases =
-        0;
-
-
-    let failedPurchases =
-        0;
+    let successful = 0;
+    let failed = 0;
 
 
     for (
-        const purchase of
-        localPurchases
+        const purchase of purchases
     ) {
 
         if (
@@ -623,47 +699,100 @@ async function syncLocal() {
                 purchase
             );
 
-
-            successfulPurchases++;
+            successful++;
 
 
         } catch (
             error
         ) {
 
-            failedPurchases++;
-
-
-            console.error(
-                "Purchase sync failed:",
-                purchase.purchaseNo ||
-                purchase.id
-            );
+            failed++;
         }
     }
 
 
     console.log(
-        "Purchase cloud sync result:",
+        "☁️ Purchase sync completed:",
         {
             successful:
-                successfulPurchases,
+                successful,
 
             failed:
-                failedPurchases
+                failed
         }
     );
 
 
-    const localSuppliers =
+    return {
+        successful:
+            successful,
+
+        failed:
+            failed
+    };
+}
+
+
+/* ==========================================
+   SYNC ALL PRODUCTS
+========================================== */
+
+async function syncProducts() {
+
+    const products =
+        readArray(
+            PRODUCTS_KEY
+        );
+
+
+    for (
+        const product of products
+    ) {
+
+        if (
+            !product ||
+            !product.id
+        ) {
+
+            continue;
+        }
+
+
+        try {
+
+            await saveProduct(
+                product
+            );
+
+
+        } catch (
+            error
+        ) {
+
+            console.warn(
+                "Product sync failed:",
+                product.name ||
+                product.id
+            );
+        }
+    }
+}
+
+
+/* ==========================================
+   SYNC ALL SUPPLIERS
+========================================== */
+
+async function syncSuppliers() {
+
+    const suppliers =
         readArray(
             SUPPLIERS_KEY
         );
 
 
     for (
-        const supplier of
-        localSuppliers
+        const supplier of suppliers
     ) {
 
         if (
@@ -693,21 +822,281 @@ async function syncLocal() {
             );
         }
     }
+}
+
+
+/* ==========================================
+   INITIAL LOCAL SYNC
+========================================== */
+
+async function syncLocal() {
+
+    await waitForDb();
+
+
+    console.log(
+        "☁️ Starting Purchases initial cloud sync..."
+    );
+
+
+    const purchaseResult =
+        await syncPurchases();
+
+
+    await syncSuppliers();
+
+
+    /*
+     * Products are deliberately not all
+     * uploaded during every startup.
+     *
+     * Stock changes from purchases are
+     * synced when PRODUCTS_KEY changes.
+     */
 
 
     return {
 
         purchasesSynced:
-            successfulPurchases,
+            purchaseResult.successful,
 
         purchasesFailed:
-            failedPurchases
+            purchaseResult.failed
     };
 }
 
 
 /* ==========================================
-   REALTIME LISTENERS
+   DEBOUNCED LOCAL CHANGE SYNC
+========================================== */
+
+function schedulePurchaseSync() {
+
+    clearTimeout(
+        purchaseSyncTimer
+    );
+
+
+    purchaseSyncTimer =
+        setTimeout(
+            async function () {
+
+                try {
+
+                    console.log(
+                        "🔄 Purchase local change detected."
+                    );
+
+                    await syncPurchases();
+
+
+                } catch (
+                    error
+                ) {
+
+                    reportFirebaseError(
+                        "PURCHASE AUTO SYNC",
+                        error
+                    );
+                }
+            },
+            150
+        );
+}
+
+
+function scheduleProductSync() {
+
+    clearTimeout(
+        productSyncTimer
+    );
+
+
+    productSyncTimer =
+        setTimeout(
+            async function () {
+
+                try {
+
+                    console.log(
+                        "🔄 Product stock change detected."
+                    );
+
+                    await syncProducts();
+
+
+                } catch (
+                    error
+                ) {
+
+                    reportFirebaseError(
+                        "PRODUCT AUTO SYNC",
+                        error
+                    );
+                }
+            },
+            250
+        );
+}
+
+
+function scheduleSupplierSync() {
+
+    clearTimeout(
+        supplierSyncTimer
+    );
+
+
+    supplierSyncTimer =
+        setTimeout(
+            async function () {
+
+                try {
+
+                    console.log(
+                        "🔄 Supplier change detected."
+                    );
+
+                    await syncSuppliers();
+
+
+                } catch (
+                    error
+                ) {
+
+                    reportFirebaseError(
+                        "SUPPLIER AUTO SYNC",
+                        error
+                    );
+                }
+            },
+            250
+        );
+}
+
+
+/* ==========================================
+   LISTEN FOR ERP LOCAL CHANGES
+
+   This is the important fix.
+
+   localStorage "storage" events do NOT fire
+   in the same browser tab that performed
+   localStorage.setItem().
+
+   Purchases.js uses the ERP custom event:
+   jufelix:data-updated
+
+   We listen for that event here.
+========================================== */
+
+document.addEventListener(
+    "jufelix:data-updated",
+
+    function (
+        event
+    ) {
+
+        const detail =
+            event.detail || {};
+
+
+        /*
+         * Do not upload data again when
+         * the event came from Firestore.
+         */
+        if (
+            detail.source ===
+            "cloud"
+        ) {
+
+            return;
+        }
+
+
+        const key =
+            detail.key;
+
+
+        console.log(
+            "📡 ERP data update detected:",
+            key
+        );
+
+
+        if (
+            key === PURCHASES_KEY
+        ) {
+
+            schedulePurchaseSync();
+
+            return;
+        }
+
+
+        if (
+            key === PRODUCTS_KEY
+        ) {
+
+            scheduleProductSync();
+
+            return;
+        }
+
+
+        if (
+            key === SUPPLIERS_KEY
+        ) {
+
+            scheduleSupplierSync();
+        }
+    }
+);
+
+
+/* ==========================================
+   OTHER TAB / WINDOW CHANGES
+========================================== */
+
+window.addEventListener(
+    "storage",
+
+    function (
+        event
+    ) {
+
+        if (
+            event.key === PURCHASES_KEY
+        ) {
+
+            schedulePurchaseSync();
+
+            return;
+        }
+
+
+        if (
+            event.key === PRODUCTS_KEY
+        ) {
+
+            scheduleProductSync();
+
+            return;
+        }
+
+
+        if (
+            event.key === SUPPLIERS_KEY
+        ) {
+
+            scheduleSupplierSync();
+        }
+    }
+);
+
+
+/* ==========================================
+   FIRESTORE REALTIME LISTENERS
 ========================================== */
 
 function listen(
@@ -769,9 +1158,11 @@ function listen(
 
                             const merged =
                                 mergeRecords(
+
                                     readArray(
                                         PURCHASES_KEY
                                     ),
+
                                     cloudRows
                                 );
 
@@ -784,7 +1175,8 @@ function listen(
 
                             dispatchDataUpdated(
                                 PURCHASES_KEY,
-                                merged
+                                merged,
+                                "cloud"
                             );
 
 
@@ -799,7 +1191,6 @@ function listen(
                                 );
                             }
                         },
-
 
                         function (
                             error
@@ -850,9 +1241,11 @@ function listen(
 
                             const mergedProducts =
                                 mergeProductsSafely(
+
                                     readArray(
                                         PRODUCTS_KEY
                                     ),
+
                                     cloudProducts
                                 );
 
@@ -865,7 +1258,8 @@ function listen(
 
                             dispatchDataUpdated(
                                 PRODUCTS_KEY,
-                                mergedProducts
+                                mergedProducts,
+                                "cloud"
                             );
 
 
@@ -880,7 +1274,6 @@ function listen(
                                 );
                             }
                         },
-
 
                         function (
                             error
@@ -931,9 +1324,11 @@ function listen(
 
                             const merged =
                                 mergeRecords(
+
                                     readArray(
                                         SUPPLIERS_KEY
                                     ),
+
                                     cloudRows
                                 );
 
@@ -946,7 +1341,8 @@ function listen(
 
                             dispatchDataUpdated(
                                 SUPPLIERS_KEY,
-                                merged
+                                merged,
+                                "cloud"
                             );
 
 
@@ -961,7 +1357,6 @@ function listen(
                                 );
                             }
                         },
-
 
                         function (
                             error
@@ -1050,6 +1445,7 @@ function mergeProductsSafely(
             ) {
 
                 map.set(
+
                     String(
                         product.id
                     ),
@@ -1207,6 +1603,7 @@ function mergeRecords(
             ) {
 
                 map.set(
+
                     String(
                         row.id
                     ),
@@ -1247,6 +1644,7 @@ function mergeRecords(
 
 
             map.set(
+
                 id,
 
                 {
@@ -1282,8 +1680,7 @@ function normalizeBranchStock(
 
     if (
         !branchStock ||
-        typeof branchStock !==
-        "object" ||
+        typeof branchStock !== "object" ||
         Array.isArray(
             branchStock
         )
@@ -1348,7 +1745,7 @@ function sumBranchStock(
 
 
 /* ==========================================
-   CLOUD FIELDS
+   REMOVE CLOUD FIELDS
 ========================================== */
 
 function removeCloudFields(
@@ -1372,7 +1769,7 @@ function removeCloudFields(
 
 
 /* ==========================================
-   STORAGE
+   LOCAL STORAGE
 ========================================== */
 
 function readArray(
@@ -1423,22 +1820,37 @@ function saveArray(
     value
 ) {
 
-    localStorage.setItem(
-        key,
-        JSON.stringify(
-            value
-        )
-    );
+    try {
+
+        localStorage.setItem(
+            key,
+            JSON.stringify(
+                value
+            )
+        );
+
+
+    } catch (
+        error
+    ) {
+
+        console.error(
+            "Cloud storage save failed:",
+            key,
+            error
+        );
+    }
 }
 
 
 /* ==========================================
-   EVENT
+   ERP UPDATE EVENT
 ========================================== */
 
 function dispatchDataUpdated(
     key,
-    value
+    value,
+    source = ""
 ) {
 
     document.dispatchEvent(
@@ -1453,7 +1865,10 @@ function dispatchDataUpdated(
                         key,
 
                     value:
-                        value
+                        value,
+
+                    source:
+                        source
                 }
             }
         )
@@ -1498,6 +1913,15 @@ window.JufelixPurchasesCloud = {
     saveSupplier:
         saveSupplier,
 
+    syncPurchases:
+        syncPurchases,
+
+    syncProducts:
+        syncProducts,
+
+    syncSuppliers:
+        syncSuppliers,
+
     syncLocal:
         syncLocal,
 
@@ -1510,23 +1934,38 @@ window.JufelixPurchasesCloud = {
 
 
 /* ==========================================
-   READY
+   START CLOUD BRIDGE
 ========================================== */
 
 waitForDb()
+
     .then(
         async function () {
 
             console.log(
-                "✅ Jufelix Purchases Cloud ready."
+                "✅ Jufelix Purchases Cloud v705 ready."
             );
 
 
-            /*
-             * Show Firebase authentication
-             * status immediately.
-             */
-            checkFirebaseUser();
+            const user =
+                await waitForFirebaseUser();
+
+
+            if (
+                user
+            ) {
+
+                console.log(
+                    "✅ Firebase user ready:",
+                    user.uid
+                );
+
+            } else {
+
+                console.warn(
+                    "⚠️ Firebase user was not detected."
+                );
+            }
 
 
             try {
@@ -1567,6 +2006,7 @@ waitForDb()
             );
         }
     )
+
     .catch(
         function (
             error
@@ -1578,6 +2018,7 @@ waitForDb()
             );
         }
     )
+
     .finally(
         function () {
 
