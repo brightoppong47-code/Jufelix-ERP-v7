@@ -5,26 +5,11 @@
    COMPLETE REPLACEMENT
 
    FIXED:
-   + Active branch ID resolution
+   + Active branch selection takes priority
    + Transferred branch stock visibility
-   + Branch name / code compatibility
+   + Branch ID / branchName / code compatibility
    + Multi-device branch compatibility
-
-   Features:
-   - Multi-item cart
-   - Branch-aware inventory
-   - Registered customers
-   - Walk-in customer
-   - Cash / MoMo / Card / Bank
-   - Credit sales
-   - Credit-limit validation
-   - Customer balance updates
-   - Customer purchase totals
-   - COGS
-   - Gross profit
-   - Stock ledger
-   - Firebase sales sync
-   - Professional receipt preview
+   + Branch-aware sales history
 
    File:
    js/modules/sales.js
@@ -132,12 +117,12 @@
         );
 
         console.log(
-            "Active branch ID:",
+            "Sales active branch ID:",
             getActiveBranchId()
         );
 
         console.log(
-            "Active branch name:",
+            "Sales active branch name:",
             getActiveBranchName()
         );
     }
@@ -413,7 +398,9 @@
                     event.detail.key ===
                     PRODUCTS_KEY ||
                     event.detail.key ===
-                    BRANCHES_KEY
+                    BRANCHES_KEY ||
+                    event.detail.key ===
+                    ACTIVE_BRANCH_KEY
                 ) {
 
                     products =
@@ -424,6 +411,10 @@
                     loadProductDropdown();
 
                     updateSelectedProduct();
+
+                    displayRecentSales();
+
+                    updateSalesSummary();
                 }
             }
         );
@@ -442,7 +433,9 @@
                     event.detail.key ===
                     PRODUCTS_KEY ||
                     event.detail.key ===
-                    BRANCHES_KEY
+                    BRANCHES_KEY ||
+                    event.detail.key ===
+                    ACTIVE_BRANCH_KEY
                 ) {
 
                     products =
@@ -453,6 +446,10 @@
                     loadProductDropdown();
 
                     updateSelectedProduct();
+
+                    displayRecentSales();
+
+                    updateSalesSummary();
                 }
             }
         );
@@ -924,7 +921,7 @@
 
 
         console.log(
-            "Loading Sales products for branch:",
+            "Loading sales products for:",
             activeBranchId,
             getActiveBranchName()
         );
@@ -1335,8 +1332,7 @@
             alert(
                 `Only ${formatNumber(
                     available
-                )} ${product.unit || ""} ` +
-                "is available after considering the current cart."
+                )} ${product.unit || ""} is available.`
             );
 
             return;
@@ -1420,7 +1416,7 @@
 
 
     /* ==========================================
-       CART DISPLAY
+       CART
     ========================================== */
 
     function renderCart() {
@@ -1617,10 +1613,6 @@
             );
     }
 
-
-    /* ==========================================
-       UPDATE CART
-    ========================================== */
 
     function updateCartQuantity(
         index,
@@ -2523,10 +2515,8 @@
             let customerId =
                 null;
 
-
             let customerPhone =
                 "";
-
 
             let customerType =
                 "walk-in";
@@ -2537,11 +2527,9 @@
                 customerId =
                     selectedCustomer.id;
 
-
                 customerPhone =
                     selectedCustomer.phone ||
                     "";
-
 
                 customerType =
                     selectedCustomer.type ||
@@ -2852,39 +2840,6 @@
                 )}`;
 
 
-            if (
-                paymentMethod ===
-                "Credit" &&
-                selectedCustomer
-            ) {
-
-                const updatedCustomer =
-                    customers.find(
-                        function (customer) {
-
-                            return (
-                                String(
-                                    customer.id
-                                ) ===
-                                String(
-                                    selectedCustomer.id
-                                )
-                            );
-                        }
-                    );
-
-
-                if (updatedCustomer) {
-
-                    successMessage +=
-                        "\nNew Customer Balance: " +
-                        formatMoney(
-                            updatedCustomer.balance
-                        );
-                }
-            }
-
-
             alert(
                 successMessage
             );
@@ -3055,20 +3010,8 @@
                     "Receipt compatibility error:",
                     error
                 );
-
-                alert(
-                    "Sale completed successfully, but the receipt could not open."
-                );
             }
-
-
-            return;
         }
-
-
-        console.error(
-            "Receipt module loaded but has no show() function."
-        );
     }
 
 
@@ -3195,14 +3138,10 @@
                 .filter(
                     function (sale) {
 
-                        const saleBranch =
-                            sale.branchId ||
-                            DEFAULT_BRANCH_ID;
-
-
                         return (
                             String(
-                                saleBranch
+                                sale.branchId ||
+                                DEFAULT_BRANCH_ID
                             ) ===
                             String(
                                 branchId
@@ -3420,11 +3359,6 @@
             sales.filter(
                 function (sale) {
 
-                    const saleBranch =
-                        sale.branchId ||
-                        DEFAULT_BRANCH_ID;
-
-
                     const saleDate =
                         sale.saleDate ||
                         getLocalDateKey(
@@ -3445,7 +3379,8 @@
 
                     return (
                         String(
-                            saleBranch
+                            sale.branchId ||
+                            DEFAULT_BRANCH_ID
                         ) ===
                             String(
                                 branchId
@@ -3537,10 +3472,6 @@
         }
 
 
-        const selectedId =
-            el.product.value;
-
-
         return (
             products.find(
                 function (product) {
@@ -3550,7 +3481,7 @@
                             product.id
                         ) ===
                         String(
-                            selectedId
+                            el.product.value
                         )
                     );
                 }
@@ -3559,10 +3490,6 @@
         );
     }
 
-
-    /* ==========================================
-       RESOLVE PRODUCT BRANCH STOCK KEY
-    ========================================== */
 
     function resolveProductBranchStockKey(
         product,
@@ -3589,10 +3516,6 @@
             product.branchStock;
 
 
-        /*
-         * First preference:
-         * exact branch ID.
-         */
         if (
             Object.prototype
                 .hasOwnProperty.call(
@@ -3683,9 +3606,6 @@
         }
 
 
-        /*
-         * Case-insensitive compatibility.
-         */
         const actualKeys =
             Object.keys(
                 branchStock
@@ -3693,15 +3613,8 @@
 
 
         for (
-            const actualKey of
-            actualKeys
+            const actualKey of actualKeys
         ) {
-
-            const normalizedActual =
-                normalizeComparable(
-                    actualKey
-                );
-
 
             const matched =
                 possibleKeys.some(
@@ -3711,7 +3624,9 @@
                             normalizeComparable(
                                 possibleKey
                             ) ===
-                            normalizedActual
+                            normalizeComparable(
+                                actualKey
+                            )
                         );
                     }
                 );
@@ -3857,7 +3772,7 @@
 
     function findBranchByAnyIdentifier(
         value,
-        branches
+        branchList
     ) {
 
         if (
@@ -3882,7 +3797,7 @@
 
 
         return (
-            branches.find(
+            branchList.find(
                 function (branch) {
 
                     const candidates = [
@@ -3969,53 +3884,16 @@
 
     /* ==========================================
        ACTIVE BRANCH ID
+
+       IMPORTANT FIX:
+       Active branch comes FIRST.
     ========================================== */
 
     function getActiveBranchId() {
 
-        const currentUser =
-            readObject(
-                CURRENT_USER_KEY
-            ) ||
-            readObject(
-                "currentUser"
-            );
-
-
         /*
-         * Non-admin users are tied to
-         * their assigned branch.
-         */
-        if (
-            currentUser &&
-            normalizeRole(
-                currentUser.role
-            ) !==
-                "admin"
-        ) {
-
-            const assignedValue =
-
-                currentUser.branchId ||
-
-                currentUser.branch ||
-
-                currentUser.branchCode ||
-
-                currentUser.branchName;
-
-
-            if (assignedValue) {
-
-                return resolveBranchIdFromValue(
-                    assignedValue
-                );
-            }
-        }
-
-
-        /*
-         * Admin/current branch selection.
+         * FIRST:
+         * Use branch selected on this device.
          */
         const activeBranch =
             readObject(
@@ -4052,8 +3930,19 @@
 
 
         /*
-         * Admin fallback to user assignment.
+         * SECOND:
+         * Fall back to branch assigned
+         * to current user.
          */
+        const currentUser =
+            readObject(
+                CURRENT_USER_KEY
+            ) ||
+            readObject(
+                "currentUser"
+            );
+
+
         if (currentUser) {
 
             const userValue =
@@ -4140,25 +4029,6 @@
         }
 
 
-        const currentUser =
-            readObject(
-                CURRENT_USER_KEY
-            ) ||
-            readObject(
-                "currentUser"
-            );
-
-
-        if (currentUser) {
-
-            return (
-                currentUser.branchName ||
-                currentUser.branch ||
-                "Head Office"
-            );
-        }
-
-
         return "Head Office";
     }
 
@@ -4186,92 +4056,6 @@
             user.email ||
             user.username ||
             "System Administrator"
-        );
-    }
-
-
-    /* ==========================================
-       ROLE
-    ========================================== */
-
-    function normalizeRole(
-        role
-    ) {
-
-        const value =
-            String(
-                role ||
-                ""
-            )
-                .trim()
-                .toLowerCase()
-                .replace(
-                    /_/g,
-                    "-"
-                )
-                .replace(
-                    /\s+/g,
-                    "-"
-                );
-
-
-        const aliases = {
-
-            admin:
-                "admin",
-
-            administrator:
-                "admin",
-
-            "system-administrator":
-                "admin",
-
-            manager:
-                "manager",
-
-            "branch-manager":
-                "manager",
-
-            sales:
-                "sales-officer",
-
-            salesperson:
-                "sales-officer",
-
-            "sales-person":
-                "sales-officer",
-
-            "sales-personnel":
-                "sales-officer",
-
-            "sales-officer":
-                "sales-officer",
-
-            cashier:
-                "cashier",
-
-            stockkeeper:
-                "store-keeper",
-
-            "stock-keeper":
-                "store-keeper",
-
-            storekeeper:
-                "store-keeper",
-
-            "store-keeper":
-                "store-keeper",
-
-            accountant:
-                "accountant"
-        };
-
-
-        return (
-            aliases[
-                value
-            ] ||
-            value
         );
     }
 
@@ -4426,10 +4210,7 @@
         }
 
 
-        if (
-            connect()
-        ) {
-
+        if (connect()) {
             return;
         }
 
@@ -4715,6 +4496,7 @@
                 "jufelix:data-updated",
                 {
                     detail: {
+
                         key:
                             key,
 
@@ -4732,6 +4514,7 @@
                 "jufelix:dataChanged",
                 {
                     detail: {
+
                         key:
                             key,
 
