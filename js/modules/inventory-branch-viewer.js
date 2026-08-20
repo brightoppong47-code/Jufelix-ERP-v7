@@ -102,16 +102,134 @@
 
 
         if (branchFilter) {
-            branchFilter.addEventListener(
-                "change",
-                function () {
 
-                    displayBranchStock();
-                    updateTotalStock();
+    branchFilter.addEventListener(
+        "change",
+        function () {
+
+            const branchId =
+                String(
+                    branchFilter.value ||
+                    ""
+                );
+
+
+            /*
+             * When a specific branch is selected
+             * in the stock viewer, also make it
+             * the active operating branch.
+             */
+            if (branchId) {
+
+                const selectedBranch =
+                    branches.find(
+                        function (branch) {
+
+                            return (
+                                String(
+                                    branch.id
+                                ) ===
+                                branchId
+                            );
+                        }
+                    );
+
+
+                if (selectedBranch) {
+
+                    const activeBranch = {
+
+                        id:
+                            String(
+                                selectedBranch.id
+                            ),
+
+                        branchId:
+                            String(
+                                selectedBranch.id
+                            ),
+
+                        branchName:
+                            getBranchName(
+                                selectedBranch
+                            ),
+
+                        name:
+                            getBranchName(
+                                selectedBranch
+                            ),
+
+                        code:
+                            selectedBranch.code ||
+                            "",
+
+                        status:
+                            selectedBranch.status ||
+                            "active",
+
+                        isHeadOffice:
+                            String(
+                                selectedBranch.id
+                            ) ===
+                            DEFAULT_BRANCH_ID
+                    };
+
+
+                    localStorage.setItem(
+                        ACTIVE_BRANCH_KEY,
+                        JSON.stringify(
+                            activeBranch
+                        )
+                    );
+
+
+                    const activeSelector =
+                        document.getElementById(
+                            "inventoryActiveBranchSelect"
+                        );
+
+
+                    if (activeSelector) {
+
+                        activeSelector.value =
+                            branchId;
+                    }
+
+
+                    document.dispatchEvent(
+                        new CustomEvent(
+                            "jufelix:data-updated",
+                            {
+                                detail: {
+
+                                    key:
+                                        ACTIVE_BRANCH_KEY,
+
+                                    value:
+                                        activeBranch
+                                }
+                            }
+                        )
+                    );
+
+
+                    console.log(
+                        "✅ Active branch changed to:",
+                        activeBranch.branchName,
+                        activeBranch.id
+                    );
                 }
-            );
-        }
+            }
 
+
+            displayBranchStock();
+
+            updateTotalStock();
+
+            updateActiveBranchName();
+        }
+    );
+}
 
         if (stockFilter) {
             stockFilter.addEventListener(
