@@ -10,6 +10,10 @@
    + Branch ID / branchName / code compatibility
    + Multi-device branch compatibility
    + Branch-aware sales history
+   + Product dropdown blinking fixed
+   + Firebase duplicate refresh protection
+   + Preserves selected product
+   + Only rebuilds dropdown when data changes
 
    File:
    js/modules/sales.js
@@ -54,9 +58,40 @@
     ========================================== */
 
     let products = [];
+
     let sales = [];
+
     let customers = [];
+
     let cart = [];
+
+
+    /*
+     * Prevent dropdown blinking.
+     *
+     * The dropdown will only be rebuilt
+     * if the actual options have changed.
+     */
+
+    let productDropdownSignature =
+        "";
+
+    let customerDropdownSignature =
+        "";
+
+
+    /*
+     * Prevent several Firebase events
+     * refreshing the page at the same time.
+     */
+
+    let refreshTimer =
+        null;
+
+
+    let cloudListenerStarted =
+        false;
+
 
     const el = {};
 
@@ -65,10 +100,20 @@
        START
     ========================================== */
 
-    document.addEventListener(
-        "DOMContentLoaded",
-        initializeSales
-    );
+    if (
+        document.readyState ===
+        "loading"
+    ) {
+
+        document.addEventListener(
+            "DOMContentLoaded",
+            initializeSales
+        );
+
+    } else {
+
+        initializeSales();
+    }
 
 
     /* ==========================================
@@ -79,50 +124,69 @@
 
         cacheElements();
 
+
         products =
             readArray(
                 PRODUCTS_KEY
             );
+
 
         sales =
             readArray(
                 SALES_KEY
             );
 
+
         customers =
             readArray(
                 CUSTOMERS_KEY
             );
 
+
         connectEvents();
 
-        loadProductDropdown();
 
-        loadCustomerDropdown();
+        /*
+         * First load.
+         * force = true
+         */
 
-        resetProductSelection();
+        loadProductDropdown(
+            true
+        );
+
+
+        loadCustomerDropdown(
+            true
+        );
+
+
+        resetProductInformation();
+
 
         updateCustomerSelection();
 
+
         renderCart();
+
 
         displayRecentSales();
 
+
         updateSalesSummary();
 
+
         startSalesCloud();
+
 
         console.log(
             "✅ Jufelix Sales module loaded."
         );
 
-        console.log(
-            "Sales active branch ID:",
-            getActiveBranchId()
-        );
 
         console.log(
-            "Sales active branch name:",
+            "Sales active branch:",
+            getActiveBranchId(),
             getActiveBranchName()
         );
     }
@@ -139,70 +203,84 @@
                 "salesForm"
             );
 
+
         el.product =
             document.getElementById(
                 "saleProduct"
             );
+
 
         el.availableStock =
             document.getElementById(
                 "availableStock"
             );
 
+
         el.sellingPrice =
             document.getElementById(
                 "sellingPrice"
             );
+
 
         el.quantity =
             document.getElementById(
                 "saleQuantity"
             );
 
+
         el.itemTotal =
             document.getElementById(
                 "saleTotal"
             );
+
 
         el.productName =
             document.getElementById(
                 "selectedProductName"
             );
 
+
         el.productCategory =
             document.getElementById(
                 "selectedProductCategory"
             );
+
 
         el.productUnit =
             document.getElementById(
                 "selectedProductUnit"
             );
 
+
         el.productImage =
             document.getElementById(
                 "saleProductImage"
             );
+
 
         el.cartBody =
             document.getElementById(
                 "cartTableBody"
             );
 
+
         el.cartItemCountBadge =
             document.getElementById(
                 "cartItemCountBadge"
             );
+
 
         el.cartProductCount =
             document.getElementById(
                 "cartProductCount"
             );
 
+
         el.cartTotalQuantity =
             document.getElementById(
                 "cartTotalQuantity"
             );
+
 
         el.saleSummaryTotal =
             document.getElementById(
@@ -217,40 +295,48 @@
                 "saleCustomer"
             );
 
+
         el.customerInfo =
             document.getElementById(
                 "selectedCustomerInfo"
             );
+
 
         el.checkoutCustomerName =
             document.getElementById(
                 "checkoutCustomerName"
             );
 
+
         el.checkoutCustomerType =
             document.getElementById(
                 "checkoutCustomerType"
             );
+
 
         el.checkoutCustomerPhone =
             document.getElementById(
                 "checkoutCustomerPhone"
             );
 
+
         el.checkoutCustomerBalance =
             document.getElementById(
                 "checkoutCustomerBalance"
             );
+
 
         el.checkoutCustomerCreditLimit =
             document.getElementById(
                 "checkoutCustomerCreditLimit"
             );
 
+
         el.checkoutCustomerAvailableCredit =
             document.getElementById(
                 "checkoutCustomerAvailableCredit"
             );
+
 
         el.creditSaleWarning =
             document.getElementById(
@@ -265,10 +351,12 @@
                 "paymentMethod"
             );
 
+
         el.completeSaleButton =
             document.getElementById(
                 "completeSaleButton"
             );
+
 
         el.clearCartButton =
             document.getElementById(
@@ -283,15 +371,18 @@
                 "salesHistoryTable"
             );
 
+
         el.todayTransactionCount =
             document.getElementById(
                 "todayTransactionCount"
             );
 
+
         el.todaySalesTotal =
             document.getElementById(
                 "todaySalesTotal"
             );
+
 
         el.todayItemsSold =
             document.getElementById(
@@ -369,144 +460,247 @@
         }
 
 
+        /* ======================================
+           JUFELIX DATA UPDATED
+        ====================================== */
+
         document.addEventListener(
             "jufelix:data-updated",
             function (event) {
 
-                if (!event.detail) {
+                if (
+                    !event ||
+                    !event.detail
+                ) {
+
                     return;
                 }
 
 
-                if (
-                    event.detail.key ===
-                    CUSTOMERS_KEY
-                ) {
-
-                    customers =
-                        readArray(
-                            CUSTOMERS_KEY
-                        );
-
-                    loadCustomerDropdown();
-
-                    updateCustomerSelection();
-                }
-
-
-                if (
-                    event.detail.key ===
-                    PRODUCTS_KEY ||
-                    event.detail.key ===
-                    BRANCHES_KEY ||
-                    event.detail.key ===
-                    ACTIVE_BRANCH_KEY
-                ) {
-
-                    products =
-                        readArray(
-                            PRODUCTS_KEY
-                        );
-
-                    loadProductDropdown();
-
-                    updateSelectedProduct();
-
-                    displayRecentSales();
-
-                    updateSalesSummary();
-                }
+                scheduleRefresh(
+                    event.detail.key
+                );
             }
         );
 
+
+        /* ======================================
+           LEGACY DATA CHANGED
+        ====================================== */
 
         document.addEventListener(
             "jufelix:dataChanged",
             function (event) {
 
-                if (!event.detail) {
+                if (
+                    !event ||
+                    !event.detail
+                ) {
+
                     return;
                 }
 
 
-                if (
-                    event.detail.key ===
-                    PRODUCTS_KEY ||
-                    event.detail.key ===
-                    BRANCHES_KEY ||
-                    event.detail.key ===
-                    ACTIVE_BRANCH_KEY
-                ) {
-
-                    products =
-                        readArray(
-                            PRODUCTS_KEY
-                        );
-
-                    loadProductDropdown();
-
-                    updateSelectedProduct();
-
-                    displayRecentSales();
-
-                    updateSalesSummary();
-                }
+                scheduleRefresh(
+                    event.detail.key
+                );
             }
         );
 
+
+        /* ======================================
+           OTHER TAB / WINDOW
+        ====================================== */
 
         window.addEventListener(
             "storage",
             function (event) {
 
-                if (
-                    event.key ===
-                    CUSTOMERS_KEY
-                ) {
-
-                    customers =
-                        readArray(
-                            CUSTOMERS_KEY
-                        );
-
-                    loadCustomerDropdown();
-
-                    updateCustomerSelection();
-                }
-
-
-                if (
-                    event.key ===
-                    PRODUCTS_KEY ||
-                    event.key ===
-                    BRANCHES_KEY ||
-                    event.key ===
-                    ACTIVE_BRANCH_KEY
-                ) {
-
-                    products =
-                        readArray(
-                            PRODUCTS_KEY
-                        );
-
-                    loadProductDropdown();
-
-                    updateSelectedProduct();
-
-                    displayRecentSales();
-
-                    updateSalesSummary();
-                }
+                scheduleRefresh(
+                    event.key
+                );
             }
         );
     }
 
 
     /* ==========================================
-       CUSTOMER DROPDOWN
+       SAFE REFRESH SCHEDULER
+
+       CRITICAL BLINKING FIX
     ========================================== */
 
-    function loadCustomerDropdown() {
+    function scheduleRefresh(
+        key
+    ) {
+
+        const watchedKeys = [
+
+            PRODUCTS_KEY,
+
+            SALES_KEY,
+
+            CUSTOMERS_KEY,
+
+            BRANCHES_KEY,
+
+            ACTIVE_BRANCH_KEY
+
+        ];
+
+
+        if (
+            key &&
+            !watchedKeys.includes(
+                key
+            )
+        ) {
+
+            return;
+        }
+
+
+        window.clearTimeout(
+            refreshTimer
+        );
+
+
+        refreshTimer =
+            window.setTimeout(
+                function () {
+
+                    refreshFromStorage(
+                        key
+                    );
+
+                },
+                120
+            );
+    }
+
+
+    function refreshFromStorage(
+        changedKey
+    ) {
+
+        /*
+         * PRODUCTS / BRANCH
+         */
+
+        if (
+            !changedKey ||
+            changedKey ===
+                PRODUCTS_KEY ||
+            changedKey ===
+                BRANCHES_KEY ||
+            changedKey ===
+                ACTIVE_BRANCH_KEY
+        ) {
+
+            products =
+                readArray(
+                    PRODUCTS_KEY
+                );
+
+
+            /*
+             * This function now checks the
+             * signature before touching the DOM.
+             */
+
+            loadProductDropdown(
+                false
+            );
+
+
+            /*
+             * Only refresh selected product
+             * information if something is
+             * actually selected.
+             */
+
+            if (
+                el.product &&
+                el.product.value
+            ) {
+
+                refreshSelectedProductInformation();
+            }
+        }
+
+
+        /*
+         * CUSTOMER
+         */
+
+        if (
+            !changedKey ||
+            changedKey ===
+                CUSTOMERS_KEY
+        ) {
+
+            customers =
+                readArray(
+                    CUSTOMERS_KEY
+                );
+
+
+            loadCustomerDropdown(
+                false
+            );
+
+
+            updateCustomerSelection();
+        }
+
+
+        /*
+         * SALES
+         */
+
+        if (
+            !changedKey ||
+            changedKey ===
+                SALES_KEY
+        ) {
+
+            sales =
+                readArray(
+                    SALES_KEY
+                );
+        }
+
+
+        if (
+            changedKey ===
+                ACTIVE_BRANCH_KEY
+        ) {
+
+            /*
+             * Branch changed.
+             *
+             * Clear a product that belongs
+             * to the previous branch.
+             */
+
+            resetProductSelection();
+        }
+
+
+        displayRecentSales();
+
+        updateSalesSummary();
+    }
+
+
+    /* ==========================================
+       CUSTOMER DROPDOWN
+       STABLE VERSION
+    ========================================== */
+
+    function loadCustomerDropdown(
+        force
+    ) {
 
         if (!el.customer) {
             return;
@@ -555,8 +749,79 @@
                 );
 
 
-        el.customer.innerHTML =
-            '<option value="">Walk-in Customer</option>';
+        /*
+         * Build signature.
+         */
+
+        const signature =
+            JSON.stringify(
+
+                activeCustomers.map(
+                    function (customer) {
+
+                        return [
+
+                            String(
+                                customer.id ||
+                                ""
+                            ),
+
+                            String(
+                                customer.name ||
+                                ""
+                            ),
+
+                            String(
+                                customer.phone ||
+                                ""
+                            )
+
+                        ];
+                    }
+                )
+
+            );
+
+
+        /*
+         * No actual change = do not rebuild.
+         */
+
+        if (
+            !force &&
+            signature ===
+                customerDropdownSignature
+        ) {
+
+            return;
+        }
+
+
+        customerDropdownSignature =
+            signature;
+
+
+        const fragment =
+            document.createDocumentFragment();
+
+
+        const walkInOption =
+            document.createElement(
+                "option"
+            );
+
+
+        walkInOption.value =
+            "";
+
+
+        walkInOption.textContent =
+            "Walk-in Customer";
+
+
+        fragment.appendChild(
+            walkInOption
+        );
 
 
         activeCustomers.forEach(
@@ -569,7 +834,9 @@
 
 
                 option.value =
-                    customer.id;
+                    String(
+                        customer.id
+                    );
 
 
                 option.textContent =
@@ -581,15 +848,23 @@
                     );
 
 
-                el.customer.appendChild(
+                fragment.appendChild(
                     option
                 );
             }
         );
 
 
-        if (
-            previousValue &&
+        /*
+         * Replace only when something changed.
+         */
+
+        el.customer.replaceChildren(
+            fragment
+        );
+
+
+        const previousExists =
             activeCustomers.some(
                 function (customer) {
 
@@ -602,11 +877,21 @@
                         )
                     );
                 }
-            )
+            );
+
+
+        if (
+            previousValue &&
+            previousExists
         ) {
 
             el.customer.value =
                 previousValue;
+
+        } else {
+
+            el.customer.value =
+                "";
         }
     }
 
@@ -624,12 +909,6 @@
 
             return null;
         }
-
-
-        customers =
-            readArray(
-                CUSTOMERS_KEY
-            );
 
 
         return (
@@ -672,32 +951,45 @@
                 "—"
             );
 
+
             setText(
                 el.checkoutCustomerType,
                 "—"
             );
+
 
             setText(
                 el.checkoutCustomerPhone,
                 "—"
             );
 
+
             setText(
                 el.checkoutCustomerBalance,
-                formatMoney(0)
+                formatMoney(
+                    0
+                )
             );
+
 
             setText(
                 el.checkoutCustomerCreditLimit,
-                formatMoney(0)
+                formatMoney(
+                    0
+                )
             );
+
 
             setText(
                 el.checkoutCustomerAvailableCredit,
-                formatMoney(0)
+                formatMoney(
+                    0
+                )
             );
 
+
             updateCreditSaleWarning();
+
 
             return;
         }
@@ -805,6 +1097,7 @@
                 "show"
             );
 
+
             return;
         }
 
@@ -822,6 +1115,7 @@
 
             el.creditSaleWarning.textContent =
                 "Credit payment requires a registered customer. Select a customer before completing the sale.";
+
 
             return;
         }
@@ -860,6 +1154,7 @@
             el.creditSaleWarning.textContent =
                 `${customer.name} does not have a credit limit. Edit the customer and set a credit limit first.`;
 
+
             return;
         }
 
@@ -875,6 +1170,7 @@
                 )}, but this sale is ${formatMoney(
                     saleTotal
                 )}.`;
+
 
             return;
         }
@@ -897,17 +1193,16 @@
 
     /* ==========================================
        PRODUCT DROPDOWN
+       BLINK-FREE VERSION
     ========================================== */
 
-    function loadProductDropdown() {
+    function loadProductDropdown(
+        force
+    ) {
 
         if (!el.product) {
             return;
         }
-
-
-        const previousValue =
-            el.product.value;
 
 
         products =
@@ -916,15 +1211,12 @@
             );
 
 
+        const previousValue =
+            el.product.value;
+
+
         const activeBranchId =
             getActiveBranchId();
-
-
-        console.log(
-            "Loading sales products for:",
-            activeBranchId,
-            getActiveBranchName()
-        );
 
 
         const availableProducts =
@@ -941,7 +1233,7 @@
                                 .toLowerCase();
 
 
-                        const stock =
+                        const available =
                             getAvailableStockForCart(
                                 product
                             );
@@ -950,7 +1242,8 @@
                         return (
                             status ===
                                 "active" &&
-                            stock > 0
+                            available >
+                                0
                         );
                     }
                 )
@@ -970,8 +1263,108 @@
                 );
 
 
-        el.product.innerHTML =
-            '<option value="">Select Product</option>';
+        /*
+         * Build a fingerprint of everything
+         * that affects the dropdown.
+         */
+
+        const signatureData =
+            availableProducts.map(
+                function (product) {
+
+                    return [
+
+                        String(
+                            product.id ||
+                            ""
+                        ),
+
+                        String(
+                            product.name ||
+                            ""
+                        ),
+
+                        String(
+                            product.unit ||
+                            ""
+                        ),
+
+                        getAvailableStockForCart(
+                            product
+                        )
+
+                    ];
+                }
+            );
+
+
+        const newSignature =
+            JSON.stringify({
+
+                branchId:
+                    String(
+                        activeBranchId
+                    ),
+
+                products:
+                    signatureData
+
+            });
+
+
+        /*
+         * ======================================
+         * CRITICAL FIX
+         *
+         * Firebase can fire several snapshots
+         * containing exactly the same products.
+         *
+         * If nothing changed, DO NOT touch
+         * the <select>.
+         * ======================================
+         */
+
+        if (
+            !force &&
+            newSignature ===
+                productDropdownSignature
+        ) {
+
+            return;
+        }
+
+
+        productDropdownSignature =
+            newSignature;
+
+
+        /*
+         * Build options away from the live DOM.
+         */
+
+        const fragment =
+            document.createDocumentFragment();
+
+
+        const firstOption =
+            document.createElement(
+                "option"
+            );
+
+
+        firstOption.value =
+            "";
+
+
+        firstOption.textContent =
+            availableProducts.length
+                ? "Select Product"
+                : "No products available";
+
+
+        fragment.appendChild(
+            firstOption
+        );
 
 
         availableProducts.forEach(
@@ -983,30 +1376,54 @@
                     );
 
 
-                const stock =
+                const available =
                     getAvailableStockForCart(
                         product
                     );
 
 
                 option.value =
-                    product.id;
+                    String(
+                        product.id
+                    );
 
 
                 option.textContent =
                     `${product.name || "Unnamed Product"} — ` +
-                    `${formatNumber(stock)} ` +
-                    `${product.unit || ""}`;
+                    `${formatNumber(
+                        available
+                    )}` +
+                    (
+                        product.unit
+                            ? ` ${product.unit}`
+                            : ""
+                    );
 
 
-                el.product.appendChild(
+                fragment.appendChild(
                     option
                 );
             }
         );
 
 
-        if (
+        /*
+         * One DOM replacement instead of
+         * repeatedly changing innerHTML and
+         * appending options.
+         */
+
+        el.product.replaceChildren(
+            fragment
+        );
+
+
+        /*
+         * Restore currently selected product
+         * when it is still available.
+         */
+
+        const selectedStillExists =
             previousValue &&
             availableProducts.some(
                 function (product) {
@@ -1020,12 +1437,27 @@
                         )
                     );
                 }
-            )
-        ) {
+            );
+
+
+        if (selectedStillExists) {
 
             el.product.value =
                 previousValue;
+
+        } else {
+
+            el.product.value =
+                "";
         }
+
+
+        console.log(
+            "Sales product dropdown updated:",
+            getActiveBranchName(),
+            availableProducts.length,
+            "products"
+        );
     }
 
 
@@ -1034,6 +1466,82 @@
     ========================================== */
 
     function updateSelectedProduct() {
+
+        const product =
+            getSelectedProduct();
+
+
+        if (!product) {
+
+            resetProductInformation();
+
+
+            return;
+        }
+
+
+        const available =
+            getAvailableStockForCart(
+                product
+            );
+
+
+        setValue(
+            el.availableStock,
+            `${formatNumber(
+                available
+            )}${
+                product.unit
+                    ? " " +
+                      product.unit
+                    : ""
+            }`
+        );
+
+
+        setValue(
+            el.sellingPrice,
+            toNumber(
+                product.sellingPrice
+            ).toFixed(
+                2
+            )
+        );
+
+
+        /*
+         * Set quantity to 1 only when
+         * user selects a new product.
+         */
+
+        if (
+            el.quantity &&
+            !el.quantity.value
+        ) {
+
+            el.quantity.value =
+                available > 0
+                    ? "1"
+                    : "";
+        }
+
+
+        updateProductPreview(
+            product
+        );
+
+
+        calculateItemTotal();
+    }
+
+
+    /* ==========================================
+       BACKGROUND PRODUCT REFRESH
+
+       Does NOT reset quantity to 1.
+    ========================================== */
+
+    function refreshSelectedProductInformation() {
 
         const product =
             getSelectedProduct();
@@ -1057,7 +1565,12 @@
             el.availableStock,
             `${formatNumber(
                 available
-            )} ${product.unit || ""}`
+            )}${
+                product.unit
+                    ? " " +
+                      product.unit
+                    : ""
+            }`
         );
 
 
@@ -1071,18 +1584,18 @@
         );
 
 
-        setValue(
-            el.quantity,
-            available > 0
-                ? 1
-                : ""
-        );
-
-
         updateProductPreview(
             product
         );
 
+
+        /*
+         * If stock became lower than the
+         * quantity currently entered, do not
+         * silently change the quantity.
+         *
+         * Final validation will protect stock.
+         */
 
         calculateItemTotal();
     }
@@ -1160,15 +1673,18 @@
             ""
         );
 
+
         setValue(
             el.sellingPrice,
             ""
         );
 
+
         setValue(
             el.quantity,
             ""
         );
+
 
         setValue(
             el.itemTotal,
@@ -1207,9 +1723,17 @@
 
     function resetProductSelection() {
 
-        if (el.form) {
+        if (el.product) {
 
-            el.form.reset();
+            el.product.value =
+                "";
+        }
+
+
+        if (el.quantity) {
+
+            el.quantity.value =
+                "";
         }
 
 
@@ -1233,6 +1757,7 @@
                 el.itemTotal,
                 ""
             );
+
 
             return;
         }
@@ -1293,6 +1818,7 @@
                 "Select a product."
             );
 
+
             return;
         }
 
@@ -1314,6 +1840,7 @@
                 "Enter a valid quantity."
             );
 
+
             return;
         }
 
@@ -1334,6 +1861,7 @@
                     available
                 )} ${product.unit || ""} is available.`
             );
+
 
             return;
         }
@@ -1409,14 +1937,27 @@
 
         resetProductSelection();
 
-        loadProductDropdown();
+
+        /*
+         * Cart quantity changed.
+         * Force signature recalculation.
+         */
+
+        productDropdownSignature =
+            "";
+
+
+        loadProductDropdown(
+            false
+        );
+
 
         renderCart();
     }
 
 
     /* ==========================================
-       CART
+       CART DISPLAY
     ========================================== */
 
     function renderCart() {
@@ -1491,6 +2032,7 @@
                                             </div>
 
                                             <div>
+
                                                 <strong>
                                                     ${escapeHTML(
                                                         item.productName
@@ -1503,6 +2045,7 @@
                                                         ""
                                                     )}
                                                 </div>
+
                                             </div>
 
                                         </div>
@@ -1529,11 +2072,13 @@
                                     </td>
 
                                     <td>
+
                                         <strong>
                                             ${formatMoney(
                                                 itemTotal
                                             )}
                                         </strong>
+
                                     </td>
 
                                     <td>
@@ -1558,6 +2103,7 @@
 
         connectCartRowEvents();
 
+
         updateCartSummary();
     }
 
@@ -1576,11 +2122,13 @@
                         function () {
 
                             updateCartQuantity(
+
                                 Number(
                                     input.getAttribute(
                                         "data-cart-index"
                                     )
                                 ),
+
                                 input.value
                             );
                         }
@@ -1601,6 +2149,7 @@
                         function () {
 
                             removeCartItem(
+
                                 Number(
                                     button.getAttribute(
                                         "data-remove-index"
@@ -1613,6 +2162,10 @@
             );
     }
 
+
+    /* ==========================================
+       UPDATE CART
+    ========================================== */
 
     function updateCartQuantity(
         index,
@@ -1643,6 +2196,7 @@
             removeCartItem(
                 index
             );
+
 
             return;
         }
@@ -1678,7 +2232,9 @@
                 "The product could not be found."
             );
 
+
             renderCart();
+
 
             return;
         }
@@ -1701,7 +2257,9 @@
                 )} ${product.unit || ""} is available.`
             );
 
+
             renderCart();
+
 
             return;
         }
@@ -1715,7 +2273,14 @@
 
         renderCart();
 
-        loadProductDropdown();
+
+        productDropdownSignature =
+            "";
+
+
+        loadProductDropdown(
+            false
+        );
     }
 
 
@@ -1741,7 +2306,14 @@
 
         renderCart();
 
-        loadProductDropdown();
+
+        productDropdownSignature =
+            "";
+
+
+        loadProductDropdown(
+            false
+        );
     }
 
 
@@ -1772,7 +2344,15 @@
 
         renderCart();
 
-        loadProductDropdown();
+
+        productDropdownSignature =
+            "";
+
+
+        loadProductDropdown(
+            false
+        );
+
 
         resetProductSelection();
     }
@@ -1816,11 +2396,15 @@
             el.cartItemCountBadge
         ) {
 
-            el.cartItemCountBadge.textContent =
+            el.cartItemCountBadge
+                .textContent =
+
                 `${formatNumber(
                     totals.quantity
                 )} item${
-                    totals.quantity === 1
+
+                    totals.quantity ===
+                    1
                         ? ""
                         : "s"
                 }`;
@@ -2078,6 +2662,7 @@
                 "Add at least one product to the cart."
             );
 
+
             return;
         }
 
@@ -2087,16 +2672,22 @@
                 PRODUCTS_KEY
             );
 
+
         sales =
             readArray(
                 SALES_KEY
             );
+
 
         customers =
             readArray(
                 CUSTOMERS_KEY
             );
 
+
+        /* ======================================
+           FINAL STOCK VALIDATION
+        ====================================== */
 
         for (
             let index = 0;
@@ -2133,6 +2724,7 @@
                     `${cartItem.productName} could not be found.`
                 );
 
+
                 return;
             }
 
@@ -2158,7 +2750,15 @@
                     `${product.unit || ""} available.`
                 );
 
-                loadProductDropdown();
+
+                productDropdownSignature =
+                    "";
+
+
+                loadProductDropdown(
+                    false
+                );
+
 
                 return;
             }
@@ -2197,6 +2797,7 @@
                     "The selected customer is inactive."
                 );
 
+
                 return;
             }
         }
@@ -2222,6 +2823,7 @@
                     creditValidation.message
                 );
 
+
                 return;
             }
         }
@@ -2238,15 +2840,21 @@
 
         const confirmed =
             window.confirm(
+
                 `Complete this sale?\n\n` +
+
                 `Customer: ${customerName}\n` +
+
                 `Products: ${cart.length}\n` +
+
                 `Quantity: ${formatNumber(
                     totals.quantity
                 )}\n` +
+
                 `Total: ${formatMoney(
                     totals.revenue
                 )}\n` +
+
                 `Payment: ${paymentMethod}`
             );
 
@@ -2262,6 +2870,7 @@
 
             el.completeSaleButton.disabled =
                 true;
+
 
             el.completeSaleButton.textContent =
                 "Processing Sale...";
@@ -2307,6 +2916,10 @@
             const saleItems =
                 [];
 
+
+            /* ==================================
+               DEDUCT STOCK
+            ================================== */
 
             cart.forEach(
                 function (cartItem) {
@@ -2512,11 +3125,17 @@
             );
 
 
+            /* ==================================
+               CUSTOMER INFORMATION
+            ================================== */
+
             let customerId =
                 null;
 
+
             let customerPhone =
                 "";
+
 
             let customerType =
                 "walk-in";
@@ -2527,15 +3146,21 @@
                 customerId =
                     selectedCustomer.id;
 
+
                 customerPhone =
                     selectedCustomer.phone ||
                     "";
+
 
                 customerType =
                     selectedCustomer.type ||
                     "retail";
             }
 
+
+            /* ==================================
+               CREATE SALE
+            ================================== */
 
             const sale = {
 
@@ -2615,6 +3240,10 @@
                     "completed"
             };
 
+
+            /* ==================================
+               UPDATE CUSTOMER
+            ================================== */
 
             if (selectedCustomer) {
 
@@ -2703,6 +3332,10 @@
             }
 
 
+            /* ==================================
+               SAVE PRODUCTS
+            ================================== */
+
             if (
                 !saveArray(
                     PRODUCTS_KEY,
@@ -2715,6 +3348,10 @@
                 );
             }
 
+
+            /* ==================================
+               SAVE SALE
+            ================================== */
 
             sales.push(
                 sale
@@ -2729,16 +3366,24 @@
             ) {
 
                 restoreSnapshots(
+
                     oldProductsSnapshot,
+
                     oldSalesSnapshot,
+
                     oldCustomersSnapshot
                 );
+
 
                 throw new Error(
                     "Sale record could not be saved."
                 );
             }
 
+
+            /* ==================================
+               SAVE CUSTOMER
+            ================================== */
 
             if (
                 selectedCustomer &&
@@ -2749,16 +3394,24 @@
             ) {
 
                 restoreSnapshots(
+
                     oldProductsSnapshot,
+
                     oldSalesSnapshot,
+
                     oldCustomersSnapshot
                 );
+
 
                 throw new Error(
                     "Customer account could not be updated. Sale was cancelled."
                 );
             }
 
+
+            /* ==================================
+               STOCK LEDGER
+            ================================== */
 
             saleItems.forEach(
                 function (item) {
@@ -2771,20 +3424,36 @@
             );
 
 
+            /* ==================================
+               CLOUD SYNC
+            ================================== */
+
             syncCompletedSaleToCloud(
                 sale,
                 products
             );
 
 
+            /* ==================================
+               CLEAR CART
+            ================================== */
+
             cart = [];
 
 
             renderCart();
 
-            loadProductDropdown();
 
             resetProductSelection();
+
+
+            productDropdownSignature =
+                "";
+
+
+            loadProductDropdown(
+                false
+            );
 
 
             if (el.customer) {
@@ -2803,10 +3472,16 @@
 
             updateCustomerSelection();
 
+
             displayRecentSales();
+
 
             updateSalesSummary();
 
+
+            /* ==================================
+               EVENTS
+            ================================== */
 
             dispatchDataUpdated(
                 PRODUCTS_KEY,
@@ -2831,6 +3506,10 @@
             }
 
 
+            /* ==================================
+               SUCCESS
+            ================================== */
+
             let successMessage =
                 "Sale completed successfully.\n" +
                 `Receipt: ${receiptNumber}\n` +
@@ -2838,6 +3517,39 @@
                 `Total: ${formatMoney(
                     totals.revenue
                 )}`;
+
+
+            if (
+                paymentMethod ===
+                "Credit" &&
+                selectedCustomer
+            ) {
+
+                const updatedCustomer =
+                    customers.find(
+                        function (customer) {
+
+                            return (
+                                String(
+                                    customer.id
+                                ) ===
+                                String(
+                                    selectedCustomer.id
+                                )
+                            );
+                        }
+                    );
+
+
+                if (updatedCustomer) {
+
+                    successMessage +=
+                        "\nNew Customer Balance: " +
+                        formatMoney(
+                            updatedCustomer.balance
+                        );
+                }
+            }
 
 
             alert(
@@ -2948,9 +3660,11 @@
                 "JufelixReceipt is undefined."
             );
 
+
             alert(
                 "Sale completed successfully, but receipt.js did not load."
             );
+
 
             return;
         }
@@ -2960,7 +3674,7 @@
             typeof window
                 .JufelixReceipt
                 .show ===
-            "function"
+                "function"
         ) {
 
             try {
@@ -2971,6 +3685,7 @@
                         sale
                     );
 
+
                 return;
 
             } catch (error) {
@@ -2980,9 +3695,11 @@
                     error
                 );
 
+
                 alert(
                     "Sale completed successfully, but the receipt preview could not open."
                 );
+
 
                 return;
             }
@@ -2993,7 +3710,7 @@
             typeof window
                 .JufelixReceipt
                 .print ===
-            "function"
+                "function"
         ) {
 
             try {
@@ -3167,8 +3884,12 @@
                     function (a, b) {
 
                         return (
-                            getTimestamp(b) -
-                            getTimestamp(a)
+                            getTimestamp(
+                                b
+                            ) -
+                            getTimestamp(
+                                a
+                            )
                         );
                     }
                 )
@@ -3193,6 +3914,7 @@
                     </td>
                 </tr>
             `;
+
 
             return;
         }
@@ -3299,6 +4021,7 @@
                         )
                         .join(", "),
 
+
                 quantity:
                     sale.items.reduce(
                         function (
@@ -3359,6 +4082,11 @@
             sales.filter(
                 function (sale) {
 
+                    const saleBranch =
+                        sale.branchId ||
+                        DEFAULT_BRANCH_ID;
+
+
                     const saleDate =
                         sale.saleDate ||
                         getLocalDateKey(
@@ -3379,8 +4107,7 @@
 
                     return (
                         String(
-                            sale.branchId ||
-                            DEFAULT_BRANCH_ID
+                            saleBranch
                         ) ===
                             String(
                                 branchId
@@ -3472,6 +4199,10 @@
         }
 
 
+        const selectedId =
+            el.product.value;
+
+
         return (
             products.find(
                 function (product) {
@@ -3481,7 +4212,7 @@
                             product.id
                         ) ===
                         String(
-                            el.product.value
+                            selectedId
                         )
                     );
                 }
@@ -3490,6 +4221,10 @@
         );
     }
 
+
+    /* ==========================================
+       RESOLVE PRODUCT BRANCH STOCK KEY
+    ========================================== */
 
     function resolveProductBranchStockKey(
         product,
@@ -3516,11 +4251,17 @@
             product.branchStock;
 
 
+        /*
+         * Exact match first.
+         */
+
         if (
             Object.prototype
                 .hasOwnProperty.call(
                     branchStock,
-                    branchId
+                    String(
+                        branchId
+                    )
                 )
         ) {
 
@@ -3530,20 +4271,20 @@
         }
 
 
-        const branches =
+        const branchList =
             readArray(
                 BRANCHES_KEY
             );
 
 
-        const activeBranch =
+        const branch =
             findBranchByAnyIdentifier(
                 branchId,
-                branches
+                branchList
             );
 
 
-        if (!activeBranch) {
+        if (!branch) {
 
             return String(
                 branchId
@@ -3553,15 +4294,15 @@
 
         const possibleKeys = [
 
-            activeBranch.id,
+            branch.id,
 
-            activeBranch.branchId,
+            branch.branchId,
 
-            activeBranch.code,
+            branch.code,
 
-            activeBranch.branchName,
+            branch.branchName,
 
-            activeBranch.name
+            branch.name
 
         ]
             .filter(
@@ -3606,17 +4347,23 @@
         }
 
 
-        const actualKeys =
+        /*
+         * Case-insensitive / whitespace-safe
+         * legacy match.
+         */
+
+        const existingKeys =
             Object.keys(
                 branchStock
             );
 
 
         for (
-            const actualKey of actualKeys
+            const existingKey of
+            existingKeys
         ) {
 
-            const matched =
+            const found =
                 possibleKeys.some(
                     function (possibleKey) {
 
@@ -3625,16 +4372,16 @@
                                 possibleKey
                             ) ===
                             normalizeComparable(
-                                actualKey
+                                existingKey
                             )
                         );
                     }
                 );
 
 
-            if (matched) {
+            if (found) {
 
-                return actualKey;
+                return existingKey;
             }
         }
 
@@ -3644,6 +4391,10 @@
         );
     }
 
+
+    /* ==========================================
+       PRODUCT BRANCH STOCK
+    ========================================== */
 
     function getProductBranchStock(
         product
@@ -3691,6 +4442,10 @@
             }
         }
 
+
+        /*
+         * Old inventory compatibility.
+         */
 
         if (
             String(
@@ -3742,13 +4497,17 @@
     ) {
 
         return Math.max(
+
             0,
+
             getProductBranchStock(
                 product
             ) -
+
             getCartQuantityForProduct(
                 product.id
             )
+
         );
     }
 
@@ -3852,7 +4611,7 @@
         }
 
 
-        const branches =
+        const branchList =
             readArray(
                 BRANCHES_KEY
             );
@@ -3861,7 +4620,7 @@
         const branch =
             findBranchByAnyIdentifier(
                 value,
-                branches
+                branchList
             );
 
 
@@ -3883,18 +4642,14 @@
 
 
     /* ==========================================
-       ACTIVE BRANCH ID
+       ACTIVE BRANCH
 
-       IMPORTANT FIX:
-       Active branch comes FIRST.
+       IMPORTANT:
+       Explicit active branch is checked first.
     ========================================== */
 
     function getActiveBranchId() {
 
-        /*
-         * FIRST:
-         * Use branch selected on this device.
-         */
         const activeBranch =
             readObject(
                 ACTIVE_BRANCH_KEY
@@ -3929,11 +4684,6 @@
         }
 
 
-        /*
-         * SECOND:
-         * Fall back to branch assigned
-         * to current user.
-         */
         const currentUser =
             readObject(
                 CURRENT_USER_KEY
@@ -3969,10 +4719,6 @@
     }
 
 
-    /* ==========================================
-       ACTIVE BRANCH NAME
-    ========================================== */
-
     function getActiveBranchName() {
 
         const branchId =
@@ -3980,7 +4726,9 @@
 
 
         if (
-            branchId ===
+            String(
+                branchId
+            ) ===
             DEFAULT_BRANCH_ID
         ) {
 
@@ -3988,7 +4736,7 @@
         }
 
 
-        const branches =
+        const branchList =
             readArray(
                 BRANCHES_KEY
             );
@@ -3997,7 +4745,7 @@
         const branch =
             findBranchByAnyIdentifier(
                 branchId,
-                branches
+                branchList
             );
 
 
@@ -4100,10 +4848,15 @@
     ) {
 
         return toNumber(
+
             sale.total ??
+
             sale.totalAmount ??
+
             sale.revenue ??
+
             sale.grandTotal
+
         );
     }
 
@@ -4139,6 +4892,12 @@
 
     function startSalesCloud() {
 
+        if (cloudListenerStarted) {
+
+            return;
+        }
+
+
         function connect() {
 
             if (
@@ -4150,6 +4909,18 @@
 
 
             if (
+                cloudListenerStarted
+            ) {
+
+                return true;
+            }
+
+
+            cloudListenerStarted =
+                true;
+
+
+            if (
                 typeof window
                     .JufelixSalesCloud
                     .listen ===
@@ -4157,25 +4928,40 @@
             ) {
 
                 window.JufelixSalesCloud.listen(
-                    function () {
+                    function (
+                        type
+                    ) {
 
-                        products =
-                            readArray(
+                        /*
+                         * Do not immediately rebuild
+                         * dropdown here.
+                         *
+                         * Schedule one consolidated
+                         * refresh instead.
+                         */
+
+                        if (
+                            type ===
+                            "products"
+                        ) {
+
+                            scheduleRefresh(
                                 PRODUCTS_KEY
                             );
 
+                        } else if (
+                            type ===
+                            "sales"
+                        ) {
 
-                        sales =
-                            readArray(
+                            scheduleRefresh(
                                 SALES_KEY
                             );
 
+                        } else {
 
-                        loadProductDropdown();
-
-                        displayRecentSales();
-
-                        updateSalesSummary();
+                            scheduleRefresh();
+                        }
                     }
                 );
             }
@@ -4210,14 +4996,23 @@
         }
 
 
-        if (connect()) {
+        if (
+            connect()
+        ) {
+
             return;
         }
 
 
         document.addEventListener(
             "jufelix:sales-cloud-ready",
-            connect,
+
+            function () {
+
+                connect();
+
+            },
+
             {
                 once:
                     true
@@ -4248,7 +5043,7 @@
             typeof window
                 .JufelixSalesCloud
                 .saveSale ===
-            "function"
+                "function"
         ) {
 
             operations.push(
@@ -4266,7 +5061,7 @@
             typeof window
                 .JufelixSalesCloud
                 .saveProduct ===
-            "function"
+                "function"
         ) {
 
             sale.items.forEach(
@@ -4494,24 +5289,7 @@
 
             new CustomEvent(
                 "jufelix:data-updated",
-                {
-                    detail: {
 
-                        key:
-                            key,
-
-                        value:
-                            value
-                    }
-                }
-            )
-        );
-
-
-        document.dispatchEvent(
-
-            new CustomEvent(
-                "jufelix:dataChanged",
                 {
                     detail: {
 
@@ -4538,7 +5316,9 @@
             Date.now() +
             "-" +
             Math.random()
-                .toString(36)
+                .toString(
+                    36
+                )
                 .substring(
                     2,
                     8
@@ -4638,8 +5418,11 @@
 
 
         return (
+
             validDate.getFullYear() +
+
             "-" +
+
             String(
                 validDate.getMonth() +
                 1
@@ -4648,7 +5431,9 @@
                     2,
                     "0"
                 ) +
+
             "-" +
+
             String(
                 validDate.getDate()
             )
@@ -4688,6 +5473,7 @@
 
         return date.toLocaleString(
             "en-GH",
+
             {
                 day:
                     "2-digit",
@@ -4733,6 +5519,7 @@
 
             return new Intl.NumberFormat(
                 "en-GH",
+
                 {
                     style:
                         "currency",
@@ -4800,7 +5587,8 @@
                 String(
                     type ||
                     "retail"
-                ).toLowerCase()
+                )
+                    .toLowerCase()
             ] ||
             "Retail"
         );
@@ -4943,15 +5731,80 @@
                     );
 
 
-                loadProductDropdown();
+                /*
+                 * Let signature checks decide
+                 * whether DOM rebuilding is needed.
+                 */
 
-                loadCustomerDropdown();
+                loadProductDropdown(
+                    false
+                );
+
+
+                loadCustomerDropdown(
+                    false
+                );
+
 
                 renderCart();
 
+
                 updateCustomerSelection();
 
+
                 displayRecentSales();
+
+
+                updateSalesSummary();
+            },
+
+
+        forceRefresh:
+            function () {
+
+                productDropdownSignature =
+                    "";
+
+                customerDropdownSignature =
+                    "";
+
+
+                products =
+                    readArray(
+                        PRODUCTS_KEY
+                    );
+
+
+                sales =
+                    readArray(
+                        SALES_KEY
+                    );
+
+
+                customers =
+                    readArray(
+                        CUSTOMERS_KEY
+                    );
+
+
+                loadProductDropdown(
+                    true
+                );
+
+
+                loadCustomerDropdown(
+                    true
+                );
+
+
+                renderCart();
+
+
+                updateCustomerSelection();
+
+
+                displayRecentSales();
+
 
                 updateSalesSummary();
             },
