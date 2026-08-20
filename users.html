@@ -61,14 +61,77 @@
 <div class="table-wrapper"><table class="users-table"><thead><tr><th>Full Name</th><th>Email</th><th>Phone</th><th>Branch</th><th>Role</th><th>Status</th><th>Last Login</th><th>Actions</th></tr></thead><tbody id="usersTableBody"><tr><td colspan="8" class="table-empty">No users found.</td></tr></tbody></table></div>
 </section>
 </main>
-<script type="module" src="js/core/firebase.js?v=702"></script>
-<script type="module" src="js/cloud/users-cloud.js?v=510"></script>
-<script src="js/core/storage.js?v=510"></script>
-<script src="js/core/permissions.js?v=501"></script>
-<script src="js/core/auth-guard.js?v=650"></script>
-<script src="js/core/theme.js?v=580"></script>
-<script src="js/components/sidebar.js?v=610"></script>
-<script src="js/components/topbar.js?v=620"></script>
-<script src="js/modules/users.js?v=510"></script>
+<!-- ==========================================
+     FIREBASE CONFIGURATION
+========================================== -->
+
+<script
+    src="config/firebase-config.js?v=701"
+></script>
+
+
+<!-- ==========================================
+     FIREBASE CONNECTION
+========================================== -->
+
+<script
+    type="module"
+    src="js/core/firebase.js?v=702"
+></script>
+
+
+<!-- ==========================================
+     USERS FIREBASE CLOUD BRIDGE
+========================================== -->
+
+<script
+    type="module"
+    src="js/cloud/users-cloud.js?v=511"
+></script>
+
+
+<!-- ==========================================
+     CORE
+========================================== -->
+
+<script
+    src="js/core/storage.js?v=510"
+></script>
+
+<script
+    src="js/core/permissions.js?v=501"
+></script>
+
+<script
+    src="js/core/auth-guard.js?v=650"
+></script>
+
+<script
+    src="js/core/theme.js?v=580"
+></script>
+
+
+<!-- ==========================================
+     COMPONENTS
+========================================== -->
+
+<script
+    src="js/components/sidebar.js?v=610"
+></script>
+
+<script
+    src="js/components/topbar.js?v=620"
+></script>
+
+
+<!-- ==========================================
+     USERS MODULE
+========================================== -->
+
+<script
+    src="js/modules/users.js?v=511"
+></script>
+
+
 </body>
 </html>
