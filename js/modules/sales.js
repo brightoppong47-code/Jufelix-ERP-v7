@@ -2,6 +2,14 @@
    JUFELIX ERP v7.0 PROFESSIONAL
    CUSTOMER-AWARE MULTI-ITEM SALES / POS
 
+   COMPLETE REPLACEMENT
+
+   FIXED:
+   + Active branch ID resolution
+   + Transferred branch stock visibility
+   + Branch name / code compatibility
+   + Multi-device branch compatibility
+
    Features:
    - Multi-item cart
    - Branch-aware inventory
@@ -23,6 +31,7 @@
 ========================================== */
 
 (function () {
+
     "use strict";
 
 
@@ -38,6 +47,9 @@
 
     const CUSTOMERS_KEY =
         "jufelix_v7_customers";
+
+    const BRANCHES_KEY =
+        "jufelix_v7_branches";
 
     const LEDGER_KEY =
         "jufelix_stock_ledger";
@@ -57,13 +69,9 @@
     ========================================== */
 
     let products = [];
-
     let sales = [];
-
     let customers = [];
-
     let cart = [];
-
 
     const el = {};
 
@@ -86,37 +94,30 @@
 
         cacheElements();
 
-
         products =
             readArray(
                 PRODUCTS_KEY
             );
-
 
         sales =
             readArray(
                 SALES_KEY
             );
 
-
         customers =
             readArray(
                 CUSTOMERS_KEY
             );
 
-
         connectEvents();
-
 
         loadProductDropdown();
 
         loadCustomerDropdown();
 
-
         resetProductSelection();
 
         updateCustomerSelection();
-
 
         renderCart();
 
@@ -126,9 +127,18 @@
 
         startSalesCloud();
 
+        console.log(
+            "✅ Jufelix Sales module loaded."
+        );
 
         console.log(
-            "Jufelix Customer-Aware Sales module loaded."
+            "Active branch ID:",
+            getActiveBranchId()
+        );
+
+        console.log(
+            "Active branch name:",
+            getActiveBranchName()
         );
     }
 
@@ -144,84 +154,70 @@
                 "salesForm"
             );
 
-
         el.product =
             document.getElementById(
                 "saleProduct"
             );
-
 
         el.availableStock =
             document.getElementById(
                 "availableStock"
             );
 
-
         el.sellingPrice =
             document.getElementById(
                 "sellingPrice"
             );
-
 
         el.quantity =
             document.getElementById(
                 "saleQuantity"
             );
 
-
         el.itemTotal =
             document.getElementById(
                 "saleTotal"
             );
-
 
         el.productName =
             document.getElementById(
                 "selectedProductName"
             );
 
-
         el.productCategory =
             document.getElementById(
                 "selectedProductCategory"
             );
-
 
         el.productUnit =
             document.getElementById(
                 "selectedProductUnit"
             );
 
-
         el.productImage =
             document.getElementById(
                 "saleProductImage"
             );
-
 
         el.cartBody =
             document.getElementById(
                 "cartTableBody"
             );
 
-
         el.cartItemCountBadge =
             document.getElementById(
                 "cartItemCountBadge"
             );
-
 
         el.cartProductCount =
             document.getElementById(
                 "cartProductCount"
             );
 
-
         el.cartTotalQuantity =
             document.getElementById(
                 "cartTotalQuantity"
             );
-
 
         el.saleSummaryTotal =
             document.getElementById(
@@ -236,48 +232,40 @@
                 "saleCustomer"
             );
 
-
         el.customerInfo =
             document.getElementById(
                 "selectedCustomerInfo"
             );
-
 
         el.checkoutCustomerName =
             document.getElementById(
                 "checkoutCustomerName"
             );
 
-
         el.checkoutCustomerType =
             document.getElementById(
                 "checkoutCustomerType"
             );
-
 
         el.checkoutCustomerPhone =
             document.getElementById(
                 "checkoutCustomerPhone"
             );
 
-
         el.checkoutCustomerBalance =
             document.getElementById(
                 "checkoutCustomerBalance"
             );
-
 
         el.checkoutCustomerCreditLimit =
             document.getElementById(
                 "checkoutCustomerCreditLimit"
             );
 
-
         el.checkoutCustomerAvailableCredit =
             document.getElementById(
                 "checkoutCustomerAvailableCredit"
             );
-
 
         el.creditSaleWarning =
             document.getElementById(
@@ -292,12 +280,10 @@
                 "paymentMethod"
             );
 
-
         el.completeSaleButton =
             document.getElementById(
                 "completeSaleButton"
             );
-
 
         el.clearCartButton =
             document.getElementById(
@@ -312,18 +298,15 @@
                 "salesHistoryTable"
             );
 
-
         el.todayTransactionCount =
             document.getElementById(
                 "todayTransactionCount"
             );
 
-
         el.todaySalesTotal =
             document.getElementById(
                 "todaySalesTotal"
             );
-
 
         el.todayItemsSold =
             document.getElementById(
@@ -405,9 +388,7 @@
             "jufelix:data-updated",
             function (event) {
 
-                if (
-                    !event.detail
-                ) {
+                if (!event.detail) {
                     return;
                 }
 
@@ -422,7 +403,6 @@
                             CUSTOMERS_KEY
                         );
 
-
                     loadCustomerDropdown();
 
                     updateCustomerSelection();
@@ -431,7 +411,9 @@
 
                 if (
                     event.detail.key ===
-                    PRODUCTS_KEY
+                    PRODUCTS_KEY ||
+                    event.detail.key ===
+                    BRANCHES_KEY
                 ) {
 
                     products =
@@ -439,8 +421,38 @@
                             PRODUCTS_KEY
                         );
 
+                    loadProductDropdown();
+
+                    updateSelectedProduct();
+                }
+            }
+        );
+
+
+        document.addEventListener(
+            "jufelix:dataChanged",
+            function (event) {
+
+                if (!event.detail) {
+                    return;
+                }
+
+
+                if (
+                    event.detail.key ===
+                    PRODUCTS_KEY ||
+                    event.detail.key ===
+                    BRANCHES_KEY
+                ) {
+
+                    products =
+                        readArray(
+                            PRODUCTS_KEY
+                        );
 
                     loadProductDropdown();
+
+                    updateSelectedProduct();
                 }
             }
         );
@@ -460,7 +472,6 @@
                             CUSTOMERS_KEY
                         );
 
-
                     loadCustomerDropdown();
 
                     updateCustomerSelection();
@@ -469,7 +480,11 @@
 
                 if (
                     event.key ===
-                    PRODUCTS_KEY
+                    PRODUCTS_KEY ||
+                    event.key ===
+                    BRANCHES_KEY ||
+                    event.key ===
+                    ACTIVE_BRANCH_KEY
                 ) {
 
                     products =
@@ -477,8 +492,13 @@
                             PRODUCTS_KEY
                         );
 
-
                     loadProductDropdown();
+
+                    updateSelectedProduct();
+
+                    displayRecentSales();
+
+                    updateSalesSummary();
                 }
             }
         );
@@ -528,24 +548,18 @@
                         return String(
                             a.name ||
                             ""
-                        )
-                            .localeCompare(
-                                String(
-                                    b.name ||
-                                    ""
-                                )
-                            );
+                        ).localeCompare(
+                            String(
+                                b.name ||
+                                ""
+                            )
+                        );
                     }
                 );
 
 
-        el.customer.innerHTML = `
-
-            <option value="">
-                Walk-in Customer
-            </option>
-
-        `;
+        el.customer.innerHTML =
+            '<option value="">Walk-in Customer</option>';
 
 
         activeCustomers.forEach(
@@ -661,36 +675,30 @@
                 "—"
             );
 
-
             setText(
                 el.checkoutCustomerType,
                 "—"
             );
-
 
             setText(
                 el.checkoutCustomerPhone,
                 "—"
             );
 
-
             setText(
                 el.checkoutCustomerBalance,
                 formatMoney(0)
             );
-
 
             setText(
                 el.checkoutCustomerCreditLimit,
                 formatMoney(0)
             );
 
-
             setText(
                 el.checkoutCustomerAvailableCredit,
                 formatMoney(0)
             );
-
 
             updateCreditSaleWarning();
 
@@ -800,7 +808,6 @@
                 "show"
             );
 
-
             return;
         }
 
@@ -818,7 +825,6 @@
 
             el.creditSaleWarning.textContent =
                 "Credit payment requires a registered customer. Select a customer before completing the sale.";
-
 
             return;
         }
@@ -857,7 +863,6 @@
             el.creditSaleWarning.textContent =
                 `${customer.name} does not have a credit limit. Edit the customer and set a credit limit first.`;
 
-
             return;
         }
 
@@ -873,7 +878,6 @@
                 )}, but this sale is ${formatMoney(
                     saleTotal
                 )}.`;
-
 
             return;
         }
@@ -915,6 +919,17 @@
             );
 
 
+        const activeBranchId =
+            getActiveBranchId();
+
+
+        console.log(
+            "Loading Sales products for branch:",
+            activeBranchId,
+            getActiveBranchName()
+        );
+
+
         const availableProducts =
             products
                 .filter(
@@ -929,13 +944,16 @@
                                 .toLowerCase();
 
 
+                        const stock =
+                            getAvailableStockForCart(
+                                product
+                            );
+
+
                         return (
                             status ===
                                 "active" &&
-                            getAvailableStockForCart(
-                                product
-                            ) >
-                                0
+                            stock > 0
                         );
                     }
                 )
@@ -945,13 +963,12 @@
                         return String(
                             a.name ||
                             ""
-                        )
-                            .localeCompare(
-                                String(
-                                    b.name ||
-                                    ""
-                                )
-                            );
+                        ).localeCompare(
+                            String(
+                                b.name ||
+                                ""
+                            )
+                        );
                     }
                 );
 
@@ -1041,7 +1058,6 @@
 
         setValue(
             el.availableStock,
-
             `${formatNumber(
                 available
             )} ${product.unit || ""}`
@@ -1050,17 +1066,16 @@
 
         setValue(
             el.sellingPrice,
-
             toNumber(
                 product.sellingPrice
+            ).toFixed(
+                2
             )
-                .toFixed(2)
         );
 
 
         setValue(
             el.quantity,
-
             available > 0
                 ? 1
                 : ""
@@ -1121,7 +1136,6 @@
             if (image) {
 
                 el.productImage.innerHTML = `
-
                     <img
                         src="${escapeHTML(
                             image
@@ -1131,7 +1145,6 @@
                             "Product"
                         )}"
                     >
-
                 `;
 
             } else {
@@ -1150,18 +1163,15 @@
             ""
         );
 
-
         setValue(
             el.sellingPrice,
             ""
         );
 
-
         setValue(
             el.quantity,
             ""
         );
-
 
         setValue(
             el.itemTotal,
@@ -1227,7 +1237,6 @@
                 ""
             );
 
-
             return;
         }
 
@@ -1253,7 +1262,9 @@
 
         setValue(
             el.itemTotal,
-            total.toFixed(2)
+            total.toFixed(
+                2
+            )
         );
     }
 
@@ -1285,7 +1296,6 @@
                 "Select a product."
             );
 
-
             return;
         }
 
@@ -1306,7 +1316,6 @@
             alert(
                 "Enter a valid quantity."
             );
-
 
             return;
         }
@@ -1329,7 +1338,6 @@
                 )} ${product.unit || ""} ` +
                 "is available after considering the current cart."
             );
-
 
             return;
         }
@@ -1405,9 +1413,7 @@
 
         resetProductSelection();
 
-
         loadProductDropdown();
-
 
         renderCart();
     }
@@ -1433,18 +1439,14 @@
         ) {
 
             el.cartBody.innerHTML = `
-
                 <tr>
-
                     <td
                         colspan="5"
                         class="table-empty"
                     >
                         Your cart is empty.
                     </td>
-
                 </tr>
-
             `;
 
         } else {
@@ -1469,7 +1471,6 @@
                             const imageMarkup =
                                 item.image
                                     ? `
-
                                         <img
                                             src="${escapeHTML(
                                                 item.image
@@ -1478,62 +1479,45 @@
                                                 item.productName
                                             )}"
                                         >
-
                                     `
                                     : "📦";
 
 
                             return `
-
                                 <tr>
-
 
                                     <td>
 
                                         <div class="cart-product">
 
                                             <div class="cart-product-image">
-
                                                 ${imageMarkup}
-
                                             </div>
 
-
                                             <div>
-
                                                 <strong>
-
                                                     ${escapeHTML(
                                                         item.productName
                                                     )}
-
                                                 </strong>
 
-
                                                 <div>
-
                                                     ${escapeHTML(
                                                         item.unit ||
                                                         ""
                                                     )}
-
                                                 </div>
-
                                             </div>
 
                                         </div>
 
                                     </td>
 
-
                                     <td>
-
                                         ${formatMoney(
                                             item.sellingPrice
                                         )}
-
                                     </td>
-
 
                                     <td>
 
@@ -1548,19 +1532,13 @@
 
                                     </td>
 
-
                                     <td>
-
                                         <strong>
-
                                             ${formatMoney(
                                                 itemTotal
                                             )}
-
                                         </strong>
-
                                     </td>
-
 
                                     <td>
 
@@ -1574,9 +1552,7 @@
 
                                     </td>
 
-
                                 </tr>
-
                             `;
                         }
                     )
@@ -1585,7 +1561,6 @@
 
 
         connectCartRowEvents();
-
 
         updateCartSummary();
     }
@@ -1605,13 +1580,11 @@
                         function () {
 
                             updateCartQuantity(
-
                                 Number(
                                     input.getAttribute(
                                         "data-cart-index"
                                     )
                                 ),
-
                                 input.value
                             );
                         }
@@ -1632,7 +1605,6 @@
                         function () {
 
                             removeCartItem(
-
                                 Number(
                                     button.getAttribute(
                                         "data-remove-index"
@@ -1680,7 +1652,6 @@
                 index
             );
 
-
             return;
         }
 
@@ -1715,9 +1686,7 @@
                 "The product could not be found."
             );
 
-
             renderCart();
-
 
             return;
         }
@@ -1740,9 +1709,7 @@
                 )} ${product.unit || ""} is available.`
             );
 
-
             renderCart();
-
 
             return;
         }
@@ -1755,7 +1722,6 @@
 
 
         renderCart();
-
 
         loadProductDropdown();
     }
@@ -1782,7 +1748,6 @@
 
 
         renderCart();
-
 
         loadProductDropdown();
     }
@@ -1815,9 +1780,7 @@
 
         renderCart();
 
-
         loadProductDropdown();
-
 
         resetProductSelection();
     }
@@ -1861,15 +1824,11 @@
             el.cartItemCountBadge
         ) {
 
-            el.cartItemCountBadge
-                .textContent =
-
+            el.cartItemCountBadge.textContent =
                 `${formatNumber(
                     totals.quantity
                 )} item${
-
-                    totals.quantity ===
-                    1
+                    totals.quantity === 1
                         ? ""
                         : "s"
                 }`;
@@ -2127,7 +2086,6 @@
                 "Add at least one product to the cart."
             );
 
-
             return;
         }
 
@@ -2137,22 +2095,16 @@
                 PRODUCTS_KEY
             );
 
-
         sales =
             readArray(
                 SALES_KEY
             );
-
 
         customers =
             readArray(
                 CUSTOMERS_KEY
             );
 
-
-        /* ======================================
-           FINAL STOCK VALIDATION
-        ====================================== */
 
         for (
             let index = 0;
@@ -2189,7 +2141,6 @@
                     `${cartItem.productName} could not be found.`
                 );
 
-
                 return;
             }
 
@@ -2215,9 +2166,7 @@
                     `${product.unit || ""} available.`
                 );
 
-
                 loadProductDropdown();
-
 
                 return;
             }
@@ -2235,10 +2184,6 @@
         let selectedCustomer =
             getSelectedCustomer();
 
-
-        /* ======================================
-           CUSTOMER VALIDATION
-        ====================================== */
 
         if (selectedCustomer) {
 
@@ -2260,15 +2205,10 @@
                     "The selected customer is inactive."
                 );
 
-
                 return;
             }
         }
 
-
-        /* ======================================
-           CREDIT VALIDATION
-        ====================================== */
 
         if (
             paymentMethod ===
@@ -2290,15 +2230,10 @@
                     creditValidation.message
                 );
 
-
                 return;
             }
         }
 
-
-        /* ======================================
-           CONFIRM
-        ====================================== */
 
         const customerName =
             selectedCustomer
@@ -2311,21 +2246,15 @@
 
         const confirmed =
             window.confirm(
-
                 `Complete this sale?\n\n` +
-
                 `Customer: ${customerName}\n` +
-
                 `Products: ${cart.length}\n` +
-
                 `Quantity: ${formatNumber(
                     totals.quantity
                 )}\n` +
-
                 `Total: ${formatMoney(
                     totals.revenue
                 )}\n` +
-
                 `Payment: ${paymentMethod}`
             );
 
@@ -2335,10 +2264,6 @@
         }
 
 
-        /* ======================================
-           LOCK BUTTON
-        ====================================== */
-
         if (
             el.completeSaleButton
         ) {
@@ -2346,15 +2271,10 @@
             el.completeSaleButton.disabled =
                 true;
 
-
             el.completeSaleButton.textContent =
                 "Processing Sale...";
         }
 
-
-        /* ======================================
-           SNAPSHOTS
-        ====================================== */
 
         const oldProductsSnapshot =
             deepClone(
@@ -2395,10 +2315,6 @@
             const saleItems =
                 [];
 
-
-            /* ==================================
-               DEDUCT STOCK
-            ================================== */
 
             cart.forEach(
                 function (cartItem) {
@@ -2445,10 +2361,17 @@
                     };
 
 
+                    const stockKey =
+                        resolveProductBranchStockKey(
+                            product,
+                            branchId
+                        );
+
+
                     let currentStock =
                         toNumber(
                             branchStock[
-                                branchId
+                                stockKey
                             ]
                         );
 
@@ -2457,7 +2380,7 @@
                         !Object.prototype
                             .hasOwnProperty.call(
                                 branchStock,
-                                branchId
+                                stockKey
                             ) &&
                         branchId ===
                             DEFAULT_BRANCH_ID
@@ -2493,7 +2416,7 @@
 
 
                     branchStock[
-                        branchId
+                        stockKey
                     ] =
                         newStock;
 
@@ -2597,10 +2520,6 @@
             );
 
 
-            /* ==================================
-               CUSTOMER INFORMATION
-            ================================== */
-
             let customerId =
                 null;
 
@@ -2629,10 +2548,6 @@
                     "retail";
             }
 
-
-            /* ==================================
-               CREATE SALE
-            ================================== */
 
             const sale = {
 
@@ -2713,10 +2628,6 @@
             };
 
 
-            /* ==================================
-               UPDATE CUSTOMER
-            ================================== */
-
             if (selectedCustomer) {
 
                 const customerIndex =
@@ -2791,11 +2702,6 @@
                     now.toISOString();
 
 
-                /*
-                 * Store customer balance
-                 * information on the sale.
-                 */
-
                 sale.customerBalanceAfter =
                     toNumber(
                         customer.balance
@@ -2808,10 +2714,6 @@
                     );
             }
 
-
-            /* ==================================
-               SAVE PRODUCTS
-            ================================== */
 
             if (
                 !saveArray(
@@ -2826,10 +2728,6 @@
             }
 
 
-            /* ==================================
-               SAVE SALE
-            ================================== */
-
             sales.push(
                 sale
             );
@@ -2843,24 +2741,16 @@
             ) {
 
                 restoreSnapshots(
-
                     oldProductsSnapshot,
-
                     oldSalesSnapshot,
-
                     oldCustomersSnapshot
                 );
-
 
                 throw new Error(
                     "Sale record could not be saved."
                 );
             }
 
-
-            /* ==================================
-               SAVE CUSTOMER
-            ================================== */
 
             if (
                 selectedCustomer &&
@@ -2871,24 +2761,16 @@
             ) {
 
                 restoreSnapshots(
-
                     oldProductsSnapshot,
-
                     oldSalesSnapshot,
-
                     oldCustomersSnapshot
                 );
-
 
                 throw new Error(
                     "Customer account could not be updated. Sale was cancelled."
                 );
             }
 
-
-            /* ==================================
-               STOCK LEDGER
-            ================================== */
 
             saleItems.forEach(
                 function (item) {
@@ -2901,36 +2783,21 @@
             );
 
 
-            /* ==================================
-               CLOUD SYNC
-            ================================== */
-
             syncCompletedSaleToCloud(
                 sale,
                 products
             );
 
 
-            /* ==================================
-               CLEAR CART
-            ================================== */
-
             cart = [];
 
 
             renderCart();
 
-
             loadProductDropdown();
-
 
             resetProductSelection();
 
-
-            /*
-             * Keep Walk-in Customer as the
-             * default after each completed sale.
-             */
 
             if (el.customer) {
 
@@ -2948,16 +2815,10 @@
 
             updateCustomerSelection();
 
-
             displayRecentSales();
-
 
             updateSalesSummary();
 
-
-            /* ==================================
-               EVENTS
-            ================================== */
 
             dispatchDataUpdated(
                 PRODUCTS_KEY,
@@ -2981,10 +2842,6 @@
                 );
             }
 
-
-            /* ==================================
-               SUCCESS
-            ================================== */
 
             let successMessage =
                 "Sale completed successfully.\n" +
@@ -3033,10 +2890,6 @@
             );
 
 
-            /* ==================================
-               RECEIPT
-            ================================== */
-
             showCompletedSaleReceipt(
                 sale
             );
@@ -3057,6 +2910,7 @@
 
 
             renderCart();
+
 
         } finally {
 
@@ -3139,11 +2993,9 @@
                 "JufelixReceipt is undefined."
             );
 
-
             alert(
                 "Sale completed successfully, but receipt.js did not load."
             );
-
 
             return;
         }
@@ -3153,7 +3005,7 @@
             typeof window
                 .JufelixReceipt
                 .show ===
-                "function"
+            "function"
         ) {
 
             try {
@@ -3164,7 +3016,6 @@
                         sale
                     );
 
-
                 return;
 
             } catch (error) {
@@ -3174,11 +3025,9 @@
                     error
                 );
 
-
                 alert(
                     "Sale completed successfully, but the receipt preview could not open."
                 );
-
 
                 return;
             }
@@ -3189,7 +3038,7 @@
             typeof window
                 .JufelixReceipt
                 .print ===
-                "function"
+            "function"
         ) {
 
             try {
@@ -3206,7 +3055,6 @@
                     "Receipt compatibility error:",
                     error
                 );
-
 
                 alert(
                     "Sale completed successfully, but the receipt could not open."
@@ -3397,20 +3245,15 @@
         ) {
 
             el.historyTable.innerHTML = `
-
                 <tr>
-
                     <td
                         colspan="7"
                         class="table-empty"
                     >
                         No sales have been recorded.
                     </td>
-
                 </tr>
-
             `;
-
 
             return;
         }
@@ -3428,90 +3271,62 @@
 
 
                         return `
-
                             <tr>
 
-
                                 <td>
-
                                     <strong>
-
                                         ${escapeHTML(
                                             sale.receiptNumber ||
                                             "—"
                                         )}
-
                                     </strong>
-
                                 </td>
 
-
                                 <td>
-
                                     ${escapeHTML(
                                         formatDateTime(
                                             sale.createdAt
                                         )
                                     )}
-
                                 </td>
 
-
                                 <td>
-
                                     ${escapeHTML(
                                         sale.customerName ||
                                         "Walk-in Customer"
                                     )}
-
                                 </td>
 
-
                                 <td>
-
                                     ${escapeHTML(
                                         summary.names
                                     )}
-
                                 </td>
 
-
                                 <td>
-
                                     ${formatNumber(
                                         summary.quantity
                                     )}
-
                                 </td>
 
-
                                 <td>
-
                                     ${escapeHTML(
                                         sale.paymentMethod ||
                                         "Cash"
                                     )}
-
                                 </td>
 
-
                                 <td>
-
                                     <strong>
-
                                         ${formatMoney(
                                             getSaleRevenue(
                                                 sale
                                             )
                                         )}
-
                                     </strong>
-
                                 </td>
 
-
                             </tr>
-
                         `;
                     }
                 )
@@ -3544,7 +3359,6 @@
                             }
                         )
                         .join(", "),
-
 
                 quantity:
                     sale.items.reduce(
@@ -3746,16 +3560,191 @@
     }
 
 
+    /* ==========================================
+       RESOLVE PRODUCT BRANCH STOCK KEY
+    ========================================== */
+
+    function resolveProductBranchStockKey(
+        product,
+        branchId
+    ) {
+
+        if (
+            !product ||
+            !product.branchStock ||
+            typeof product.branchStock !==
+                "object" ||
+            Array.isArray(
+                product.branchStock
+            )
+        ) {
+
+            return String(
+                branchId
+            );
+        }
+
+
+        const branchStock =
+            product.branchStock;
+
+
+        /*
+         * First preference:
+         * exact branch ID.
+         */
+        if (
+            Object.prototype
+                .hasOwnProperty.call(
+                    branchStock,
+                    branchId
+                )
+        ) {
+
+            return String(
+                branchId
+            );
+        }
+
+
+        const branches =
+            readArray(
+                BRANCHES_KEY
+            );
+
+
+        const activeBranch =
+            findBranchByAnyIdentifier(
+                branchId,
+                branches
+            );
+
+
+        if (!activeBranch) {
+
+            return String(
+                branchId
+            );
+        }
+
+
+        const possibleKeys = [
+
+            activeBranch.id,
+
+            activeBranch.branchId,
+
+            activeBranch.code,
+
+            activeBranch.branchName,
+
+            activeBranch.name
+
+        ]
+            .filter(
+                function (value) {
+
+                    return (
+                        value !==
+                            undefined &&
+                        value !==
+                            null &&
+                        String(
+                            value
+                        ).trim() !==
+                            ""
+                    );
+                }
+            )
+            .map(
+                function (value) {
+
+                    return String(
+                        value
+                    );
+                }
+            );
+
+
+        for (
+            const key of possibleKeys
+        ) {
+
+            if (
+                Object.prototype
+                    .hasOwnProperty.call(
+                        branchStock,
+                        key
+                    )
+            ) {
+
+                return key;
+            }
+        }
+
+
+        /*
+         * Case-insensitive compatibility.
+         */
+        const actualKeys =
+            Object.keys(
+                branchStock
+            );
+
+
+        for (
+            const actualKey of
+            actualKeys
+        ) {
+
+            const normalizedActual =
+                normalizeComparable(
+                    actualKey
+                );
+
+
+            const matched =
+                possibleKeys.some(
+                    function (possibleKey) {
+
+                        return (
+                            normalizeComparable(
+                                possibleKey
+                            ) ===
+                            normalizedActual
+                        );
+                    }
+                );
+
+
+            if (matched) {
+
+                return actualKey;
+            }
+        }
+
+
+        return String(
+            branchId
+        );
+    }
+
+
     function getProductBranchStock(
         product
     ) {
+
+        if (!product) {
+
+            return 0;
+        }
+
 
         const branchId =
             getActiveBranchId();
 
 
         if (
-            product &&
             product.branchStock &&
             typeof product.branchStock ===
                 "object" &&
@@ -3764,23 +3753,39 @@
             )
         ) {
 
-            return toNumber(
-                product.branchStock[
+            const stockKey =
+                resolveProductBranchStockKey(
+                    product,
                     branchId
-                ]
-            );
+                );
+
+
+            if (
+                Object.prototype
+                    .hasOwnProperty.call(
+                        product.branchStock,
+                        stockKey
+                    )
+            ) {
+
+                return toNumber(
+                    product.branchStock[
+                        stockKey
+                    ]
+                );
+            }
         }
 
 
         if (
-            branchId ===
+            String(
+                branchId
+            ) ===
             DEFAULT_BRANCH_ID
         ) {
 
             return toNumber(
-                product
-                    ? product.quantity
-                    : 0
+                product.quantity
             );
         }
 
@@ -3822,13 +3827,10 @@
     ) {
 
         return Math.max(
-
             0,
-
             getProductBranchStock(
                 product
             ) -
-
             getCartQuantityForProduct(
                 product.id
             )
@@ -3837,7 +3839,136 @@
 
 
     /* ==========================================
-       BRANCH / USER
+       BRANCH HELPERS
+    ========================================== */
+
+    function normalizeComparable(
+        value
+    ) {
+
+        return String(
+            value ||
+            ""
+        )
+            .trim()
+            .toLowerCase();
+    }
+
+
+    function findBranchByAnyIdentifier(
+        value,
+        branches
+    ) {
+
+        if (
+            value ===
+                undefined ||
+            value ===
+                null ||
+            String(
+                value
+            ).trim() ===
+                ""
+        ) {
+
+            return null;
+        }
+
+
+        const target =
+            normalizeComparable(
+                value
+            );
+
+
+        return (
+            branches.find(
+                function (branch) {
+
+                    const candidates = [
+
+                        branch.id,
+
+                        branch.branchId,
+
+                        branch.code,
+
+                        branch.branchName,
+
+                        branch.name
+
+                    ];
+
+
+                    return candidates.some(
+                        function (candidate) {
+
+                            return (
+                                normalizeComparable(
+                                    candidate
+                                ) ===
+                                target
+                            );
+                        }
+                    );
+                }
+            ) ||
+            null
+        );
+    }
+
+
+    function resolveBranchIdFromValue(
+        value
+    ) {
+
+        if (
+            value ===
+                undefined ||
+            value ===
+                null ||
+            String(
+                value
+            ).trim() ===
+                ""
+        ) {
+
+            return "";
+        }
+
+
+        const branches =
+            readArray(
+                BRANCHES_KEY
+            );
+
+
+        const branch =
+            findBranchByAnyIdentifier(
+                value,
+                branches
+            );
+
+
+        if (
+            branch &&
+            branch.id
+        ) {
+
+            return String(
+                branch.id
+            );
+        }
+
+
+        return String(
+            value
+        );
+    }
+
+
+    /* ==========================================
+       ACTIVE BRANCH ID
     ========================================== */
 
     function getActiveBranchId() {
@@ -3851,46 +3982,97 @@
             );
 
 
+        /*
+         * Non-admin users are tied to
+         * their assigned branch.
+         */
         if (
             currentUser &&
             normalizeRole(
                 currentUser.role
             ) !==
-                "admin" &&
-            currentUser.branchId
+                "admin"
         ) {
 
-            return String(
-                currentUser.branchId
-            );
+            const assignedValue =
+
+                currentUser.branchId ||
+
+                currentUser.branch ||
+
+                currentUser.branchCode ||
+
+                currentUser.branchName;
+
+
+            if (assignedValue) {
+
+                return resolveBranchIdFromValue(
+                    assignedValue
+                );
+            }
         }
 
 
+        /*
+         * Admin/current branch selection.
+         */
         const activeBranch =
             readObject(
                 ACTIVE_BRANCH_KEY
             );
 
 
-        if (
-            activeBranch &&
-            activeBranch.id
-        ) {
+        if (activeBranch) {
 
-            return String(
-                activeBranch.id
-            );
+            const activeValue =
+
+                activeBranch.id ||
+
+                activeBranch.branchId ||
+
+                activeBranch.value ||
+
+                activeBranch.branch ||
+
+                activeBranch.code ||
+
+                activeBranch.branchName ||
+
+                activeBranch.name;
+
+
+            if (activeValue) {
+
+                return resolveBranchIdFromValue(
+                    activeValue
+                );
+            }
         }
 
 
-        if (
-            currentUser &&
-            currentUser.branchId
-        ) {
+        /*
+         * Admin fallback to user assignment.
+         */
+        if (currentUser) {
 
-            return String(
-                currentUser.branchId
-            );
+            const userValue =
+
+                currentUser.branchId ||
+
+                currentUser.branch ||
+
+                currentUser.branchCode ||
+
+                currentUser.branchName;
+
+
+            if (userValue) {
+
+                return resolveBranchIdFromValue(
+                    userValue
+                );
+            }
         }
 
 
@@ -3898,27 +4080,46 @@
     }
 
 
+    /* ==========================================
+       ACTIVE BRANCH NAME
+    ========================================== */
+
     function getActiveBranchName() {
 
-        const currentUser =
-            readObject(
-                CURRENT_USER_KEY
-            ) ||
-            readObject(
-                "currentUser"
-            );
+        const branchId =
+            getActiveBranchId();
 
 
         if (
-            currentUser &&
-            normalizeRole(
-                currentUser.role
-            ) !==
-                "admin" &&
-            currentUser.branchName
+            branchId ===
+            DEFAULT_BRANCH_ID
         ) {
 
-            return currentUser.branchName;
+            return "Head Office";
+        }
+
+
+        const branches =
+            readArray(
+                BRANCHES_KEY
+            );
+
+
+        const branch =
+            findBranchByAnyIdentifier(
+                branchId,
+                branches
+            );
+
+
+        if (branch) {
+
+            return (
+                branch.branchName ||
+                branch.name ||
+                branch.code ||
+                "Branch"
+            );
         }
 
 
@@ -3933,17 +4134,28 @@
             return (
                 activeBranch.branchName ||
                 activeBranch.name ||
-                "Head Office"
+                activeBranch.code ||
+                "Branch"
             );
         }
 
 
-        if (
-            currentUser &&
-            currentUser.branchName
-        ) {
+        const currentUser =
+            readObject(
+                CURRENT_USER_KEY
+            ) ||
+            readObject(
+                "currentUser"
+            );
 
-            return currentUser.branchName;
+
+        if (currentUser) {
+
+            return (
+                currentUser.branchName ||
+                currentUser.branch ||
+                "Head Office"
+            );
         }
 
 
@@ -4126,8 +4338,7 @@
         const timestamp =
             new Date(
                 value
-            )
-                .getTime();
+            ).getTime();
 
 
         return Number.isNaN(
@@ -4158,7 +4369,7 @@
                 typeof window
                     .JufelixSalesCloud
                     .listen ===
-                    "function"
+                "function"
             ) {
 
                 window.JufelixSalesCloud.listen(
@@ -4178,9 +4389,7 @@
 
                         loadProductDropdown();
 
-
                         displayRecentSales();
-
 
                         updateSalesSummary();
                     }
@@ -4193,7 +4402,7 @@
                 typeof window
                     .JufelixSalesCloud
                     .syncLocal ===
-                    "function"
+                "function"
             ) {
 
                 window.JufelixSalesCloud
@@ -4227,9 +4436,7 @@
 
         document.addEventListener(
             "jufelix:sales-cloud-ready",
-
             connect,
-
             {
                 once:
                     true
@@ -4260,7 +4467,7 @@
             typeof window
                 .JufelixSalesCloud
                 .saveSale ===
-                "function"
+            "function"
         ) {
 
             operations.push(
@@ -4278,7 +4485,7 @@
             typeof window
                 .JufelixSalesCloud
                 .saveProduct ===
-                "function"
+            "function"
         ) {
 
             sale.items.forEach(
@@ -4326,35 +4533,38 @@
 
 
         Promise.all(
-    operations
-)
-    .then(
-    function () {
+            operations
+        )
+            .then(
+                function () {
 
-        console.log(
-            "✅ Sale and stock synced successfully to Firebase."
-        );
-    }
-)
-    .catch(
-        function (error) {
+                    console.log(
+                        "✅ Sale and stock synced successfully to Firebase."
+                    );
+                }
+            )
+            .catch(
+                function (error) {
 
-            console.error(
-                "❌ Firebase sales sync failed:",
-                error
+                    console.error(
+                        "❌ Firebase sales sync failed:",
+                        error
+                    );
+
+
+                    alert(
+                        "Firebase sales sync failed:\n\n" +
+                        (
+                            error &&
+                            error.message
+                                ? error.message
+                                : String(
+                                    error
+                                )
+                        )
+                    );
+                }
             );
-
-            alert(
-                "Firebase sales sync failed:\n\n" +
-                (
-                    error &&
-                    error.message
-                        ? error.message
-                        : String(error)
-                )
-            );
-        }
-    );
     }
 
 
@@ -4391,6 +4601,7 @@
             )
                 ? parsed
                 : [];
+
 
         } catch (error) {
 
@@ -4441,6 +4652,7 @@
                 ? parsed
                 : null;
 
+
         } catch (error) {
 
             return null;
@@ -4464,6 +4676,7 @@
 
 
             return true;
+
 
         } catch (error) {
 
@@ -4500,10 +4713,8 @@
 
             new CustomEvent(
                 "jufelix:data-updated",
-
                 {
                     detail: {
-
                         key:
                             key,
 
@@ -4519,10 +4730,8 @@
 
             new CustomEvent(
                 "jufelix:dataChanged",
-
                 {
                     detail: {
-
                         key:
                             key,
 
@@ -4547,7 +4756,10 @@
             "-" +
             Math.random()
                 .toString(36)
-                .substring(2,8)
+                .substring(
+                    2,
+                    8
+                )
         );
     }
 
@@ -4643,11 +4855,8 @@
 
 
         return (
-
             validDate.getFullYear() +
-
             "-" +
-
             String(
                 validDate.getMonth() +
                 1
@@ -4656,9 +4865,7 @@
                     2,
                     "0"
                 ) +
-
             "-" +
-
             String(
                 validDate.getDate()
             )
@@ -4698,7 +4905,6 @@
 
         return date.toLocaleString(
             "en-GH",
-
             {
                 day:
                     "2-digit",
@@ -4744,7 +4950,6 @@
 
             return new Intl.NumberFormat(
                 "en-GH",
-
                 {
                     style:
                         "currency",
@@ -4755,12 +4960,12 @@
                     minimumFractionDigits:
                         2
                 }
-            )
-                .format(
-                    toNumber(
-                        value
-                    )
-                );
+            ).format(
+                toNumber(
+                    value
+                )
+            );
+
 
         } catch (error) {
 
@@ -4768,8 +4973,9 @@
                 "GH₵" +
                 toNumber(
                     value
+                ).toFixed(
+                    2
                 )
-                    .toFixed(2)
             );
         }
     }
@@ -4781,12 +4987,11 @@
 
         return new Intl.NumberFormat(
             "en-GH"
-        )
-            .format(
-                toNumber(
-                    value
-                )
-            );
+        ).format(
+            toNumber(
+                value
+            )
+        );
     }
 
 
@@ -4812,8 +5017,7 @@
                 String(
                     type ||
                     "retail"
-                )
-                    .toLowerCase()
+                ).toLowerCase()
             ] ||
             "Retail"
         );
@@ -4958,18 +5162,13 @@
 
                 loadProductDropdown();
 
-
                 loadCustomerDropdown();
-
 
                 renderCart();
 
-
                 updateCustomerSelection();
 
-
                 displayRecentSales();
-
 
                 updateSalesSummary();
             },
@@ -4987,7 +5186,15 @@
 
 
         getProductBranchStock:
-            getProductBranchStock
+            getProductBranchStock,
+
+
+        getActiveBranchId:
+            getActiveBranchId,
+
+
+        getActiveBranchName:
+            getActiveBranchName
     };
 
 
