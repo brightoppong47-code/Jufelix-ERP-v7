@@ -1,24 +1,26 @@
 /* ==========================================
    JUFELIX ERP v7.0 PROFESSIONAL
-   INVENTORY CLOUD BRIDGE
+   SAFE INVENTORY CLOUD BRIDGE
+
+   COMPLETE REPLACEMENT
 
    File:
    js/cloud/inventory-cloud.js
 
-   Version: 653
-
-   + LocalStorage offline copy
-   + Firestore cloud copy
-   + Realtime product updates
-   + Branch-aware stock
-   + Safe multi-device merge
-   + Local product images preserved
-   + No automatic cloud deletion
+   + Firebase Authentication aware
+   + Realtime Firestore products
+   + Safe multi-device branch stock
+   + Preserves other branches during edit
+   + Preserves local Base64 product images
+   + No automatic full local inventory upload
+   + Prevents stale startup overwrite
 ========================================== */
+
 
 import {
     collection,
     doc,
+    getDoc,
     onSnapshot,
     serverTimestamp,
     setDoc
@@ -32,6 +34,15 @@ import {
 const PRODUCTS_KEY =
     "jufelix_products";
 
+const ACTIVE_BRANCH_KEY =
+    "jufelix_v7_active_branch";
+
+const CURRENT_USER_KEY =
+    "jufelix_v7_current_user";
+
+const DEFAULT_BRANCH_ID =
+    "head-office";
+
 const COLLECTION_NAME =
     "products";
 
@@ -40,22 +51,56 @@ const COLLECTION_NAME =
    STATE
 ========================================== */
 
-let db = null;
+let database =
+    null;
 
-let started = false;
+let started =
+    false;
 
-let stopProductsListener = null;
-
-let syncTimer = null;
+let productsUnsubscribe =
+    null;
 
 
 /* ==========================================
    WAIT FOR FIREBASE
 ========================================== */
 
-function waitForDb(
-    timeout = 15000
-) {
+async function getFirebase() {
+
+    /*
+     * Preferred Firebase helper from
+     * js/core/firebase.js
+     */
+
+    if (
+        typeof window
+            .waitForJufelixFirebase ===
+        "function"
+    ) {
+
+        const firebase =
+            await window
+                .waitForJufelixFirebase({
+
+                    requireUser:
+                        true,
+
+                    timeout:
+                        20000
+                });
+
+
+        database =
+            firebase.db;
+
+
+        return firebase;
+    }
+
+
+    /*
+     * Compatibility fallback.
+     */
 
     return new Promise(
         function (
@@ -69,17 +114,39 @@ function waitForDb(
 
             function check() {
 
+                const firebase =
+                    window
+                        .JufelixFirebase;
+
+
                 if (
-                    window.JufelixFirebase &&
-                    window.JufelixFirebase.db
+                    firebase &&
+                    firebase.error
                 ) {
 
-                    db =
-                        window.JufelixFirebase.db;
+                    reject(
+                        firebase.error
+                    );
+
+                    return;
+                }
+
+
+                if (
+                    firebase &&
+                    firebase.db &&
+                    firebase.auth &&
+                    firebase.auth.currentUser
+                ) {
+
+                    database =
+                        firebase.db;
+
 
                     resolve(
-                        db
+                        firebase
                     );
+
 
                     return;
                 }
@@ -88,20 +155,21 @@ function waitForDb(
                 if (
                     Date.now() -
                     startedAt >
-                    timeout
+                    20000
                 ) {
 
                     reject(
                         new Error(
-                            "Firebase database was not ready."
+                            "Firebase Authentication is not ready."
                         )
                     );
+
 
                     return;
                 }
 
 
-                setTimeout(
+                window.setTimeout(
                     check,
                     100
                 );
@@ -115,117 +183,6 @@ function waitForDb(
 
 
 /* ==========================================
-   WAIT FOR FIREBASE USER
-========================================== */
-
-function waitForFirebaseUser(
-    timeout = 10000
-) {
-
-    return new Promise(
-        function (
-            resolve
-        ) {
-
-            const startedAt =
-                Date.now();
-
-
-            function check() {
-
-                const firebase =
-                    window.JufelixFirebase;
-
-
-                if (
-                    firebase &&
-                    firebase.auth &&
-                    firebase.auth.currentUser
-                ) {
-
-                    resolve(
-                        firebase.auth.currentUser
-                    );
-
-                    return;
-                }
-
-
-                if (
-                    Date.now() -
-                    startedAt >
-                    timeout
-                ) {
-
-                    resolve(
-                        null
-                    );
-
-                    return;
-                }
-
-
-                setTimeout(
-                    check,
-                    150
-                );
-            }
-
-
-            check();
-        }
-    );
-}
-
-
-/* ==========================================
-   AUTH CHECK
-========================================== */
-
-function checkFirebaseUser() {
-
-    const firebase =
-        window.JufelixFirebase;
-
-
-    if (
-        !firebase ||
-        !firebase.auth
-    ) {
-
-        console.warn(
-            "⚠️ Firebase Auth unavailable."
-        );
-
-        return null;
-    }
-
-
-    const user =
-        firebase.auth.currentUser;
-
-
-    if (!user) {
-
-        console.warn(
-            "⚠️ Firebase user is not signed in."
-        );
-
-        return null;
-    }
-
-
-    console.log(
-        "✅ Inventory Firebase user:",
-        user.uid
-    );
-
-
-    return user;
-}
-
-
-/* ==========================================
    LOCAL STORAGE
 ========================================== */
 
@@ -233,18 +190,22 @@ function readLocalProducts() {
 
     try {
 
-        const value =
+        const stored =
             localStorage.getItem(
                 PRODUCTS_KEY
             );
 
 
+        if (!stored) {
+
+            return [];
+        }
+
+
         const parsed =
-            value
-                ? JSON.parse(
-                    value
-                )
-                : [];
+            JSON.parse(
+                stored
+            );
 
 
         return Array.isArray(
@@ -254,12 +215,10 @@ function readLocalProducts() {
             : [];
 
 
-    } catch (
-        error
-    ) {
+    } catch (error) {
 
         console.error(
-            "Inventory local read failed:",
+            "Inventory Cloud local read failed:",
             error
         );
 
@@ -283,15 +242,128 @@ function saveLocalProducts(
         );
 
 
-    } catch (
-        error
-    ) {
+        return true;
+
+
+    } catch (error) {
 
         console.error(
-            "Inventory local save failed:",
+            "Inventory Cloud local save failed:",
             error
         );
+
+
+        return false;
     }
+}
+
+
+/* ==========================================
+   STORAGE OBJECT
+========================================== */
+
+function readObject(
+    key
+) {
+
+    try {
+
+        const stored =
+            localStorage.getItem(
+                key
+            );
+
+
+        if (!stored) {
+
+            return null;
+        }
+
+
+        const parsed =
+            JSON.parse(
+                stored
+            );
+
+
+        return (
+            parsed &&
+            typeof parsed ===
+                "object" &&
+            !Array.isArray(
+                parsed
+            )
+        )
+            ? parsed
+            : null;
+
+
+    } catch (error) {
+
+        return null;
+    }
+}
+
+
+/* ==========================================
+   ACTIVE BRANCH
+========================================== */
+
+function getActiveBranchId() {
+
+    /*
+     * Device-selected branch has priority.
+     */
+
+    const activeBranch =
+        readObject(
+            ACTIVE_BRANCH_KEY
+        );
+
+
+    if (activeBranch) {
+
+        const value =
+
+            activeBranch.id ||
+
+            activeBranch.branchId;
+
+
+        if (value) {
+
+            return String(
+                value
+            );
+        }
+    }
+
+
+    /*
+     * Then use current user's branch.
+     */
+
+    const currentUser =
+        readObject(
+            CURRENT_USER_KEY
+        ) ||
+        readObject(
+            "currentUser"
+        );
+
+
+    if (
+        currentUser &&
+        currentUser.branchId
+    ) {
+
+        return String(
+            currentUser.branchId
+        );
+    }
+
+
+    return DEFAULT_BRANCH_ID;
 }
 
 
@@ -304,7 +376,8 @@ function cleanValue(
 ) {
 
     if (
-        value === undefined
+        value ===
+        undefined
     ) {
 
         return null;
@@ -312,8 +385,10 @@ function cleanValue(
 
 
     if (
-        value === null ||
-        typeof value !== "object"
+        value ===
+        null ||
+        typeof value !==
+            "object"
     ) {
 
         return value;
@@ -332,23 +407,29 @@ function cleanValue(
     }
 
 
-    const result = {};
+    const result =
+        {};
 
 
     Object.keys(
         value
     ).forEach(
-        function (
-            key
-        ) {
+        function (key) {
 
             if (
-                value[key] !== undefined
+                value[
+                    key
+                ] !==
+                undefined
             ) {
 
-                result[key] =
+                result[
+                    key
+                ] =
                     cleanValue(
-                        value[key]
+                        value[
+                            key
+                        ]
                     );
             }
         }
@@ -360,7 +441,86 @@ function cleanValue(
 
 
 /* ==========================================
-   PREPARE PRODUCT FOR CLOUD
+   NORMALIZE BRANCH STOCK
+========================================== */
+
+function normalizeBranchStock(
+    branchStock
+) {
+
+    if (
+        !branchStock ||
+        typeof branchStock !==
+            "object" ||
+        Array.isArray(
+            branchStock
+        )
+    ) {
+
+        return {};
+    }
+
+
+    const result =
+        {};
+
+
+    Object.keys(
+        branchStock
+    ).forEach(
+        function (branchId) {
+
+            result[
+                String(
+                    branchId
+                )
+            ] =
+                toNumber(
+                    branchStock[
+                        branchId
+                    ]
+                );
+        }
+    );
+
+
+    return result;
+}
+
+
+/* ==========================================
+   TOTAL STOCK
+========================================== */
+
+function sumBranchStock(
+    branchStock
+) {
+
+    return Object.values(
+        normalizeBranchStock(
+            branchStock
+        )
+    )
+        .reduce(
+            function (
+                total,
+                quantity
+            ) {
+
+                return (
+                    total +
+                    toNumber(
+                        quantity
+                    )
+                );
+            },
+            0
+        );
+}
+
+
+/* ==========================================
+   PREPARE PRODUCT FOR FIRESTORE
 ========================================== */
 
 function prepareProductForCloud(
@@ -374,11 +534,8 @@ function prepareProductForCloud(
 
 
     /*
-     * Product images stored as Base64 remain
-     * on the device.
-     *
-     * We do not upload large Base64 images
-     * into Firestore documents.
+     * Do not store large Base64 images
+     * inside Firestore.
      */
 
     [
@@ -386,22 +543,26 @@ function prepareProductForCloud(
         "imageData",
         "photo"
     ].forEach(
-        function (
-            field
-        ) {
+        function (field) {
 
             const value =
-                data[field];
+                data[
+                    field
+                ];
 
 
             if (
-                typeof value === "string" &&
+                typeof value ===
+                    "string" &&
                 value.startsWith(
                     "data:image/"
                 )
             ) {
 
-                delete data[field];
+                delete data[
+                    field
+                ];
+
 
                 data.imageStoredLocally =
                     true;
@@ -410,25 +571,25 @@ function prepareProductForCloud(
     );
 
 
-    data.cloudUpdatedAt =
-        serverTimestamp();
-
-
     return data;
 }
 
 
 /* ==========================================
-   SAVE ONE PRODUCT
+   SAVE ONE PRODUCT SAFELY
+
+   IMPORTANT:
+   When editing Inventory at one branch,
+   only that branch's quantity should replace
+   its Firestore quantity.
+
+   Stock belonging to other branches is
+   preserved from Firestore.
 ========================================== */
 
 async function saveProduct(
     product
 ) {
-
-    const database =
-        await waitForDb();
-
 
     if (
         !product ||
@@ -441,286 +602,242 @@ async function saveProduct(
     }
 
 
+    const firebase =
+        await getFirebase();
+
+
     const productId =
         String(
             product.id
         );
 
 
-    console.log(
-        "☁️ Uploading product:",
-        product.name ||
-        productId
-    );
-
-
-    await setDoc(
-
+    const productRef =
         doc(
-            database,
+            firebase.db,
             COLLECTION_NAME,
             productId
-        ),
-
-        {
-            ...prepareProductForCloud(
-                product
-            ),
-
-            id:
-                productId
-        },
-
-        {
-            merge: true
-        }
-    );
-
-
-    console.log(
-        "✅ PRODUCT SAVED TO FIREBASE:",
-        product.name ||
-        productId
-    );
-
-
-    return true;
-}
-
-
-/* ==========================================
-   SYNC LOCAL PRODUCTS
-========================================== */
-
-async function syncLocalProducts() {
-
-    await waitForDb();
-
-
-    const products =
-        readLocalProducts();
-
-
-    console.log(
-        "☁️ Inventory products waiting for sync:",
-        products.length
-    );
-
-
-    let successful = 0;
-    let failed = 0;
-
-
-    for (
-        const product of products
-    ) {
-
-        if (
-            !product ||
-            !product.id
-        ) {
-
-            continue;
-        }
-
-
-        try {
-
-            await saveProduct(
-                product
-            );
-
-            successful++;
-
-
-        } catch (
-            error
-        ) {
-
-            failed++;
-
-
-            console.error(
-                "❌ Product sync failed:",
-                product.name ||
-                product.id,
-                error
-            );
-        }
-    }
-
-
-    console.log(
-        "☁️ Inventory sync result:",
-        {
-            successful:
-                successful,
-
-            failed:
-                failed
-        }
-    );
-
-
-    return {
-
-        successful:
-            successful,
-
-        failed:
-            failed
-    };
-}
-
-
-/* ==========================================
-   DEBOUNCED SYNC
-========================================== */
-
-function scheduleProductSync() {
-
-    clearTimeout(
-        syncTimer
-    );
-
-
-    syncTimer =
-        setTimeout(
-            async function () {
-
-                try {
-
-                    console.log(
-                        "🔄 Inventory local change detected."
-                    );
-
-
-                    await syncLocalProducts();
-
-
-                    showCloudStatus(
-                        "Inventory synced to Firebase",
-                        "success"
-                    );
-
-
-                } catch (
-                    error
-                ) {
-
-                    console.error(
-                        "Inventory auto sync failed:",
-                        error
-                    );
-
-
-                    showCloudStatus(
-                        "Inventory cloud sync failed",
-                        "error"
-                    );
-                }
-            },
-            180
         );
-}
 
 
-/* ==========================================
-   ERP LOCAL CHANGE LISTENER
-========================================== */
-
-function connectLocalChangeListener() {
-
-    document.addEventListener(
-        "jufelix:data-updated",
-
-        function (
-            event
-        ) {
-
-            const detail =
-                event.detail || {};
+    const activeBranchId =
+        getActiveBranchId();
 
 
-            /*
-             * Ignore changes that originated
-             * from the cloud listener.
-             */
-
-            if (
-                detail.source === "cloud"
-            ) {
-
-                return;
-            }
+    const localBranchStock =
+        normalizeBranchStock(
+            product.branchStock
+        );
 
 
-            if (
-                detail.key !== PRODUCTS_KEY
-            ) {
-
-                return;
-            }
-
-
-            console.log(
-                "📡 Inventory ERP update detected."
-            );
-
-
-            scheduleProductSync();
-        }
+    console.log(
+        "☁️ Saving Inventory product:",
+        product.name ||
+        productId,
+        "Branch:",
+        activeBranchId
     );
 
 
     /*
-     * Changes made from another browser tab.
+     * Read the newest cloud copy first.
      */
 
-    window.addEventListener(
-        "storage",
+    const cloudSnapshot =
+        await getDoc(
+            productRef
+        );
 
-        function (
-            event
+
+    let finalBranchStock =
+        {};
+
+
+    if (
+        cloudSnapshot.exists()
+    ) {
+
+        const cloudProduct =
+            cloudSnapshot.data() ||
+            {};
+
+
+        const cloudBranchStock =
+            normalizeBranchStock(
+                cloudProduct.branchStock
+            );
+
+
+        /*
+         * Start from latest Firebase stock.
+         */
+
+        finalBranchStock = {
+
+            ...cloudBranchStock
+        };
+
+
+        /*
+         * Replace ONLY the active branch
+         * quantity from this device.
+         */
+
+        if (
+            Object.prototype
+                .hasOwnProperty.call(
+                    localBranchStock,
+                    activeBranchId
+                )
         ) {
 
-            if (
-                event.key === PRODUCTS_KEY
-            ) {
+            finalBranchStock[
+                activeBranchId
+            ] =
+                toNumber(
+                    localBranchStock[
+                        activeBranchId
+                    ]
+                );
 
-                scheduleProductSync();
-            }
+        } else if (
+            activeBranchId ===
+            DEFAULT_BRANCH_ID &&
+            Object.keys(
+                localBranchStock
+            ).length ===
+            0
+        ) {
+
+            finalBranchStock[
+                DEFAULT_BRANCH_ID
+            ] =
+                toNumber(
+                    product.quantity
+                );
         }
-    );
+
+
+    } else {
+
+        /*
+         * Brand-new product:
+         * local branchStock is authoritative.
+         */
+
+        finalBranchStock = {
+
+            ...localBranchStock
+        };
+
+
+        if (
+            Object.keys(
+                finalBranchStock
+            ).length ===
+            0
+        ) {
+
+            finalBranchStock[
+                activeBranchId
+            ] =
+                toNumber(
+                    product.quantity
+                );
+        }
+    }
+
+
+    const cloudProductData = {
+
+        ...prepareProductForCloud(
+            product
+        ),
+
+        id:
+            productId,
+
+        branchStock:
+            finalBranchStock,
+
+        quantity:
+            sumBranchStock(
+                finalBranchStock
+            ),
+
+        cloudUpdatedAt:
+            serverTimestamp()
+    };
+
+
+    try {
+
+        await setDoc(
+
+            productRef,
+
+            cloudProductData,
+
+            {
+                merge:
+                    true
+            }
+        );
+
+
+        console.log(
+            "✅ Inventory product synced safely:",
+            product.name ||
+            productId
+        );
+
+
+        return true;
+
+
+    } catch (error) {
+
+        console.error(
+            "❌ Inventory product save failed:",
+            error
+        );
+
+
+        throw createFriendlyError(
+            error
+        );
+    }
 }
 
 
 /* ==========================================
-   FIRESTORE REALTIME LISTENER
+   REALTIME PRODUCTS LISTENER
 ========================================== */
 
-function connectCloudListener() {
+async function startRealtimeListener() {
 
-    if (!db) {
-
-        return;
-    }
+    const firebase =
+        await getFirebase();
 
 
     if (
-        typeof stopProductsListener ===
+        typeof productsUnsubscribe ===
         "function"
     ) {
 
-        stopProductsListener();
+        productsUnsubscribe();
+
+
+        productsUnsubscribe =
+            null;
     }
 
 
-    stopProductsListener =
+    productsUnsubscribe =
         onSnapshot(
 
             collection(
-                db,
+                firebase.db,
                 COLLECTION_NAME
             ),
 
@@ -731,24 +848,25 @@ function connectCloudListener() {
                 const cloudProducts =
                     snapshot.docs.map(
                         function (
-                            item
+                            documentSnapshot
                         ) {
 
                             const data =
-                                item.data() || {};
-
-
-                            delete data.cloudUpdatedAt;
+                                documentSnapshot
+                                    .data() ||
+                                {};
 
 
                             return {
 
-                                ...data,
+                                ...removeCloudFields(
+                                    data
+                                ),
 
                                 id:
                                     String(
                                         data.id ||
-                                        item.id
+                                        documentSnapshot.id
                                     )
                             };
                         }
@@ -771,6 +889,14 @@ function connectCloudListener() {
                 );
 
 
+                /*
+                 * Notify all ERP modules.
+                 *
+                 * source:"cloud" prevents a
+                 * cloud-download → cloud-upload loop
+                 * in modules that respect it.
+                 */
+
                 dispatchDataUpdated(
                     PRODUCTS_KEY,
                     mergedProducts,
@@ -778,8 +904,23 @@ function connectCloudListener() {
                 );
 
 
+                document.dispatchEvent(
+
+                    new CustomEvent(
+                        "jufelix:cloud-products-updated",
+                        {
+                            detail: {
+
+                                products:
+                                    mergedProducts
+                            }
+                        }
+                    )
+                );
+
+
                 console.log(
-                    "☁️ Inventory realtime update:",
+                    "☁️ Inventory realtime products received:",
                     mergedProducts.length
                 );
             },
@@ -795,7 +936,9 @@ function connectCloudListener() {
 
 
                 showCloudStatus(
-                    "Inventory realtime sync failed",
+                    createFriendlyError(
+                        error
+                    ).message,
                     "error"
                 );
             }
@@ -804,7 +947,7 @@ function connectCloudListener() {
 
 
 /* ==========================================
-   SAFE PRODUCT MERGE
+   SAFE CLOUD → LOCAL MERGE
 ========================================== */
 
 function mergeProductsSafely(
@@ -812,9 +955,14 @@ function mergeProductsSafely(
     cloudProducts
 ) {
 
-    const map =
+    const productMap =
         new Map();
 
+
+    /*
+     * Start with local data so device-local
+     * images remain available.
+     */
 
     (
         Array.isArray(
@@ -823,9 +971,7 @@ function mergeProductsSafely(
             ? localProducts
             : []
     ).forEach(
-        function (
-            product
-        ) {
+        function (product) {
 
             if (
                 !product ||
@@ -836,7 +982,7 @@ function mergeProductsSafely(
             }
 
 
-            map.set(
+            productMap.set(
 
                 String(
                     product.id
@@ -849,6 +995,11 @@ function mergeProductsSafely(
         }
     );
 
+
+    /*
+     * Firebase data is authoritative for
+     * business fields and branch quantities.
+     */
 
     (
         Array.isArray(
@@ -870,22 +1021,17 @@ function mergeProductsSafely(
             }
 
 
-            const id =
+            const productId =
                 String(
                     cloudProduct.id
                 );
 
 
             const localProduct =
-                map.get(
-                    id
-                ) || {};
-
-
-            const localBranchStock =
-                normalizeBranchStock(
-                    localProduct.branchStock
-                );
+                productMap.get(
+                    productId
+                ) ||
+                {};
 
 
             const cloudBranchStock =
@@ -894,33 +1040,79 @@ function mergeProductsSafely(
                 );
 
 
-            /*
-             * Cloud values win for branches
-             * present in Firebase.
-             *
-             * Local-only branch values remain
-             * until they are uploaded.
-             */
-
-            const mergedBranchStock = {
-
-                ...localBranchStock,
-
-                ...cloudBranchStock
-            };
-
-
             const localImage =
+
                 localProduct.image ||
+
                 localProduct.imageData ||
+
                 localProduct.photo ||
+
                 "";
 
 
             const cloudImage =
+
                 cloudProduct.image ||
+
                 cloudProduct.imageUrl ||
+
                 "";
+
+
+            /*
+             * IMPORTANT:
+             *
+             * Cloud branchStock is authoritative
+             * when it exists.
+             *
+             * We do NOT merge stale local branch
+             * quantities over Firebase quantities.
+             */
+
+            let finalBranchStock =
+                cloudBranchStock;
+
+
+            /*
+             * Compatibility for an old cloud
+             * product with no branchStock.
+             */
+
+            if (
+                Object.keys(
+                    finalBranchStock
+                ).length ===
+                0
+            ) {
+
+                const localBranchStock =
+                    normalizeBranchStock(
+                        localProduct.branchStock
+                    );
+
+
+                if (
+                    Object.keys(
+                        localBranchStock
+                    ).length >
+                    0
+                ) {
+
+                    finalBranchStock =
+                        localBranchStock;
+
+                } else {
+
+                    finalBranchStock = {
+
+                        [DEFAULT_BRANCH_ID]:
+                            toNumber(
+                                cloudProduct.quantity
+                            )
+                    };
+                }
+            }
 
 
             const mergedProduct = {
@@ -930,42 +1122,37 @@ function mergeProductsSafely(
                 ...cloudProduct,
 
                 id:
-                    id,
+                    productId,
 
                 branchStock:
-                    mergedBranchStock,
+                    finalBranchStock,
 
                 quantity:
                     sumBranchStock(
-                        mergedBranchStock
+                        finalBranchStock
                     )
             };
 
 
             /*
-             * Preserve device-local image when
-             * Firebase does not contain one.
+             * Preserve local Base64 product image
+             * when Firestore does not contain one.
              */
 
-            if (
-                cloudImage
-            ) {
+            if (cloudImage) {
 
                 mergedProduct.image =
                     cloudImage;
 
-
-            } else if (
-                localImage
-            ) {
+            } else if (localImage) {
 
                 mergedProduct.image =
                     localImage;
             }
 
 
-            map.set(
-                id,
+            productMap.set(
+                productId,
                 mergedProduct
             );
         }
@@ -973,81 +1160,231 @@ function mergeProductsSafely(
 
 
     return Array.from(
-        map.values()
+        productMap.values()
     );
 }
 
 
 /* ==========================================
-   BRANCH STOCK HELPERS
+   REMOVE FIREBASE-ONLY FIELDS
 ========================================== */
 
-function normalizeBranchStock(
-    branchStock
+function removeCloudFields(
+    data
 ) {
 
-    if (
-        !branchStock ||
-        typeof branchStock !== "object" ||
-        Array.isArray(
-            branchStock
+    const result = {
+
+        ...(
+            data ||
+            {}
         )
-    ) {
-
-        return {};
-    }
+    };
 
 
-    const result = {};
-
-
-    Object.keys(
-        branchStock
-    ).forEach(
-        function (
-            branchId
-        ) {
-
-            result[
-                String(
-                    branchId
-                )
-            ] =
-                toNumber(
-                    branchStock[
-                        branchId
-                    ]
-                );
-        }
-    );
+    delete result.cloudUpdatedAt;
 
 
     return result;
 }
 
 
-function sumBranchStock(
-    branchStock
-) {
+/* ==========================================
+   MANUAL SYNC
 
-    return Object.values(
-        normalizeBranchStock(
-            branchStock
-        )
-    ).reduce(
-        function (
-            total,
-            quantity
+   IMPORTANT:
+   This does NOT upload every local product.
+
+   It refreshes the cloud connection/listener.
+========================================== */
+
+async function syncLocal() {
+
+    /*
+     * Kept for compatibility with other
+     * Jufelix modules that may call:
+     *
+     * JufelixInventoryCloud.syncLocal()
+     *
+     * We deliberately DO NOT upload the full
+     * local inventory here.
+     */
+
+
+    await getFirebase();
+
+
+    if (
+        typeof productsUnsubscribe !==
+        "function"
+    ) {
+
+        await startRealtimeListener();
+    }
+
+
+    return {
+
+        successful:
+            0,
+
+        failed:
+            0,
+
+        fullUploadPrevented:
+            true
+    };
+}
+
+
+/* ==========================================
+   FIREBASE USER CHECK
+========================================== */
+
+function checkFirebaseUser() {
+
+    const firebase =
+        window.JufelixFirebase;
+
+
+    if (
+        !firebase ||
+        !firebase.auth
+    ) {
+
+        return null;
+    }
+
+
+    return (
+        firebase.auth.currentUser ||
+        null
+    );
+}
+
+
+/* ==========================================
+   ONLINE AGAIN
+========================================== */
+
+window.addEventListener(
+    "online",
+    function () {
+
+        if (
+            !productsUnsubscribe
         ) {
 
-            return (
-                total +
-                toNumber(
-                    quantity
-                )
-            );
-        },
-        0
+            startRealtimeListener()
+                .catch(
+                    function (error) {
+
+                        console.warn(
+                            "Inventory reconnect failed:",
+                            error
+                        );
+                    }
+                );
+        }
+    }
+);
+
+
+/* ==========================================
+   ERP DATA EVENT
+
+   IMPORTANT:
+   We DO NOT automatically upload the entire
+   products array when PRODUCTS_KEY changes.
+
+   Inventory.js now explicitly calls
+   saveProduct(product).
+
+   Sales, Transfers and Purchases use their
+   own cloud bridges.
+========================================== */
+
+document.addEventListener(
+    "jufelix:data-updated",
+    function (event) {
+
+        if (
+            !event.detail ||
+            event.detail.key !==
+                PRODUCTS_KEY
+        ) {
+
+            return;
+        }
+
+
+        if (
+            event.detail.source ===
+            "cloud"
+        ) {
+
+            return;
+        }
+
+
+        console.log(
+            "Inventory local product data changed. Waiting for the responsible module to sync the affected product."
+        );
+    }
+);
+
+
+/* ==========================================
+   DATA UPDATED EVENT
+========================================== */
+
+function dispatchDataUpdated(
+    key,
+    value,
+    source
+) {
+
+    document.dispatchEvent(
+
+        new CustomEvent(
+            "jufelix:data-updated",
+            {
+                detail: {
+
+                    key:
+                        key,
+
+                    value:
+                        value,
+
+                    source:
+                        source ||
+                        ""
+                }
+            }
+        )
+    );
+
+
+    document.dispatchEvent(
+
+        new CustomEvent(
+            "jufelix:dataChanged",
+            {
+                detail: {
+
+                    key:
+                        key,
+
+                    value:
+                        value,
+
+                    source:
+                        source ||
+                        ""
+                }
+            }
+        )
     );
 }
 
@@ -1060,9 +1397,31 @@ function toNumber(
     value
 ) {
 
+    if (
+        value === undefined ||
+        value === null ||
+        value === ""
+    ) {
+
+        return 0;
+    }
+
+
+    const cleaned =
+        typeof value ===
+            "string"
+            ? value
+                .replace(
+                    /,/g,
+                    ""
+                )
+                .trim()
+            : value;
+
+
     const number =
         Number(
-            value
+            cleaned
         );
 
 
@@ -1075,35 +1434,76 @@ function toNumber(
 
 
 /* ==========================================
-   DATA UPDATED EVENT
+   FRIENDLY ERROR
 ========================================== */
 
-function dispatchDataUpdated(
-    key,
-    value,
-    source = ""
+function createFriendlyError(
+    error
 ) {
 
-    document.dispatchEvent(
+    const code =
+        String(
+            error &&
+            error.code ||
+            ""
+        );
 
-        new CustomEvent(
-            "jufelix:data-updated",
 
-            {
-                detail: {
+    const message =
+        String(
+            error &&
+            error.message ||
+            ""
+        );
 
-                    key:
-                        key,
 
-                    value:
-                        value,
+    if (
+        code.includes(
+            "permission-denied"
+        ) ||
+        message
+            .toLowerCase()
+            .includes(
+                "insufficient permissions"
+            )
+    ) {
 
-                    source:
-                        source
-                }
-            }
+        return new Error(
+            "Firebase rejected the inventory update because this user does not have permission to write products."
+        );
+    }
+
+
+    if (
+        code.includes(
+            "unauthenticated"
         )
-    );
+    ) {
+
+        return new Error(
+            "Firebase Authentication is not signed in."
+        );
+    }
+
+
+    if (
+        code.includes(
+            "unavailable"
+        )
+    ) {
+
+        return new Error(
+            "Firebase is temporarily unavailable. Check the internet connection."
+        );
+    }
+
+
+    return error instanceof Error
+        ? error
+        : new Error(
+            message ||
+            "Inventory Firebase operation failed."
+        );
 }
 
 
@@ -1144,13 +1544,13 @@ function showCloudStatus(
             "16px";
 
         toast.style.zIndex =
-            "10000";
+            "100000";
 
         toast.style.maxWidth =
-            "320px";
+            "340px";
 
         toast.style.padding =
-            "12px 15px";
+            "13px 16px";
 
         toast.style.borderRadius =
             "10px";
@@ -1179,7 +1579,8 @@ function showCloudStatus(
 
 
     toast.style.background =
-        type === "error"
+        type ===
+            "error"
             ? "#dc3545"
             : "#198754";
 
@@ -1188,19 +1589,22 @@ function showCloudStatus(
         "block";
 
 
-    clearTimeout(
+    window.clearTimeout(
         showCloudStatus.timer
     );
 
 
     showCloudStatus.timer =
-        setTimeout(
+        window.setTimeout(
             function () {
 
-                toast.style.display =
-                    "none";
+                if (toast) {
+
+                    toast.style.display =
+                        "none";
+                }
             },
-            2500
+            3000
         );
 }
 
@@ -1215,18 +1619,26 @@ window.JufelixInventoryCloud = {
         saveProduct,
 
     syncLocal:
-        syncLocalProducts,
+        syncLocal,
 
     checkFirebaseUser:
         checkFirebaseUser,
 
     readLocalProducts:
-        readLocalProducts
+        readLocalProducts,
+
+    refresh:
+        async function () {
+
+            await startRealtimeListener();
+
+            return true;
+        }
 };
 
 
 /* ==========================================
-   START INVENTORY CLOUD
+   START
 ========================================== */
 
 async function startInventoryCloud() {
@@ -1237,90 +1649,96 @@ async function startInventoryCloud() {
     }
 
 
-    started = true;
+    started =
+        true;
 
 
     try {
 
-        await waitForDb();
+        const firebase =
+            await getFirebase();
 
 
         console.log(
-            "✅ Jufelix Inventory Cloud v653 ready."
+            "✅ Inventory Firebase authenticated:",
+            firebase.user
+                ? (
+                    firebase.user.email ||
+                    firebase.user.uid
+                )
+                : "User"
         );
 
 
-        const user =
-            await waitForFirebaseUser();
-
-
-        if (
-            user
-        ) {
-
-            console.log(
-                "✅ Inventory Firebase user ready:",
-                user.uid
-            );
-
-
-        } else {
-
-            console.warn(
-                "⚠️ Firebase authenticated user was not detected."
-            );
-        }
-
-
         /*
-         * Start the listener first so cloud
-         * inventory is available locally.
+         * DOWNLOAD FIRST.
+         *
+         * We intentionally do not push the
+         * local inventory during startup.
          */
 
-        connectCloudListener();
-
-
-        /*
-         * Listen for future local product
-         * modifications.
-         */
-
-        connectLocalChangeListener();
-
-
-        /*
-         * Upload local-only inventory.
-         */
-
-        const result =
-            await syncLocalProducts();
+        await startRealtimeListener();
 
 
         console.log(
-            "Initial Inventory cloud sync:",
-            result
+            "✅ Jufelix Safe Inventory Cloud ready."
         );
 
 
         showCloudStatus(
-            "Inventory cloud sync ready",
+            "Inventory cloud ready",
             "success"
         );
 
 
-    } catch (
-        error
-    ) {
+        document.dispatchEvent(
+
+            new CustomEvent(
+                "jufelix:inventory-cloud-ready"
+            )
+        );
+
+
+    } catch (error) {
+
+        const friendly =
+            createFriendlyError(
+                error
+            );
+
 
         console.error(
-            "Inventory cloud startup failed:",
+            "❌ Inventory Cloud startup failed:",
             error
         );
 
 
         showCloudStatus(
-            "Inventory cloud connection failed",
+            friendly.message,
             "error"
+        );
+
+
+        /*
+         * Still expose the ready event so
+         * Inventory can remain usable offline.
+         */
+
+        document.dispatchEvent(
+
+            new CustomEvent(
+                "jufelix:inventory-cloud-ready",
+                {
+                    detail: {
+
+                        offline:
+                            true,
+
+                        error:
+                            friendly.message
+                    }
+                }
+            )
         );
     }
 }
