@@ -5,13 +5,15 @@
    File:
    js/cloud/branches-cloud.js
 
-   COMPLETE REPLACEMENT
+   Version: 800
 
    + Local → Firebase sync
-   + Firebase → Local sync
-   + Real-time branch listener
-   + Multi-device support
-   + Prevent sync loops
+   + Firebase → Local realtime sync
+   + Safe multi-device merge
+   + Preserves branch IDs
+   + Protects Head Office
+   + Prevents duplicate branches
+   + Prevents sync loops
    + Acode / APK friendly
 ========================================== */
 
@@ -21,11 +23,17 @@
 
 
     /* ==========================================
-       STORAGE KEY
+       CONSTANTS
     ========================================== */
 
     const BRANCHES_KEY =
         "jufelix_v7_branches";
+
+    const COLLECTION_NAME =
+        "branches";
+
+    const HEAD_OFFICE_ID =
+        "head-office";
 
 
     /* ==========================================
@@ -49,22 +57,19 @@
 
 
     /* ==========================================
-       LOAD FIRESTORE TOOLS
+       FIRESTORE TOOLS
     ========================================== */
 
     async function getFirestoreTools() {
 
         if (firestoreTools) {
-
             return firestoreTools;
         }
-
 
         firestoreTools =
             await import(
                 "https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js"
             );
-
 
         return firestoreTools;
     }
@@ -79,14 +84,10 @@
     ) {
 
         return new Promise(
-            function (
-                resolve,
-                reject
-            ) {
+            function (resolve, reject) {
 
                 const started =
                     Date.now();
-
 
                 function check() {
 
@@ -101,7 +102,6 @@
 
                         return;
                     }
-
 
                     if (
                         Date.now() -
@@ -118,13 +118,11 @@
                         return;
                     }
 
-
                     window.setTimeout(
                         check,
                         100
                     );
                 }
-
 
                 check();
             }
@@ -133,35 +131,26 @@
 
 
     /* ==========================================
-       CLEAN DATA FOR FIRESTORE
+       CLEAN FIRESTORE DATA
     ========================================== */
 
-    function cleanData(
-        value
-    ) {
+    function cleanData(value) {
 
         if (
             value === undefined
         ) {
-
             return null;
         }
 
-
         if (
             value === null ||
-            typeof value !==
-                "object"
+            typeof value !== "object"
         ) {
-
             return value;
         }
 
-
         if (
-            Array.isArray(
-                value
-            )
+            Array.isArray(value)
         ) {
 
             return value.map(
@@ -169,62 +158,220 @@
             );
         }
 
-
         const result = {};
 
+        Object.keys(value)
+            .forEach(
+                function (key) {
 
-        Object.keys(
-            value
-        ).forEach(
-            function (
-                key
-            ) {
+                    if (
+                        value[key] !==
+                        undefined
+                    ) {
 
-                if (
-                    value[key] !==
-                    undefined
-                ) {
-
-                    result[key] =
-                        cleanData(
-                            value[key]
-                        );
+                        result[key] =
+                            cleanData(
+                                value[key]
+                            );
+                    }
                 }
-            }
-        );
-
+            );
 
         return result;
     }
 
 
     /* ==========================================
-       REMOVE FIREBASE-ONLY FIELDS
+       NORMALIZE BRANCH
     ========================================== */
 
-    function prepareCloudBranchForLocal(
+    function normalizeBranch(
         branch
     ) {
 
-        const result = {
+        const source =
+            branch &&
+            typeof branch === "object"
+                ? branch
+                : {};
 
-            ...branch
+        const id =
+            String(
+                source.id ||
+                source.branchId ||
+                ""
+            ).trim();
 
+        const name =
+            String(
+                source.branchName ||
+                source.name ||
+                (
+                    id === HEAD_OFFICE_ID
+                        ? "Head Office"
+                        : ""
+                )
+            ).trim();
+
+        const normalized = {
+
+            ...source,
+
+            id:
+                id,
+
+            branchName:
+                name,
+
+            name:
+                name
         };
 
 
-        /*
-         * cloudUpdatedAt is useful in Firebase,
-         * but the local modules don't need it.
-         *
-         * It can safely remain too, but removing
-         * it keeps local branch records cleaner.
-         */
-
-        delete result.cloudUpdatedAt;
+        delete normalized.cloudUpdatedAt;
 
 
-        return result;
+        if (
+            id === HEAD_OFFICE_ID ||
+            source.isHeadOffice === true ||
+            source.type === "head-office"
+        ) {
+
+            normalized.id =
+                HEAD_OFFICE_ID;
+
+            normalized.branchName =
+                name ||
+                "Head Office";
+
+            normalized.name =
+                normalized.branchName;
+
+            normalized.code =
+                source.code ||
+                "HO";
+
+            normalized.type =
+                "head-office";
+
+            normalized.isHeadOffice =
+                true;
+
+            normalized.status =
+                source.status ||
+                "active";
+        }
+
+
+        return normalized;
+    }
+
+
+    /* ==========================================
+       HEAD OFFICE
+    ========================================== */
+
+    function createHeadOffice() {
+
+        return {
+
+            id:
+                HEAD_OFFICE_ID,
+
+            name:
+                "Head Office",
+
+            branchName:
+                "Head Office",
+
+            code:
+                "HO",
+
+            type:
+                "head-office",
+
+            status:
+                "active",
+
+            isHeadOffice:
+                true
+        };
+    }
+
+
+    function ensureHeadOffice(
+        branches
+    ) {
+
+        const list =
+            Array.isArray(branches)
+                ? branches.map(
+                    normalizeBranch
+                )
+                : [];
+
+
+        const index =
+            list.findIndex(
+                function (branch) {
+
+                    return (
+                        branch.id ===
+                            HEAD_OFFICE_ID ||
+                        branch.isHeadOffice ===
+                            true ||
+                        branch.type ===
+                            "head-office"
+                    );
+                }
+            );
+
+
+        if (
+            index === -1
+        ) {
+
+            list.unshift(
+                createHeadOffice()
+            );
+
+        } else {
+
+            list[index] = {
+
+                ...list[index],
+
+                id:
+                    HEAD_OFFICE_ID,
+
+                name:
+                    list[index].name ||
+                    list[index].branchName ||
+                    "Head Office",
+
+                branchName:
+                    list[index].branchName ||
+                    list[index].name ||
+                    "Head Office",
+
+                code:
+                    list[index].code ||
+                    "HO",
+
+                type:
+                    "head-office",
+
+                status:
+                    list[index].status ||
+                    "active",
+
+                isHeadOffice:
+                    true
+            };
+        }
+
+
+        return list;
     }
 
 
@@ -244,7 +391,9 @@
 
             if (!stored) {
 
-                return [];
+                return [
+                    createHeadOffice()
+                ];
             }
 
 
@@ -254,16 +403,22 @@
                 );
 
 
-            return Array.isArray(
+            if (
+                !Array.isArray(parsed)
+            ) {
+
+                return [
+                    createHeadOffice()
+                ];
+            }
+
+
+            return ensureHeadOffice(
                 parsed
-            )
-                ? parsed
-                : [];
+            );
 
 
-        } catch (
-            error
-        ) {
+        } catch (error) {
 
             console.error(
                 "Unable to read local branches:",
@@ -271,13 +426,211 @@
             );
 
 
-            return [];
+            return [
+                createHeadOffice()
+            ];
         }
     }
 
 
     /* ==========================================
-       WRITE CLOUD BRANCHES LOCALLY
+       REMOVE DUPLICATES
+    ========================================== */
+
+    function removeDuplicateBranches(
+        branches
+    ) {
+
+        const map =
+            new Map();
+
+
+        (
+            Array.isArray(branches)
+                ? branches
+                : []
+        ).forEach(
+            function (branch) {
+
+                const normalized =
+                    normalizeBranch(
+                        branch
+                    );
+
+
+                if (
+                    !normalized.id
+                ) {
+                    return;
+                }
+
+
+                const id =
+                    String(
+                        normalized.id
+                    );
+
+
+                const existing =
+                    map.get(id);
+
+
+                if (!existing) {
+
+                    map.set(
+                        id,
+                        normalized
+                    );
+
+                    return;
+                }
+
+
+                map.set(
+                    id,
+                    {
+                        ...existing,
+                        ...normalized,
+                        id:
+                            id
+                    }
+                );
+            }
+        );
+
+
+        return ensureHeadOffice(
+            Array.from(
+                map.values()
+            )
+        );
+    }
+
+
+    /* ==========================================
+       SAFE LOCAL + CLOUD MERGE
+    ========================================== */
+
+    function mergeBranchesSafely(
+        localBranches,
+        cloudBranches
+    ) {
+
+        const branchMap =
+            new Map();
+
+
+        /*
+         * Start with local branches.
+         */
+
+        removeDuplicateBranches(
+            localBranches
+        ).forEach(
+            function (branch) {
+
+                branchMap.set(
+                    String(branch.id),
+                    {
+                        ...branch
+                    }
+                );
+            }
+        );
+
+
+        /*
+         * Merge cloud branches by ID.
+         *
+         * Cloud values win when the same
+         * branch exists on both devices.
+         */
+
+        removeDuplicateBranches(
+            cloudBranches
+        ).forEach(
+            function (cloudBranch) {
+
+                const id =
+                    String(
+                        cloudBranch.id
+                    );
+
+
+                const localBranch =
+                    branchMap.get(id) ||
+                    {};
+
+
+                branchMap.set(
+                    id,
+                    normalizeBranch({
+                        ...localBranch,
+                        ...cloudBranch,
+                        id:
+                            id
+                    })
+                );
+            }
+        );
+
+
+        let result =
+            Array.from(
+                branchMap.values()
+            );
+
+
+        result =
+            removeDuplicateBranches(
+                result
+            );
+
+
+        /*
+         * Head Office first.
+         * Other branches alphabetically.
+         */
+
+        result.sort(
+            function (a, b) {
+
+                if (
+                    a.id ===
+                    HEAD_OFFICE_ID
+                ) {
+                    return -1;
+                }
+
+                if (
+                    b.id ===
+                    HEAD_OFFICE_ID
+                ) {
+                    return 1;
+                }
+
+
+                return String(
+                    a.branchName ||
+                    a.name ||
+                    ""
+                ).localeCompare(
+                    String(
+                        b.branchName ||
+                        b.name ||
+                        ""
+                    )
+                );
+            }
+        );
+
+
+        return result;
+    }
+
+
+    /* ==========================================
+       SAVE LOCALLY
     ========================================== */
 
     function saveCloudBranchesLocally(
@@ -290,21 +643,21 @@
                 true;
 
 
+            const safeBranches =
+                removeDuplicateBranches(
+                    branches
+                );
+
+
             localStorage.setItem(
                 BRANCHES_KEY,
                 JSON.stringify(
-                    branches
+                    safeBranches
                 )
             );
 
 
-            /*
-             * Notify the rest of Jufelix ERP
-             * that branch data changed.
-             */
-
             document.dispatchEvent(
-
                 new CustomEvent(
                     "jufelix:data-updated",
                     {
@@ -314,20 +667,17 @@
                                 BRANCHES_KEY,
 
                             value:
-                                branches,
+                                safeBranches,
 
                             source:
-                                "firebase"
-
+                                "cloud"
                         }
                     }
                 )
-
             );
 
 
             document.dispatchEvent(
-
                 new CustomEvent(
                     "jufelix:dataChanged",
                     {
@@ -337,57 +687,45 @@
                                 BRANCHES_KEY,
 
                             value:
-                                branches,
+                                safeBranches,
 
                             source:
-                                "firebase"
-
+                                "cloud"
                         }
                     }
                 )
-
             );
 
 
             console.log(
-                "✅ Firebase branches saved locally:",
-                branches.length
+                "✅ Branches saved locally:",
+                safeBranches.length
             );
 
 
             return true;
 
 
-        } catch (
-            error
-        ) {
+        } catch (error) {
 
             console.error(
-                "Unable to save Firebase branches locally:",
+                "Unable to save branches locally:",
                 error
             );
-
 
             return false;
 
 
         } finally {
 
-            /*
-             * Keep the lock through the current
-             * synchronous event cycle.
-             */
-
             window.setTimeout(
                 function () {
 
                     applyingCloudData =
                         false;
-
                 },
-                0
+                50
             );
-
         }
     }
 
@@ -419,9 +757,15 @@
             await getFirestoreTools();
 
 
+        const normalized =
+            normalizeBranch(
+                branch
+            );
+
+
         const branchData =
             cleanData(
-                branch
+                normalized
             );
 
 
@@ -429,9 +773,9 @@
 
             tools.doc(
                 db,
-                "branches",
+                COLLECTION_NAME,
                 String(
-                    branch.id
+                    normalized.id
                 )
             ),
 
@@ -439,24 +783,26 @@
 
                 ...branchData,
 
+                id:
+                    String(
+                        normalized.id
+                    ),
+
                 cloudUpdatedAt:
                     tools.serverTimestamp()
-
             },
 
             {
                 merge:
                     true
             }
-
         );
 
 
         console.log(
-            "✅ Branch synced to Firebase:",
-            branch.branchName ||
-            branch.name ||
-            branch.id
+            "✅ Branch synced:",
+            normalized.branchName ||
+            normalized.id
         );
 
 
@@ -465,35 +811,27 @@
 
 
     /* ==========================================
-       SYNC ALL LOCAL BRANCHES TO FIREBASE
+       LOCAL → FIREBASE
     ========================================== */
 
     async function syncLocal() {
-
-        /*
-         * Never upload data that has just arrived
-         * from Firebase.
-         */
 
         if (
             applyingCloudData
         ) {
 
             return {
-                successful:
-                    0,
-
-                failed:
-                    0,
-
-                skipped:
-                    true
+                successful: 0,
+                failed: 0,
+                skipped: true
             };
         }
 
 
         const branches =
-            readBranches();
+            removeDuplicateBranches(
+                readBranches()
+            );
 
 
         let successful =
@@ -511,7 +849,6 @@
                 !branch ||
                 !branch.id
             ) {
-
                 continue;
             }
 
@@ -522,13 +859,10 @@
                     branch
                 );
 
-
                 successful++;
 
 
-            } catch (
-                error
-            ) {
+            } catch (error) {
 
                 failed++;
 
@@ -543,37 +877,30 @@
 
 
         console.log(
-            "✅ Local branch Firebase sync finished:",
+            "☁️ Branch sync result:",
             {
-                successful:
-                    successful,
-
-                failed:
-                    failed
+                successful,
+                failed
             }
         );
 
 
         return {
-
-            successful:
-                successful,
-
-            failed:
-                failed
-
+            successful,
+            failed
         };
     }
 
 
     /* ==========================================
-       FIREBASE → LOCAL REAL-TIME LISTENER
+       FIREBASE → LOCAL LISTENER
     ========================================== */
 
     async function startListener() {
 
         if (
-            stopListener
+            typeof stopListener ===
+            "function"
         ) {
 
             return true;
@@ -589,7 +916,7 @@
 
 
         console.log(
-            "☁️ Starting real-time Firebase branch listener..."
+            "☁️ Starting branch realtime listener..."
         );
 
 
@@ -598,13 +925,10 @@
 
                 tools.collection(
                     db,
-                    "branches"
+                    COLLECTION_NAME
                 ),
 
-
-                function (
-                    snapshot
-                ) {
+                function (snapshot) {
 
                     const cloudBranches =
                         [];
@@ -620,96 +944,51 @@
                                 {};
 
 
-                            /*
-                             * Always guarantee an ID.
-                             *
-                             * If the Firebase document
-                             * doesn't contain id internally,
-                             * use its document ID.
-                             */
-
-                            const branch = {
-
-                                ...data,
-
-                                id:
-                                    data.id ||
-                                    documentSnapshot.id
-
-                            };
-
-
                             cloudBranches.push(
+                                normalizeBranch({
 
-                                prepareCloudBranchForLocal(
-                                    branch
-                                )
+                                    ...data,
 
+                                    id:
+                                        String(
+                                            data.id ||
+                                            documentSnapshot.id
+                                        )
+                                })
                             );
-
                         }
                     );
 
 
-                    cloudBranches.sort(
-                        function (
-                            a,
-                            b
-                        ) {
-
-                            const firstName =
-                                String(
-                                    a.branchName ||
-                                    a.name ||
-                                    ""
-                                );
+                    const localBranches =
+                        readBranches();
 
 
-                            const secondName =
-                                String(
-                                    b.branchName ||
-                                    b.name ||
-                                    ""
-                                );
+                    const mergedBranches =
+                        mergeBranchesSafely(
+                            localBranches,
+                            cloudBranches
+                        );
 
-
-                            return firstName.localeCompare(
-                                secondName
-                            );
-
-                        }
-                    );
-
-
-                    /*
-                     * Firebase is now the shared source
-                     * of truth for branches.
-                     */
 
                     saveCloudBranchesLocally(
-                        cloudBranches
+                        mergedBranches
                     );
 
 
                     console.log(
-                        "✅ Branches received from Firebase:",
-                        cloudBranches.length
+                        "✅ Firebase branch update:",
+                        mergedBranches.length
                     );
-
                 },
 
-
-                function (
-                    error
-                ) {
+                function (error) {
 
                     console.error(
-                        "❌ Firebase branch listener error:",
+                        "❌ Branch realtime listener failed:",
                         error
                     );
-
                 }
-
             );
 
 
@@ -729,7 +1008,6 @@
         ) {
 
             stopListener();
-
         }
 
 
@@ -739,7 +1017,7 @@
 
 
     /* ==========================================
-       DELAYED LOCAL → CLOUD SYNC
+       SCHEDULE SYNC
     ========================================== */
 
     function scheduleSync() {
@@ -747,7 +1025,6 @@
         if (
             applyingCloudData
         ) {
-
             return;
         }
 
@@ -763,9 +1040,7 @@
 
                     syncLocal()
                         .catch(
-                            function (
-                                error
-                            ) {
+                            function (error) {
 
                                 console.error(
                                     "Branch scheduled sync failed:",
@@ -773,104 +1048,114 @@
                                 );
                             }
                         );
-
                 },
-                500
+                350
             );
     }
 
 
     /* ==========================================
-       LOCAL DATA CHANGE EVENTS
+       LOCAL CHANGE EVENTS
     ========================================== */
 
     document.addEventListener(
         "jufelix:data-updated",
-        function (
-            event
-        ) {
+        function (event) {
 
             if (
                 applyingCloudData
             ) {
+                return;
+            }
 
+
+            const detail =
+                event.detail ||
+                {};
+
+
+            if (
+                detail.source ===
+                "cloud" ||
+                detail.source ===
+                "firebase"
+            ) {
                 return;
             }
 
 
             if (
-                event.detail &&
-                event.detail.key ===
-                    BRANCHES_KEY
+                detail.key ===
+                BRANCHES_KEY
             ) {
 
                 scheduleSync();
             }
-
         }
     );
 
 
     document.addEventListener(
         "jufelix:dataChanged",
-        function (
-            event
-        ) {
+        function (event) {
 
             if (
                 applyingCloudData
             ) {
+                return;
+            }
 
+
+            const detail =
+                event.detail ||
+                {};
+
+
+            if (
+                detail.source ===
+                "cloud" ||
+                detail.source ===
+                "firebase"
+            ) {
                 return;
             }
 
 
             if (
-                event.detail &&
-                event.detail.key ===
-                    BRANCHES_KEY
+                detail.key ===
+                BRANCHES_KEY
             ) {
 
                 scheduleSync();
             }
-
         }
     );
 
 
-    /*
-     * This fires when another browser tab/window
-     * changes localStorage.
-     */
-
     window.addEventListener(
         "storage",
-        function (
-            event
-        ) {
+        function (event) {
 
             if (
                 applyingCloudData
             ) {
-
                 return;
             }
 
 
             if (
                 event.key ===
-                    BRANCHES_KEY
+                BRANCHES_KEY
             ) {
 
                 scheduleSync();
             }
-
         }
     );
 
 
     /* ==========================================
-       START CLOUD BRIDGE
+       START CLOUD
     ========================================== */
 
     async function startCloud() {
@@ -878,7 +1163,6 @@
         if (
             cloudStarted
         ) {
-
             return true;
         }
 
@@ -890,49 +1174,35 @@
         try {
 
             /*
-             * STEP 1
-             *
-             * Upload this device's existing
-             * branches first.
-             *
-             * This protects older local branch
-             * records when cloud sync is enabled
-             * for the first time.
+             * Upload existing local branches.
              */
 
             await syncLocal();
 
 
             /*
-             * STEP 2
-             *
-             * Start real-time Firebase → local
-             * synchronization.
+             * Then listen for all devices.
              */
 
             await startListener();
 
 
             console.log(
-                "✅ Jufelix Branches two-way cloud sync started."
+                "✅ Jufelix Branches Cloud v800 ready."
             );
 
 
             document.dispatchEvent(
-
                 new CustomEvent(
                     "jufelix:branches-cloud-ready"
                 )
-
             );
 
 
             return true;
 
 
-        } catch (
-            error
-        ) {
+        } catch (error) {
 
             cloudStarted =
                 false;
@@ -944,16 +1214,8 @@
             );
 
 
-            /*
-             * Retry automatically.
-             */
-
             window.setTimeout(
-                function () {
-
-                    startCloud();
-
-                },
+                startCloud,
                 3000
             );
 
@@ -972,18 +1234,17 @@
         saveBranch:
             saveBranch,
 
-
         syncLocal:
             syncLocal,
-
 
         listen:
             startListener,
 
-
         stop:
             stopCloudListener,
 
+        getLocal:
+            readBranches,
 
         refresh:
             async function () {
@@ -994,12 +1255,11 @@
 
                 return true;
             }
-
     };
 
 
     console.log(
-        "✅ JufelixBranchesCloud API loaded."
+        "✅ JufelixBranchesCloud v800 API loaded."
     );
 
 
@@ -1015,6 +1275,5 @@
         },
         500
     );
-
 
 })();
