@@ -3,608 +3,1057 @@
 
 <head>
 
-<meta charset="UTF-8">
+    <meta charset="UTF-8">
 
-<meta name="viewport"
-content="width=device-width, initial-scale=1.0">
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
 
-<meta name="theme-color"
-content="#0B5ED7">
+    <meta
+        name="theme-color"
+        content="#0b5ed7"
+    >
 
-<title>Branches | Jufelix ERP v7.0</title>
+    <title>
+        Branches | Jufelix ERP v7.0
+    </title>
 
-<link rel="stylesheet" href="assets/css/variables.css">
-<link rel="stylesheet" href="assets/css/base.css">
-<link rel="stylesheet" href="assets/css/components.css">
-<link rel="stylesheet" href="assets/css/style.css">
 
-<style>
+    <!-- =====================================
+         STYLES
+    ====================================== -->
 
-*{
-box-sizing:border-box;
-}
+    <link
+        rel="stylesheet"
+        href="assets/css/variables.css"
+    >
 
-body{
-margin:0;
-font-family:Arial,Helvetica,sans-serif;
-background:#f5f7fb;
-color:#1f2937;
-overflow-x:hidden;
-}
+    <link
+        rel="stylesheet"
+        href="assets/css/base.css"
+    >
 
-.main-content{
-margin-left:270px;
-min-height:100vh;
-}
+    <link
+        rel="stylesheet"
+        href="assets/css/components.css"
+    >
 
-.branch-page{
-padding:24px;
-}
+    <link
+        rel="stylesheet"
+        href="assets/css/style.css"
+    >
 
-.page-header h1{
-margin:0;
-font-size:36px;
-font-weight:700;
-}
 
-.page-header p{
-margin-top:8px;
-color:#6b7280;
-}
+    <style>
 
-.summary-grid{
-display:grid;
-grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
-gap:18px;
-margin:25px 0;
-}
+        * {
+            box-sizing: border-box;
+        }
 
-.summary-card{
-background:#fff;
-border-radius:14px;
-padding:20px;
-box-shadow:0 4px 14px rgba(0,0,0,.08);
-}
 
-.summary-card h3{
-margin:0;
-font-size:15px;
-color:#666;
-}
+        body {
+            margin: 0;
+        }
 
-.summary-card h2{
-margin-top:15px;
-font-size:30px;
-color:#0B5ED7;
-}
 
-.card{
-background:#fff;
-padding:24px;
-border-radius:14px;
-box-shadow:0 4px 14px rgba(0,0,0,.08);
-margin-bottom:25px;
-}
+        .branches-page {
+            padding: 24px;
+        }
 
-.card h2{
-margin-top:0;
-}
 
-.grid-2{
-display:grid;
-grid-template-columns:1fr 1fr;
-gap:18px;
-}
+        .page-heading {
+            margin-bottom: 24px;
+        }
 
-.form-group{
-display:flex;
-flex-direction:column;
-margin-bottom:18px;
-}
 
-.form-group label{
-margin-bottom:8px;
-font-weight:600;
-}
+        .page-heading h1 {
+            margin: 0 0 6px;
+            font-size: 26px;
+        }
 
-.form-control{
-padding:14px;
-border:1px solid #d9d9d9;
-border-radius:10px;
-font-size:16px;
-width:100%;
-}
 
-textarea.form-control{
-min-height:100px;
-resize:vertical;
-}
+        .page-heading p {
+            margin: 0;
+            color: #6b7280;
+            font-size: 14px;
+        }
 
-.btn{
-padding:14px 22px;
-border:none;
-border-radius:10px;
-cursor:pointer;
-font-size:16px;
-font-weight:bold;
-}
 
-.btn-primary{
-background:#0B5ED7;
-color:white;
-}
+        /* =====================================
+           SUMMARY
+        ====================================== */
 
-.btn-secondary{
-background:#6c757d;
-color:white;
-margin-left:10px;
-}
+        .branch-summary-grid {
+            display: grid;
+            grid-template-columns:
+                repeat(
+                    4,
+                    minmax(0, 1fr)
+                );
+            gap: 16px;
+            margin-bottom: 24px;
+        }
 
-.table-responsive{
-overflow:auto;
-}
 
-table{
-width:100%;
-border-collapse:collapse;
-}
+        .branch-summary-card {
+            background: #ffffff;
+            border: 1px solid #e5e7eb;
+            border-radius: 14px;
+            padding: 18px;
+            box-shadow:
+                0 3px 12px
+                rgba(0, 0, 0, .05);
+        }
 
-table th,
-table td{
-padding:14px;
-border-bottom:1px solid #eee;
-text-align:left;
-}
 
-table th{
-background:#0B5ED7;
-color:white;
-}
+        .branch-summary-card span {
+            display: block;
+            color: #6b7280;
+            font-size: 13px;
+            margin-bottom: 8px;
+        }
 
-.status-active{
-color:green;
-font-weight:bold;
-}
 
-.status-inactive{
-color:red;
-font-weight:bold;
-}
+        .branch-summary-card strong {
+            display: block;
+            font-size: 27px;
+            color: #111827;
+        }
 
-@media(max-width:900px){
 
-.main-content{
-margin-left:0;
-}
+        /* =====================================
+           SECTION CARD
+        ====================================== */
 
-.grid-2{
-grid-template-columns:1fr;
-}
+        .branch-card {
+            background: #ffffff;
+            border: 1px solid #e5e7eb;
+            border-radius: 14px;
+            padding: 20px;
+            margin-bottom: 24px;
+            box-shadow:
+                0 3px 12px
+                rgba(0, 0, 0, .05);
+        }
 
-}
 
-</style>
+        .branch-card-title {
+            margin: 0 0 18px;
+            font-size: 19px;
+        }
+
+
+        /* =====================================
+           FORM
+        ====================================== */
+
+        .branch-form-grid {
+            display: grid;
+            grid-template-columns:
+                repeat(
+                    2,
+                    minmax(0, 1fr)
+                );
+            gap: 16px;
+        }
+
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 7px;
+        }
+
+
+        .form-group.full-width {
+            grid-column: 1 / -1;
+        }
+
+
+        .form-group label {
+            font-size: 13px;
+            font-weight: 700;
+            color: #374151;
+        }
+
+
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            min-height: 44px;
+            padding: 10px 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 9px;
+            background: #ffffff;
+            color: #111827;
+            font-size: 14px;
+            outline: none;
+        }
+
+
+        .form-group textarea {
+            min-height: 90px;
+            resize: vertical;
+        }
+
+
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            border-color: #0b5ed7;
+            box-shadow:
+                0 0 0 3px
+                rgba(11, 94, 215, .12);
+        }
+
+
+        .branch-form-actions {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-top: 20px;
+        }
+
+
+        .primary-button,
+        .secondary-button {
+            min-height: 44px;
+            border: none;
+            border-radius: 9px;
+            padding: 0 18px;
+            font-weight: 700;
+            cursor: pointer;
+        }
+
+
+        .primary-button {
+            background: #0b5ed7;
+            color: #ffffff;
+        }
+
+
+        .primary-button:hover {
+            background: #084298;
+        }
+
+
+        .secondary-button {
+            background: #e5e7eb;
+            color: #1f2937;
+        }
+
+
+        /* =====================================
+           FILTERS
+        ====================================== */
+
+        .branch-toolbar {
+            display: grid;
+            grid-template-columns:
+                minmax(220px, 1fr)
+                minmax(160px, 220px);
+            gap: 12px;
+            margin-bottom: 18px;
+        }
+
+
+        .branch-toolbar input,
+        .branch-toolbar select {
+            width: 100%;
+            min-height: 42px;
+            padding: 9px 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 9px;
+            background: #ffffff;
+        }
+
+
+        /* =====================================
+           TABLE
+        ====================================== */
+
+        .table-wrapper {
+            width: 100%;
+            overflow-x: auto;
+        }
+
+
+        .branch-table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 980px;
+        }
+
+
+        .branch-table th,
+        .branch-table td {
+            padding: 13px 12px;
+            text-align: left;
+            border-bottom: 1px solid #e5e7eb;
+            vertical-align: middle;
+        }
+
+
+        .branch-table th {
+            background: #f8fafc;
+            font-size: 12px;
+            color: #475569;
+            text-transform: uppercase;
+            letter-spacing: .4px;
+        }
+
+
+        .branch-table td {
+            font-size: 13px;
+        }
+
+
+        .branch-table button {
+            border: none;
+            border-radius: 7px;
+            padding: 7px 10px;
+            margin-right: 5px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 700;
+        }
+
+
+        .branch-table button:first-child {
+            background: #0b5ed7;
+            color: #ffffff;
+        }
+
+
+        .branch-table button:last-child {
+            background: #dc3545;
+            color: #ffffff;
+        }
+
+
+        .status-active {
+            display: inline-block;
+            padding: 5px 9px;
+            border-radius: 999px;
+            background: #dcfce7;
+            color: #166534;
+            font-weight: 700;
+            font-size: 11px;
+        }
+
+
+        .status-inactive {
+            display: inline-block;
+            padding: 5px 9px;
+            border-radius: 999px;
+            background: #fee2e2;
+            color: #991b1b;
+            font-weight: 700;
+            font-size: 11px;
+        }
+
+
+        /* =====================================
+           RESPONSIVE
+        ====================================== */
+
+        @media screen and
+        (max-width: 1000px) {
+
+            .branch-summary-grid {
+                grid-template-columns:
+                    repeat(
+                        2,
+                        minmax(0, 1fr)
+                    );
+            }
+        }
+
+
+        @media screen and
+        (max-width: 700px) {
+
+            .branches-page {
+                padding: 16px;
+            }
+
+
+            .branch-form-grid {
+                grid-template-columns: 1fr;
+            }
+
+
+            .form-group.full-width {
+                grid-column: auto;
+            }
+
+
+            .branch-toolbar {
+                grid-template-columns: 1fr;
+            }
+
+
+            .branch-summary-grid {
+                grid-template-columns: 1fr;
+            }
+
+
+            .branch-form-actions {
+                flex-direction: column;
+            }
+
+
+            .primary-button,
+            .secondary-button {
+                width: 100%;
+            }
+        }
+
+    </style>
 
 </head>
 
+
 <body>
 
-<aside id="sidebar"
-class="sidebar"></aside>
 
-<main class="main-content">
+    <!-- =====================================
+         SIDEBAR
+    ====================================== -->
 
-<header id="topbar"
-class="topbar"></header>
+    <aside
+        id="sidebar"
+        class="sidebar"
+    ></aside>
 
-<div class="branch-page">
 
-<div class="page-header">
+    <!-- =====================================
+         MAIN CONTENT
+    ====================================== -->
 
-<h1>Branch Management</h1>
+    <main class="main-content">
 
-<p>
-Manage all company branches from one place.
-</p>
 
-</div>
+        <!-- =================================
+             TOPBAR
+        ================================== -->
 
-<div class="summary-grid">
+        <header
+            id="topbar"
+            class="topbar"
+        ></header>
 
-<div class="summary-card">
-<h3>Total Branches</h3>
-<h2 id="totalBranches">0</h2>
-</div>
 
-<div class="summary-card">
-<h3>Active Branches</h3>
-<h2 id="activeBranches">0</h2>
-</div>
+        <section class="branches-page">
 
-<div class="summary-card">
-<h3>Head Office</h3>
-<h2 id="headOfficeCount">0</h2>
-</div>
 
-<div class="summary-card">
-<h3>Inactive</h3>
-<h2 id="inactiveBranches">0</h2>
-</div>
+            <!-- =================================
+                 PAGE HEADER
+            ================================== -->
 
-</div>
-<div class="card">
+            <div class="page-heading">
 
-<h2 id="branchFormTitle">
-Add New Branch
-</h2>
+                <h1>
+                    Branch Management
+                </h1>
 
-<form id="branchForm">
+                <p>
+                    Create and manage Head Office,
+                    warehouses and business branches.
+                </p>
 
-<input
-type="hidden"
-id="branchId"
->
+            </div>
 
-<div class="grid-2">
 
-<div class="form-group">
+            <!-- =================================
+                 SUMMARY
+            ================================== -->
 
-<label for="branchName">
-Branch Name *
-</label>
+            <div class="branch-summary-grid">
 
-<input
-type="text"
-id="branchName"
-class="form-control"
-placeholder="Enter branch name"
-required
->
 
-</div>
+                <div class="branch-summary-card">
 
-<div class="form-group">
+                    <span>
+                        Total Branches
+                    </span>
 
-<label for="branchCode">
-Branch Code *
-</label>
+                    <strong
+                        id="totalBranches"
+                    >
+                        0
+                    </strong>
 
-<input
-type="text"
-id="branchCode"
-class="form-control"
-placeholder="Example: HOF, ACC, KSI"
-required
->
+                </div>
 
-</div>
 
-<div class="form-group">
+                <div class="branch-summary-card">
 
-<label for="branchManager">
-Branch Manager
-</label>
+                    <span>
+                        Active Branches
+                    </span>
 
-<input
-type="text"
-id="branchManager"
-class="form-control"
-placeholder="Enter manager name"
->
+                    <strong
+                        id="activeBranches"
+                    >
+                        0
+                    </strong>
 
-</div>
+                </div>
 
-<div class="form-group">
 
-<label for="branchPhone">
-Phone Number *
-</label>
+                <div class="branch-summary-card">
 
-<input
-type="tel"
-id="branchPhone"
-class="form-control"
-placeholder="Enter phone number"
-required
->
+                    <span>
+                        Head Office
+                    </span>
 
-</div>
+                    <strong
+                        id="headOfficeCount"
+                    >
+                        0
+                    </strong>
 
-<div class="form-group">
+                </div>
 
-<label for="branchEmail">
-Email Address
-</label>
 
-<input
-type="email"
-id="branchEmail"
-class="form-control"
-placeholder="Enter email address"
->
+                <div class="branch-summary-card">
 
-</div>
+                    <span>
+                        Inactive Branches
+                    </span>
 
-<div class="form-group">
+                    <strong
+                        id="inactiveBranches"
+                    >
+                        0
+                    </strong>
 
-<label for="branchStatus">
-Branch Status
-</label>
+                </div>
 
-<select
-id="branchStatus"
-class="form-control"
->
 
-<option value="active">
-Active
-</option>
+            </div>
 
-<option value="inactive">
-Inactive
-</option>
 
-</select>
+            <!-- =================================
+                 BRANCH FORM
+            ================================== -->
 
-</div>
+            <div class="branch-card">
 
-<div class="form-group">
 
-<label for="branchType">
-Branch Type
-</label>
+                <h2
+                    id="branchFormTitle"
+                    class="branch-card-title"
+                >
+                    Add New Branch
+                </h2>
 
-<select
-id="branchType"
-class="form-control"
->
 
-<option value="branch">
-Regular Branch
-</option>
+                <form
+                    id="branchForm"
+                    autocomplete="off"
+                >
 
-<option value="head-office">
-Head Office
-</option>
 
-<option value="warehouse">
-Warehouse
-</option>
+                    <input
+                        type="hidden"
+                        id="branchId"
+                    >
 
-</select>
 
-</div>
+                    <div class="branch-form-grid">
 
-<div class="form-group">
 
-<label for="branchOpeningDate">
-Opening Date
-</label>
+                        <!-- Branch Name -->
 
-<input
-type="date"
-id="branchOpeningDate"
-class="form-control"
->
+                        <div class="form-group">
 
-</div>
+                            <label
+                                for="branchName"
+                            >
+                                Branch Name *
+                            </label>
 
-</div>
+                            <input
+                                type="text"
+                                id="branchName"
+                                placeholder="Example: Agona Swedru"
+                                required
+                            >
 
-<div class="form-group">
+                        </div>
 
-<label for="branchAddress">
-Branch Address *
-</label>
 
-<textarea
-id="branchAddress"
-class="form-control"
-placeholder="Enter branch address"
-required
-></textarea>
+                        <!-- Branch Code -->
 
-</div>
+                        <div class="form-group">
 
-<div class="form-group">
+                            <label
+                                for="branchCode"
+                            >
+                                Branch Code *
+                            </label>
 
-<label for="branchNotes">
-Notes
-</label>
+                            <input
+                                type="text"
+                                id="branchCode"
+                                placeholder="Example: ASW"
+                                maxlength="15"
+                                required
+                            >
 
-<textarea
-id="branchNotes"
-class="form-control"
-placeholder="Optional notes"
-></textarea>
+                        </div>
 
-</div>
 
-<div>
+                        <!-- Branch Type -->
 
-<button
-type="submit"
-id="saveBranchButton"
-class="btn btn-primary"
->
-Save Branch
-</button>
+                        <div class="form-group">
 
-<button
-type="button"
-id="clearBranchButton"
-class="btn btn-secondary"
->
-Clear Form
-</button>
+                            <label
+                                for="branchType"
+                            >
+                                Branch Type
+                            </label>
 
-</div>
+                            <select
+                                id="branchType"
+                            >
 
-</form>
+                                <option value="branch">
+                                    Regular Branch
+                                </option>
 
-</div>
+                                <option value="warehouse">
+                                    Warehouse
+                                </option>
 
+                                <option value="head-office">
+                                    Head Office
+                                </option>
 
-<div class="card">
+                            </select>
 
-<h2>Branch List</h2>
+                        </div>
 
-<div
-style="
-display:grid;
-grid-template-columns:minmax(220px,1fr) minmax(150px,.35fr);
-gap:14px;
-margin-bottom:20px;
-"
->
 
-<input
-type="search"
-id="branchSearch"
-class="form-control"
-placeholder="Search by branch name, code, manager, phone or address"
->
+                        <!-- Status -->
 
-<select
-id="branchStatusFilter"
-class="form-control"
->
+                        <div class="form-group">
 
-<option value="">
-All Statuses
-</option>
+                            <label
+                                for="branchStatus"
+                            >
+                                Status
+                            </label>
 
-<option value="active">
-Active
-</option>
+                            <select
+                                id="branchStatus"
+                            >
 
-<option value="inactive">
-Inactive
-</option>
+                                <option value="active">
+                                    Active
+                                </option>
 
-</select>
+                                <option value="inactive">
+                                    Inactive
+                                </option>
 
-</div>
+                            </select>
 
-<div class="table-responsive">
+                        </div>
 
-<table>
 
-<thead>
+                        <!-- Manager -->
 
-<tr>
+                        <div class="form-group">
 
-<th>Branch</th>
-<th>Code</th>
-<th>Type</th>
-<th>Manager</th>
-<th>Phone</th>
-<th>Address</th>
-<th>Status</th>
-<th>Actions</th>
+                            <label
+                                for="branchManager"
+                            >
+                                Branch Manager
+                            </label>
 
-</tr>
+                            <input
+                                type="text"
+                                id="branchManager"
+                                placeholder="Manager name"
+                            >
 
-</thead>
+                        </div>
 
-<tbody id="branchTableBody">
 
-<tr>
+                        <!-- Phone -->
 
-<td
-colspan="8"
-style="
-text-align:center;
-padding:30px;
-color:#888;
-"
->
-No branches have been added.
-</td>
+                        <div class="form-group">
 
-</tr>
+                            <label
+                                for="branchPhone"
+                            >
+                                Phone Number *
+                            </label>
 
-</tbody>
+                            <input
+                                type="tel"
+                                id="branchPhone"
+                                placeholder="0240000000"
+                                required
+                            >
 
-</table>
+                        </div>
 
-</div>
 
-</div>
-</div>
+                        <!-- Email -->
 
-</main>
+                        <div class="form-group">
 
-<!-- =====================================
-     FIREBASE CONFIGURATION
-====================================== -->
+                            <label
+                                for="branchEmail"
+                            >
+                                Email
+                            </label>
 
-<script src="config/firebase-config.js?v=701"></script>
+                            <input
+                                type="email"
+                                id="branchEmail"
+                                placeholder="branch@example.com"
+                            >
 
+                        </div>
 
-<!-- =====================================
-     FIREBASE CONNECTION
-====================================== -->
 
-<script
-    type="module"
-    src="js/core/firebase.js?v=702"
-></script>
+                        <!-- Opening Date -->
 
+                        <div class="form-group">
 
-<!-- =====================================
-     CORE
-====================================== -->
+                            <label
+                                for="branchOpeningDate"
+                            >
+                                Opening Date
+                            </label>
 
-<script src="js/core/config.js?v=580"></script>
+                            <input
+                                type="date"
+                                id="branchOpeningDate"
+                            >
 
-<script src="js/core/storage.js?v=580"></script>
+                        </div>
 
-<script src="js/core/database.js?v=580"></script>
 
+                        <!-- Address -->
 
-<!-- =====================================
-     PERMISSIONS
-====================================== -->
+                        <div
+                            class="
+                                form-group
+                                full-width
+                            "
+                        >
 
-<script src="js/core/permissions.js?v=550"></script>
+                            <label
+                                for="branchAddress"
+                            >
+                                Branch Address *
+                            </label>
 
+                            <textarea
+                                id="branchAddress"
+                                placeholder="Enter branch location or address"
+                                required
+                            ></textarea>
 
-<!-- =====================================
-     AUTH GUARD
-====================================== -->
+                        </div>
 
-<script src="js/core/auth-guard.js?v=650"></script>
 
+                        <!-- Notes -->
 
-<!-- =====================================
-     THEME
-====================================== -->
+                        <div
+                            class="
+                                form-group
+                                full-width
+                            "
+                        >
 
-<script src="js/core/theme.js?v=580"></script>
+                            <label
+                                for="branchNotes"
+                            >
+                                Notes
+                            </label>
 
+                            <textarea
+                                id="branchNotes"
+                                placeholder="Optional branch notes"
+                            ></textarea>
 
-<!-- =====================================
-     COMPONENTS
-====================================== -->
+                        </div>
 
-<script src="js/components/sidebar.js?v=610"></script>
 
-<script src="js/components/topbar.js?v=620"></script>
+                    </div>
 
 
-<!-- =====================================
-     BRANCHES CLOUD
-====================================== -->
+                    <div class="branch-form-actions">
 
-<script src="js/cloud/branches-cloud.js?v=702"></script>
 
+                        <button
+                            type="submit"
+                            id="saveBranchButton"
+                            class="primary-button"
+                        >
+                            Save Branch
+                        </button>
 
-<!-- =====================================
-     BRANCHES MODULE
-====================================== -->
 
-<script src="js/modules/branches.js?v=200"></script>
+                        <button
+                            type="button"
+                            id="clearBranchButton"
+                            class="secondary-button"
+                        >
+                            Clear Form
+                        </button>
+
+
+                    </div>
+
+
+                </form>
+
+
+            </div>
+
+
+            <!-- =================================
+                 BRANCH LIST
+            ================================== -->
+
+            <div class="branch-card">
+
+
+                <h2 class="branch-card-title">
+                    Branch List
+                </h2>
+
+
+                <div class="branch-toolbar">
+
+
+                    <input
+                        type="search"
+                        id="branchSearch"
+                        placeholder="Search branch, code, manager, phone..."
+                    >
+
+
+                    <select
+                        id="branchStatusFilter"
+                    >
+
+                        <option value="">
+                            All Statuses
+                        </option>
+
+                        <option value="active">
+                            Active
+                        </option>
+
+                        <option value="inactive">
+                            Inactive
+                        </option>
+
+                    </select>
+
+
+                </div>
+
+
+                <div class="table-wrapper">
+
+
+                    <table class="branch-table">
+
+
+                        <thead>
+
+                            <tr>
+
+                                <th>
+                                    Branch
+                                </th>
+
+                                <th>
+                                    Code
+                                </th>
+
+                                <th>
+                                    Type
+                                </th>
+
+                                <th>
+                                    Manager
+                                </th>
+
+                                <th>
+                                    Phone
+                                </th>
+
+                                <th>
+                                    Address
+                                </th>
+
+                                <th>
+                                    Status
+                                </th>
+
+                                <th>
+                                    Actions
+                                </th>
+
+                            </tr>
+
+                        </thead>
+
+
+                        <tbody
+                            id="branchTableBody"
+                        >
+
+                            <tr>
+
+                                <td
+                                    colspan="8"
+                                    style="
+                                        text-align:center;
+                                        padding:30px;
+                                        color:#888;
+                                    "
+                                >
+                                    Loading branches...
+                                </td>
+
+                            </tr>
+
+                        </tbody>
+
+
+                    </table>
+
+
+                </div>
+
+
+            </div>
+
+
+        </section>
+
+
+    </main>
+
+
+    <!-- =====================================
+         FIREBASE CONFIGURATION
+    ====================================== -->
+
+    <script
+        src="config/firebase-config.js?v=701"
+    ></script>
+
+
+    <!-- =====================================
+         FIREBASE CONNECTION
+    ====================================== -->
+
+    <script
+        type="module"
+        src="js/core/firebase.js?v=702"
+    ></script>
+
+
+    <!-- =====================================
+         CORE CONFIG
+    ====================================== -->
+
+    <script
+        src="js/core/config.js?v=580"
+    ></script>
+
+
+    <!-- =====================================
+         CORE STORAGE
+    ====================================== -->
+
+    <script
+        src="js/core/storage.js?v=580"
+    ></script>
+
+
+    <!-- =====================================
+         CORE DATABASE
+    ====================================== -->
+
+    <script
+        src="js/core/database.js?v=580"
+    ></script>
+
+
+    <!-- =====================================
+         PERMISSIONS
+    ====================================== -->
+
+    <script
+        src="js/core/permissions.js?v=550"
+    ></script>
+
+
+    <!-- =====================================
+         AUTH GUARD
+    ====================================== -->
+
+    <script
+        src="js/core/auth-guard.js?v=650"
+    ></script>
+
+
+    <!-- =====================================
+         THEME
+    ====================================== -->
+
+    <script
+        src="js/core/theme.js?v=580"
+    ></script>
+
+
+    <!-- =====================================
+         COMPONENTS
+    ====================================== -->
+
+    <script
+        src="js/components/sidebar.js?v=610"
+    ></script>
+
+    <script
+        src="js/components/topbar.js?v=620"
+    ></script>
+
+
+    <!-- =====================================
+         BRANCHES CLOUD
+
+         Two-way multi-device sync
+    ====================================== -->
+
+    <script
+        src="js/cloud/branches-cloud.js?v=800"
+    ></script>
+
+
+    <!-- =====================================
+         BRANCHES MODULE
+    ====================================== -->
+
+    <script
+        src="js/modules/branches.js?v=200"
+    ></script>
 
 
 </body>
