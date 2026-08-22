@@ -1,91 +1,148 @@
 /* ==========================================
    JUFELIX ERP v7.0 PROFESSIONAL
-   Multi-Branch Inventory Module
+   MULTI-BRANCH INVENTORY MODULE
+
+   COMPLETE REPLACEMENT
 
    File:
    js/modules/inventory.js
+
+   + Branch-aware stock
+   + Safe legacy stock migration
+   + Active branch compatibility
+   + Branch ID / code / name compatibility
+   + Product image support
+   + LocalStorage offline copy
+   + Direct single-product Firebase sync
+   + Realtime cloud refresh support
+   + Prevents stale full-inventory overwrite
 ========================================== */
 
 (function () {
+
     "use strict";
 
-    const PRODUCTS_KEY = "jufelix_products";
-    const ACTIVE_BRANCH_KEY = "jufelix_v7_active_branch";
-    const CURRENT_USER_KEY = "jufelix_v7_current_user";
-    const DEFAULT_BRANCH_ID = "head-office";
+
+    /* ==========================================
+       STORAGE KEYS
+    ========================================== */
+
+    const PRODUCTS_KEY =
+        "jufelix_products";
+
+    const BRANCHES_KEY =
+        "jufelix_v7_branches";
+
+    const ACTIVE_BRANCH_KEY =
+        "jufelix_v7_active_branch";
+
+    const CURRENT_USER_KEY =
+        "jufelix_v7_current_user";
+
+    const DEFAULT_BRANCH_ID =
+        "head-office";
+
+
+    /* ==========================================
+       STATE
+    ========================================== */
 
     let products = [];
-    let editingProductId = null;
-    let productImageData = "";
 
-    const form = document.getElementById("productForm");
-    const tableBody = document.getElementById("inventoryTableBody");
-    const saveButton = document.getElementById("saveProductButton");
-    const formTitle = document.getElementById("productFormTitle");
-    const clearButton = document.getElementById("cancelProductButton");
+    let editingProductId =
+        null;
 
-    const searchInput = document.getElementById("inventorySearch");
-    const categoryFilter = document.getElementById(
-        "inventoryCategoryFilter"
-    );
-    const stockFilter = document.getElementById(
-        "inventoryStockFilter"
-    );
-    const statusFilter = document.getElementById(
-        "inventoryStatusFilter"
-    );
+    let productImageData =
+        "";
 
-    const productCategory =
-        document.getElementById(
-            "productCategory"
-        );
+    let refreshTimer =
+        null;
 
-    const customCategoryGroup =
-        document.getElementById(
-            "customCategoryGroup"
-        );
+    let saveInProgress =
+        false;
 
-    const customProductCategory =
-        document.getElementById(
-            "customProductCategory"
-        );
 
-    const productImageInput =
-        document.getElementById(
-            "productImage"
-        );
+    /* ==========================================
+       ELEMENTS
+    ========================================== */
 
-    const productImagePreview =
-        document.getElementById(
-            "productImagePreview"
-        );
+    let form =
+        null;
 
-    const productImagePreviewContainer =
-        document.getElementById(
-            "productImagePreviewContainer"
-        );
+    let tableBody =
+        null;
 
-    const removeProductImageButton =
-        document.getElementById(
-            "removeProductImageButton"
-        );
+    let saveButton =
+        null;
+
+    let formTitle =
+        null;
+
+    let clearButton =
+        null;
+
+    let searchInput =
+        null;
+
+    let categoryFilter =
+        null;
+
+    let stockFilter =
+        null;
+
+    let statusFilter =
+        null;
+
+    let productCategory =
+        null;
+
+    let customCategoryGroup =
+        null;
+
+    let customProductCategory =
+        null;
+
+    let productImageInput =
+        null;
+
+    let productImagePreview =
+        null;
+
+    let productImagePreviewContainer =
+        null;
+
+    let removeProductImageButton =
+        null;
 
 
     /* ==========================================
        START
     ========================================== */
 
-    if (document.readyState === "loading") {
+    if (
+        document.readyState ===
+        "loading"
+    ) {
+
         document.addEventListener(
             "DOMContentLoaded",
             initializeInventory
         );
+
     } else {
+
         initializeInventory();
     }
 
 
+    /* ==========================================
+       INITIALIZE
+    ========================================== */
+
     function initializeInventory() {
+
+        cacheElements();
+
         loadProducts();
 
         migrateProductsToBranchStock();
@@ -96,9 +153,108 @@
 
         refreshInventory();
 
+
         console.log(
-            "Jufelix Inventory loaded successfully."
+            "✅ Jufelix Inventory module loaded."
         );
+
+
+        console.log(
+            "Inventory active branch:",
+            getActiveBranchId(),
+            getActiveBranchName()
+        );
+    }
+
+
+    /* ==========================================
+       CACHE ELEMENTS
+    ========================================== */
+
+    function cacheElements() {
+
+        form =
+            document.getElementById(
+                "productForm"
+            );
+
+        tableBody =
+            document.getElementById(
+                "inventoryTableBody"
+            );
+
+        saveButton =
+            document.getElementById(
+                "saveProductButton"
+            );
+
+        formTitle =
+            document.getElementById(
+                "productFormTitle"
+            );
+
+        clearButton =
+            document.getElementById(
+                "cancelProductButton"
+            );
+
+
+        searchInput =
+            document.getElementById(
+                "inventorySearch"
+            );
+
+        categoryFilter =
+            document.getElementById(
+                "inventoryCategoryFilter"
+            );
+
+        stockFilter =
+            document.getElementById(
+                "inventoryStockFilter"
+            );
+
+        statusFilter =
+            document.getElementById(
+                "inventoryStatusFilter"
+            );
+
+
+        productCategory =
+            document.getElementById(
+                "productCategory"
+            );
+
+        customCategoryGroup =
+            document.getElementById(
+                "customCategoryGroup"
+            );
+
+        customProductCategory =
+            document.getElementById(
+                "customProductCategory"
+            );
+
+
+        productImageInput =
+            document.getElementById(
+                "productImage"
+            );
+
+        productImagePreview =
+            document.getElementById(
+                "productImagePreview"
+            );
+
+        productImagePreviewContainer =
+            document.getElementById(
+                "productImagePreviewContainer"
+            );
+
+        removeProductImageButton =
+            document.getElementById(
+                "removeProductImageButton"
+            );
     }
 
 
@@ -109,67 +265,204 @@
     function connectEvents() {
 
         if (form) {
+
             form.addEventListener(
                 "submit",
                 saveProduct
             );
         }
 
+
         if (clearButton) {
+
             clearButton.addEventListener(
                 "click",
-                resetForm
+                function (event) {
+
+                    event.preventDefault();
+
+                    resetForm();
+                }
             );
         }
 
+
         if (searchInput) {
+
             searchInput.addEventListener(
                 "input",
                 displayProducts
             );
         }
 
+
         if (categoryFilter) {
+
             categoryFilter.addEventListener(
                 "change",
                 displayProducts
             );
         }
 
+
         if (stockFilter) {
+
             stockFilter.addEventListener(
                 "change",
                 displayProducts
             );
         }
 
+
         if (statusFilter) {
+
             statusFilter.addEventListener(
                 "change",
                 displayProducts
             );
         }
 
+
         if (productCategory) {
+
             productCategory.addEventListener(
                 "change",
                 handleCategoryChange
             );
         }
 
+
         if (productImageInput) {
+
             productImageInput.addEventListener(
                 "change",
                 handleProductImage
             );
         }
 
+
         if (removeProductImageButton) {
+
             removeProductImageButton.addEventListener(
                 "click",
-                removeProductImage
+                function (event) {
+
+                    event.preventDefault();
+
+                    removeProductImage();
+                }
             );
         }
+
+
+        /* ======================================
+           REALTIME ERP EVENTS
+        ====================================== */
+
+        document.addEventListener(
+            "jufelix:data-updated",
+            function (event) {
+
+                if (
+                    !event ||
+                    !event.detail
+                ) {
+                    return;
+                }
+
+
+                const key =
+                    event.detail.key;
+
+
+                if (
+                    key === PRODUCTS_KEY ||
+                    key === BRANCHES_KEY ||
+                    key === ACTIVE_BRANCH_KEY
+                ) {
+
+                    scheduleInventoryRefresh();
+                }
+            }
+        );
+
+
+        document.addEventListener(
+            "jufelix:dataChanged",
+            function (event) {
+
+                if (
+                    !event ||
+                    !event.detail
+                ) {
+                    return;
+                }
+
+
+                const key =
+                    event.detail.key;
+
+
+                if (
+                    key === PRODUCTS_KEY ||
+                    key === BRANCHES_KEY ||
+                    key === ACTIVE_BRANCH_KEY
+                ) {
+
+                    scheduleInventoryRefresh();
+                }
+            }
+        );
+
+
+        document.addEventListener(
+            "jufelix:cloud-products-updated",
+            function () {
+
+                scheduleInventoryRefresh();
+            }
+        );
+
+
+        window.addEventListener(
+            "storage",
+            function (event) {
+
+                if (
+                    event.key === PRODUCTS_KEY ||
+                    event.key === BRANCHES_KEY ||
+                    event.key === ACTIVE_BRANCH_KEY
+                ) {
+
+                    scheduleInventoryRefresh();
+                }
+            }
+        );
+    }
+
+
+    /* ==========================================
+       SCHEDULE REFRESH
+    ========================================== */
+
+    function scheduleInventoryRefresh() {
+
+        window.clearTimeout(
+            refreshTimer
+        );
+
+
+        refreshTimer =
+            window.setTimeout(
+                function () {
+
+                    loadProducts();
+
+                    refreshInventory();
+
+                },
+                120
+            );
     }
 
 
@@ -187,18 +480,24 @@
             return;
         }
 
+
         const isOther =
-            productCategory.value === "Other";
+            productCategory.value ===
+            "Other";
+
 
         customCategoryGroup.style.display =
             isOther
                 ? "block"
                 : "none";
 
+
         customProductCategory.required =
             isOther;
 
+
         if (!isOther) {
+
             customProductCategory.value =
                 "";
         }
@@ -212,11 +511,17 @@
                 "productCategory"
             );
 
-        if (selected === "Other") {
+
+        if (
+            selected ===
+            "Other"
+        ) {
+
             return getValue(
                 "customProductCategory"
             );
         }
+
 
         return selected;
     }
@@ -230,19 +535,24 @@
             return;
         }
 
+
         const categoryValue =
             String(
-                category || ""
+                category ||
+                ""
             ).trim();
+
 
         const options =
             Array.from(
                 productCategory.options
             );
 
-        const optionExists =
+
+        const exists =
             options.some(
                 function (option) {
+
                     return (
                         option.value ===
                         categoryValue
@@ -250,33 +560,36 @@
                 }
             );
 
+
         if (
             categoryValue &&
-            optionExists
+            exists
         ) {
 
             productCategory.value =
                 categoryValue;
 
+
             if (
                 customCategoryGroup
             ) {
-                customCategoryGroup
-                    .style.display =
+
+                customCategoryGroup.style.display =
                     "none";
             }
 
+
             if (
                 customProductCategory
             ) {
-                customProductCategory
-                    .required =
+
+                customProductCategory.required =
                     false;
 
-                customProductCategory
-                    .value =
+                customProductCategory.value =
                     "";
             }
+
 
             return;
         }
@@ -287,25 +600,27 @@
             productCategory.value =
                 "Other";
 
+
             if (
                 customCategoryGroup
             ) {
-                customCategoryGroup
-                    .style.display =
+
+                customCategoryGroup.style.display =
                     "block";
             }
 
+
             if (
                 customProductCategory
             ) {
-                customProductCategory
-                    .required =
+
+                customProductCategory.required =
                     true;
 
-                customProductCategory
-                    .value =
+                customProductCategory.value =
                     categoryValue;
             }
+
 
             return;
         }
@@ -314,12 +629,20 @@
         productCategory.value =
             "";
 
-        if (customCategoryGroup) {
+
+        if (
+            customCategoryGroup
+        ) {
+
             customCategoryGroup.style.display =
                 "none";
         }
 
-        if (customProductCategory) {
+
+        if (
+            customProductCategory
+        ) {
+
             customProductCategory.required =
                 false;
 
@@ -341,9 +664,11 @@
             event.target.files &&
             event.target.files[0];
 
+
         if (!file) {
             return;
         }
+
 
         const allowedTypes = [
             "image/jpeg",
@@ -351,38 +676,50 @@
             "image/webp"
         ];
 
+
         if (
             !allowedTypes.includes(
                 file.type
             )
         ) {
+
             alert(
                 "Please select a JPG, PNG or WebP image."
             );
 
-            if (productImageInput) {
+
+            if (
+                productImageInput
+            ) {
+
                 productImageInput.value =
                     "";
             }
 
+
             return;
         }
 
+
         if (
             file.size >
-            10 * 1024 * 1024
+            10 *
+            1024 *
+            1024
         ) {
+
             alert(
                 "The selected image is too large. Please choose an image below 10 MB."
             );
 
-            if (productImageInput) {
-                productImageInput.value =
-                    "";
-            }
+
+            productImageInput.value =
+                "";
+
 
             return;
         }
+
 
         compressProductImage(
             file
@@ -395,8 +732,9 @@
                     productImageData =
                         compressedImage;
 
+
                     showProductImagePreview(
-                        productImageData
+                        compressedImage
                     );
                 }
             )
@@ -408,19 +746,24 @@
                         error
                     );
 
+
                     alert(
-                        "Unable to process this image. Please try another image."
+                        "Unable to process this image."
                     );
+
 
                     productImageData =
                         "";
 
+
                     if (
                         productImageInput
                     ) {
+
                         productImageInput.value =
                             "";
                     }
+
 
                     showProductImagePreview(
                         ""
@@ -443,6 +786,7 @@
                 const reader =
                     new FileReader();
 
+
                 reader.onerror =
                     function () {
 
@@ -453,11 +797,13 @@
                         );
                     };
 
+
                 reader.onload =
                     function () {
 
                         const image =
                             new Image();
+
 
                         image.onerror =
                             function () {
@@ -469,6 +815,7 @@
                                 );
                             };
 
+
                         image.onload =
                             function () {
 
@@ -477,71 +824,78 @@
                                     const MAX_SIZE =
                                         700;
 
+
                                     let width =
                                         image.naturalWidth ||
                                         image.width;
+
 
                                     let height =
                                         image.naturalHeight ||
                                         image.height;
 
+
                                     if (
-                                        width >
-                                            MAX_SIZE ||
-                                        height >
-                                            MAX_SIZE
+                                        width > MAX_SIZE ||
+                                        height > MAX_SIZE
                                     ) {
 
                                         const ratio =
                                             Math.min(
                                                 MAX_SIZE /
-                                                    width,
+                                                width,
+
                                                 MAX_SIZE /
-                                                    height
+                                                height
                                             );
+
 
                                         width =
                                             Math.round(
                                                 width *
-                                                    ratio
+                                                ratio
                                             );
+
 
                                         height =
                                             Math.round(
                                                 height *
-                                                    ratio
+                                                ratio
                                             );
                                     }
 
+
                                     const canvas =
-                                        document
-                                            .createElement(
-                                                "canvas"
-                                            );
+                                        document.createElement(
+                                            "canvas"
+                                        );
+
 
                                     canvas.width =
                                         width;
 
+
                                     canvas.height =
                                         height;
+
 
                                     const context =
                                         canvas.getContext(
                                             "2d"
                                         );
 
-                                    if (
-                                        !context
-                                    ) {
+
+                                    if (!context) {
 
                                         reject(
                                             new Error(
-                                                "Canvas is unavailable."
+                                                "Canvas unavailable."
                                             )
                                         );
 
                                         return;
                                     }
+
 
                                     context.drawImage(
                                         image,
@@ -551,28 +905,28 @@
                                         height
                                     );
 
-                                    const compressed =
+
+                                    resolve(
                                         canvas.toDataURL(
                                             "image/jpeg",
                                             0.72
-                                        );
-
-                                    resolve(
-                                        compressed
+                                        )
                                     );
 
-                                } catch (
-                                    error
-                                ) {
+
+                                } catch (error) {
+
                                     reject(
                                         error
                                     );
                                 }
                             };
 
+
                         image.src =
                             reader.result;
                     };
+
 
                 reader.readAsDataURL(
                     file
@@ -590,28 +944,31 @@
             !productImagePreview ||
             !productImagePreviewContainer
         ) {
+
             return;
         }
+
 
         if (!imageSource) {
 
-            productImagePreview
-                .removeAttribute(
-                    "src"
-                );
+            productImagePreview.removeAttribute(
+                "src"
+            );
 
-            productImagePreviewContainer
-                .style.display =
+
+            productImagePreviewContainer.style.display =
                 "none";
+
 
             return;
         }
+
 
         productImagePreview.src =
             imageSource;
 
-        productImagePreviewContainer
-            .style.display =
+
+        productImagePreviewContainer.style.display =
             "block";
     }
 
@@ -621,10 +978,15 @@
         productImageData =
             "";
 
-        if (productImageInput) {
+
+        if (
+            productImageInput
+        ) {
+
             productImageInput.value =
                 "";
         }
+
 
         showProductImagePreview(
             ""
@@ -633,57 +995,78 @@
 
 
     /* ==========================================
-       MIGRATE OLD PRODUCTS
+       LEGACY PRODUCT MIGRATION
+
+       IMPORTANT:
+       Old quantity always belongs to
+       Head Office, NOT whichever branch
+       happens to open Inventory.
     ========================================== */
 
     function migrateProductsToBranchStock() {
 
-        const activeBranchId =
-            getActiveBranchId();
-
         let changed =
             false;
 
+
         products =
             products.map(
-                function (
-                    product
-                ) {
+                function (product) {
+
+                    const updated = {
+                        ...product
+                    };
+
 
                     if (
-                        !product.branchStock ||
-                        typeof product.branchStock !==
-                            "object" ||
+                        !updated.branchStock ||
+                        typeof updated.branchStock !==
+                        "object" ||
                         Array.isArray(
-                            product.branchStock
+                            updated.branchStock
                         )
                     ) {
 
-                        product.branchStock =
+                        updated.branchStock =
                             {};
 
-                        product.branchStock[
-                            activeBranchId
+
+                        updated.branchStock[
+                            DEFAULT_BRANCH_ID
                         ] =
                             toNumber(
-                                product.quantity
+                                updated.quantity
                             );
+
 
                         changed =
                             true;
                     }
 
-                    product.quantity =
-                        calculateTotalStock(
-                            product
+
+                    updated.branchStock =
+                        normalizeBranchStock(
+                            updated.branchStock
                         );
 
-                    return product;
+
+                    updated.quantity =
+                        sumBranchStock(
+                            updated.branchStock
+                        );
+
+
+                    return updated;
                 }
             );
 
+
         if (changed) {
-            saveProducts();
+
+            saveProductsLocally(
+                products,
+                false
+            );
         }
     }
 
@@ -692,29 +1075,35 @@
        SAVE PRODUCT
     ========================================== */
 
-    function saveProduct(
+    async function saveProduct(
         event
     ) {
 
         event.preventDefault();
 
-        if (
-            saveButton &&
-            saveButton.disabled
-        ) {
+
+        if (saveInProgress) {
             return;
         }
 
+
+        products =
+            readProducts();
+
+
         const activeBranchId =
             getActiveBranchId();
+
 
         const branchQuantity =
             getNumber(
                 "productQuantity"
             );
 
+
         const category =
             getSelectedCategory();
+
 
         const productData = {
 
@@ -740,10 +1129,6 @@
                 getValue(
                     "productBrand"
                 ),
-
-            image:
-                productImageData ||
-                "",
 
             unit:
                 getValue(
@@ -792,9 +1177,8 @@
            VALIDATION
         ====================================== */
 
-        if (
-            !productData.name
-        ) {
+        if (!productData.name) {
+
             alert(
                 "Enter the product name."
             );
@@ -802,9 +1186,9 @@
             return;
         }
 
-        if (
-            !productData.category
-        ) {
+
+        if (!productData.category) {
+
             alert(
                 "Select or enter a product category."
             );
@@ -812,9 +1196,9 @@
             return;
         }
 
-        if (
-            !productData.unit
-        ) {
+
+        if (!productData.unit) {
+
             alert(
                 "Select the product unit."
             );
@@ -822,13 +1206,11 @@
             return;
         }
 
+
         if (
-            productData.costPrice <
-                0 ||
-            productData.sellingPrice <
-                0 ||
-            branchQuantity <
-                0
+            productData.costPrice < 0 ||
+            productData.sellingPrice < 0 ||
+            branchQuantity < 0
         ) {
 
             alert(
@@ -845,34 +1227,36 @@
 
         const duplicateSku =
             products.find(
-                function (
-                    product
-                ) {
+                function (product) {
 
                     return (
                         String(
                             product.id
                         ) !==
-                            String(
-                                editingProductId
-                            ) &&
+                        String(
+                            editingProductId
+                        ) &&
+
                         productData.sku &&
+
                         String(
                             product.sku ||
                             ""
                         )
                             .trim()
                             .toLowerCase() ===
+
+                        String(
                             productData.sku
-                                .trim()
-                                .toLowerCase()
+                        )
+                            .trim()
+                            .toLowerCase()
                     );
                 }
             );
 
-        if (
-            duplicateSku
-        ) {
+
+        if (duplicateSku) {
 
             alert(
                 "Another product already uses this SKU."
@@ -886,88 +1270,114 @@
             editingProductId !==
             null;
 
+
+        saveInProgress =
+            true;
+
+
+        setSaveButtonState(
+            true,
+            wasEditing
+        );
+
+
         try {
 
-            if (
-                saveButton
-            ) {
-
-                saveButton.disabled =
-                    true;
-
-                saveButton.textContent =
-                    wasEditing
-                        ? "Updating..."
-                        : "Saving...";
-            }
+            let savedProduct =
+                null;
 
 
-            if (
-                wasEditing
-            ) {
+            if (wasEditing) {
 
-                updateProduct(
-                    productData,
-                    branchQuantity,
-                    activeBranchId
-                );
+                savedProduct =
+                    updateProduct(
+                        productData,
+                        branchQuantity,
+                        activeBranchId
+                    );
 
             } else {
 
-                createProduct(
-                    productData,
-                    branchQuantity,
-                    activeBranchId
+                savedProduct =
+                    createProduct(
+                        productData,
+                        branchQuantity,
+                        activeBranchId
+                    );
+            }
+
+
+            if (!savedProduct) {
+
+                throw new Error(
+                    "Product record was not created."
                 );
             }
 
 
-            saveProducts();
+            saveProductsLocally(
+                products,
+                true
+            );
+
+
+            /*
+             * Sync ONLY this product.
+             */
+
+            const cloudResult =
+                await syncSingleProductToCloud(
+                    savedProduct
+                );
+
 
             resetForm();
 
             refreshInventory();
 
 
-            alert(
-                wasEditing
-                    ? "Product updated successfully."
-                    : "Product saved successfully."
-            );
+            if (cloudResult) {
 
-        } catch (
-            error
-        ) {
+                alert(
+                    wasEditing
+                        ? "Product updated and synced to Firebase."
+                        : "Product saved and synced to Firebase."
+                );
+
+            } else {
+
+                alert(
+                    wasEditing
+                        ? "Product updated locally, but Firebase sync failed."
+                        : "Product saved locally, but Firebase sync failed."
+                );
+            }
+
+
+        } catch (error) {
 
             console.error(
                 "Unable to save product:",
                 error
             );
 
+
             alert(
-                "Unable to save product. " +
-                (
-                    error &&
-                    error.message
-                        ? error.message
-                        : ""
-                )
+                error.message ||
+                "Unable to save product."
             );
+
 
         } finally {
 
-            if (
-                saveButton
-            ) {
+            saveInProgress =
+                false;
 
-                saveButton.disabled =
-                    false;
 
-                saveButton.textContent =
-                    editingProductId
-                        ? "Update Product"
-                        : "Save Product";
-            }
+            setSaveButtonState(
+                false,
+                false
+            );
         }
     }
 
@@ -982,17 +1392,22 @@
         branchId
     ) {
 
-        const currentTime =
+        const now =
             new Date()
                 .toISOString();
+
 
         const branchStock =
             {};
 
+
         branchStock[
-            branchId
+            String(
+                branchId
+            )
         ] =
             branchQuantity;
+
 
         const newProduct = {
 
@@ -1013,22 +1428,32 @@
                 productData.sku ||
                 generateSku(),
 
+            image:
+                productImageData ||
+                "",
+
             branchStock:
                 branchStock,
 
             quantity:
-                branchQuantity,
+                sumBranchStock(
+                    branchStock
+                ),
 
             createdAt:
-                currentTime,
+                now,
 
             updatedAt:
-                currentTime
+                now
         };
+
 
         products.push(
             newProduct
         );
+
+
+        return newProduct;
     }
 
 
@@ -1044,9 +1469,7 @@
 
         const productIndex =
             products.findIndex(
-                function (
-                    product
-                ) {
+                function (product) {
 
                     return (
                         String(
@@ -1059,9 +1482,9 @@
                 }
             );
 
+
         if (
-            productIndex ===
-            -1
+            productIndex === -1
         ) {
 
             throw new Error(
@@ -1069,27 +1492,33 @@
             );
         }
 
+
         const existingProduct =
             products[
                 productIndex
             ];
 
-        const branchStock = {
-            ...(
-                existingProduct
-                    .branchStock ||
-                {}
-            )
-        };
+
+        const branchStock =
+            normalizeBranchStock(
+                existingProduct.branchStock
+            );
+
+
+        const stockKey =
+            resolveProductBranchStockKey(
+                existingProduct,
+                branchId
+            );
+
 
         branchStock[
-            branchId
+            stockKey
         ] =
             branchQuantity;
 
-        products[
-            productIndex
-        ] = {
+
+        const updatedProduct = {
 
             ...existingProduct,
 
@@ -1097,6 +1526,14 @@
 
             id:
                 existingProduct.id,
+
+            /*
+             * Keep old image unless user
+             * selected or removed it.
+             */
+
+            image:
+                productImageData,
 
             branchStock:
                 branchStock,
@@ -1115,6 +1552,137 @@
                 new Date()
                     .toISOString()
         };
+
+
+        products[
+            productIndex
+        ] =
+            updatedProduct;
+
+
+        return updatedProduct;
+    }
+
+
+    /* ==========================================
+       CLOUD SAVE ONE PRODUCT
+    ========================================== */
+
+    async function syncSingleProductToCloud(
+        product
+    ) {
+
+        if (
+            !navigator.onLine
+        ) {
+
+            console.warn(
+                "Inventory offline. Product kept locally."
+            );
+
+            return false;
+        }
+
+
+        try {
+
+            const cloud =
+                await waitForInventoryCloud(
+                    15000
+                );
+
+
+            await cloud.saveProduct(
+                product
+            );
+
+
+            console.log(
+                "✅ Inventory product synced:",
+                product.name ||
+                product.id
+            );
+
+
+            return true;
+
+
+        } catch (error) {
+
+            console.error(
+                "❌ Inventory product Firebase sync failed:",
+                error
+            );
+
+
+            showCloudError(
+                error
+            );
+
+
+            return false;
+        }
+    }
+
+
+    function waitForInventoryCloud(
+        timeout
+    ) {
+
+        return new Promise(
+            function (
+                resolve,
+                reject
+            ) {
+
+                const started =
+                    Date.now();
+
+
+                function check() {
+
+                    if (
+                        window.JufelixInventoryCloud &&
+                        typeof window
+                            .JufelixInventoryCloud
+                            .saveProduct ===
+                        "function"
+                    ) {
+
+                        resolve(
+                            window.JufelixInventoryCloud
+                        );
+
+                        return;
+                    }
+
+
+                    if (
+                        Date.now() -
+                        started >=
+                        timeout
+                    ) {
+
+                        reject(
+                            new Error(
+                                "Inventory Cloud did not become ready."
+                            )
+                        );
+
+                        return;
+                    }
+
+
+                    window.setTimeout(
+                        check,
+                        100
+                    );
+                }
+
+
+                check();
+            }
+        );
     }
 
 
@@ -1126,11 +1694,13 @@
         productId
     ) {
 
+        products =
+            readProducts();
+
+
         const product =
             products.find(
-                function (
-                    item
-                ) {
+                function (item) {
 
                     return (
                         String(
@@ -1143,9 +1713,8 @@
                 }
             );
 
-        if (
-            !product
-        ) {
+
+        if (!product) {
 
             alert(
                 "Product not found."
@@ -1154,55 +1723,67 @@
             return;
         }
 
+
         const activeBranchId =
             getActiveBranchId();
 
+
         editingProductId =
             product.id;
+
 
         setValue(
             "productId",
             product.id
         );
 
+
         setValue(
             "productName",
             product.name
         );
+
 
         setValue(
             "productSku",
             product.sku
         );
 
+
         setValue(
             "productBarcode",
             product.barcode
         );
 
+
         setCategoryValue(
             product.category
         );
+
 
         setValue(
             "productBrand",
             product.brand
         );
 
+
         setValue(
             "productUnit",
             product.unit
         );
+
 
         setValue(
             "productCostPrice",
             product.costPrice
         );
 
+
         setValue(
             "productSellingPrice",
             product.sellingPrice
         );
+
 
         setValue(
             "productQuantity",
@@ -1212,6 +1793,7 @@
             )
         );
 
+
         setValue(
             "productLowStock",
             product.lowStockLevel ??
@@ -1219,17 +1801,20 @@
             5
         );
 
+
         setValue(
             "productTax",
             product.tax ||
             0
         );
 
+
         setValue(
             "productStatus",
             product.status ||
             "active"
         );
+
 
         setValue(
             "productDescription",
@@ -1241,12 +1826,15 @@
             product.image ||
             "";
 
+
         if (
             productImageInput
         ) {
+
             productImageInput.value =
                 "";
         }
+
 
         showProductImagePreview(
             productImageData
@@ -1256,22 +1844,27 @@
         if (
             formTitle
         ) {
+
             formTitle.textContent =
                 "Edit Product";
         }
 
+
         if (
             saveButton
         ) {
+
             saveButton.textContent =
                 "Update Product";
         }
+
 
         if (
             form
         ) {
 
             form.scrollIntoView({
+
                 behavior:
                     "smooth",
 
@@ -1284,17 +1877,23 @@
 
     /* ==========================================
        DELETE PRODUCT
+
+       IMPORTANT:
+       Cloud deletion is intentionally not
+       performed yet.
     ========================================== */
 
     function deleteProduct(
         productId
     ) {
 
+        products =
+            readProducts();
+
+
         const product =
             products.find(
-                function (
-                    item
-                ) {
+                function (item) {
 
                     return (
                         String(
@@ -1307,9 +1906,8 @@
                 }
             );
 
-        if (
-            !product
-        ) {
+
+        if (!product) {
 
             alert(
                 "Product not found."
@@ -1318,22 +1916,21 @@
             return;
         }
 
+
         const confirmed =
-            confirm(
-                `Delete "${product.name}" permanently?`
+            window.confirm(
+                `Remove "${product.name}" from this device?\n\nCloud deletion is currently disabled for safety.`
             );
 
-        if (
-            !confirmed
-        ) {
+
+        if (!confirmed) {
             return;
         }
 
+
         products =
             products.filter(
-                function (
-                    item
-                ) {
+                function (item) {
 
                     return (
                         String(
@@ -1346,7 +1943,12 @@
                 }
             );
 
-        saveProducts();
+
+        saveProductsLocally(
+            products,
+            false
+        );
+
 
         if (
             String(
@@ -1360,10 +1962,12 @@
             resetForm();
         }
 
+
         refreshInventory();
 
+
         alert(
-            "Product deleted successfully."
+            "Product removed locally. Firebase product was not deleted."
         );
     }
 
@@ -1374,14 +1978,14 @@
 
     function displayProducts() {
 
-        if (
-            !tableBody
-        ) {
+        if (!tableBody) {
             return;
         }
 
+
         const activeBranchId =
             getActiveBranchId();
+
 
         const searchTerm =
             searchInput
@@ -1390,26 +1994,28 @@
                     .toLowerCase()
                 : "";
 
+
         const selectedCategory =
             categoryFilter
                 ? categoryFilter.value
                 : "";
+
 
         const selectedStock =
             stockFilter
                 ? stockFilter.value
                 : "";
 
+
         const selectedStatus =
             statusFilter
                 ? statusFilter.value
                 : "";
 
+
         const filteredProducts =
             products.filter(
-                function (
-                    product
-                ) {
+                function (product) {
 
                     const branchQuantity =
                         getBranchStock(
@@ -1417,27 +2023,32 @@
                             activeBranchId
                         );
 
+
                     const lowStock =
                         getLowStockLevel(
                             product
                         );
 
+
                     const searchableText = [
+
                         product.name,
                         product.category,
                         product.brand,
                         product.sku,
                         product.barcode
+
                     ]
                         .join(" ")
                         .toLowerCase();
 
+
                     const matchesSearch =
                         !searchTerm ||
-                        searchableText
-                            .includes(
-                                searchTerm
-                            );
+                        searchableText.includes(
+                            searchTerm
+                        );
+
 
                     const matchesCategory =
                         !selectedCategory ||
@@ -1445,7 +2056,10 @@
                             product.category ||
                             ""
                         ) ===
-                            selectedCategory;
+                        String(
+                            selectedCategory
+                        );
+
 
                     const matchesStatus =
                         !selectedStatus ||
@@ -1454,10 +2068,15 @@
                             "active"
                         )
                             .toLowerCase() ===
-                            selectedStatus;
+                        String(
+                            selectedStatus
+                        )
+                            .toLowerCase();
+
 
                     let matchesStock =
                         true;
+
 
                     if (
                         selectedStock ===
@@ -1469,6 +2088,7 @@
                             0;
                     }
 
+
                     if (
                         selectedStock ===
                         "low"
@@ -1476,10 +2096,11 @@
 
                         matchesStock =
                             branchQuantity >
-                                0 &&
+                            0 &&
                             branchQuantity <=
-                                lowStock;
+                            lowStock;
                     }
+
 
                     if (
                         selectedStock ===
@@ -1491,6 +2112,7 @@
                             lowStock;
                     }
 
+
                     return (
                         matchesSearch &&
                         matchesCategory &&
@@ -1499,6 +2121,7 @@
                     );
                 }
             );
+
 
         if (
             filteredProducts.length ===
@@ -1516,15 +2139,15 @@
                 </tr>
             `;
 
+
             return;
         }
+
 
         tableBody.innerHTML =
             filteredProducts
                 .map(
-                    function (
-                        product
-                    ) {
+                    function (product) {
 
                         return createProductRow(
                             product,
@@ -1551,16 +2174,20 @@
                 branchId
             );
 
+
         const lowStock =
             getLowStockLevel(
                 product
             );
 
+
         let stockStatus =
             "Available";
 
+
         let stockClass =
             "stock-good";
+
 
         if (
             branchQuantity <=
@@ -1607,9 +2234,7 @@
                     >
                 `
                 : `
-                    <div
-                        class="product-thumbnail-fallback"
-                    >
+                    <div class="product-thumbnail-fallback">
                         📦
                     </div>
                 `;
@@ -1619,6 +2244,7 @@
             <tr>
 
                 <td>
+
                     <div class="product-cell">
 
                         ${productImageHTML}
@@ -1642,7 +2268,9 @@
                         </div>
 
                     </div>
+
                 </td>
+
 
                 <td>
                     ${escapeHTML(
@@ -1651,6 +2279,7 @@
                     )}
                 </td>
 
+
                 <td>
                     ${escapeHTML(
                         product.brand ||
@@ -1658,17 +2287,20 @@
                     )}
                 </td>
 
+
                 <td>
                     ${formatMoney(
                         product.costPrice
                     )}
                 </td>
 
+
                 <td>
                     ${formatMoney(
                         product.sellingPrice
                     )}
                 </td>
+
 
                 <td>
                     ${formatNumber(
@@ -1680,13 +2312,13 @@
                     )}
                 </td>
 
+
                 <td>
-                    <span
-                        class="stock-status ${stockClass}"
-                    >
+                    <span class="stock-status ${stockClass}">
                         ${stockStatus}
                     </span>
                 </td>
+
 
                 <td>
                     ${
@@ -1695,11 +2327,12 @@
                             "active"
                         )
                             .toLowerCase() ===
-                            "active"
+                        "active"
                             ? "Active"
                             : "Inactive"
                     }
                 </td>
+
 
                 <td>
 
@@ -1739,8 +2372,10 @@
         const activeBranchId =
             getActiveBranchId();
 
+
         const totalProducts =
             products.length;
+
 
         const totalBranchQuantity =
             products.reduce(
@@ -1759,6 +2394,7 @@
                 },
                 0
             );
+
 
         const stockValue =
             products.reduce(
@@ -1783,11 +2419,10 @@
                 0
             );
 
+
         const lowStockProducts =
             products.filter(
-                function (
-                    product
-                ) {
+                function (product) {
 
                     return (
                         getBranchStock(
@@ -1801,10 +2436,12 @@
                 }
             ).length;
 
+
         setText(
             "inventoryTotalProducts",
             totalProducts
         );
+
 
         setText(
             "inventoryTotalQuantity",
@@ -1813,12 +2450,14 @@
             )
         );
 
+
         setText(
             "inventoryStockValue",
             formatMoney(
                 stockValue
             )
         );
+
 
         setText(
             "inventoryLowStock",
@@ -1833,61 +2472,81 @@
 
     function updateCategoryFilter() {
 
-        if (
-            !categoryFilter
-        ) {
+        if (!categoryFilter) {
             return;
         }
+
 
         const selectedValue =
             categoryFilter.value;
 
-        const categories = [
-            ...new Set(
-                products
-                    .map(
-                        function (
-                            product
-                        ) {
 
-                            return String(
-                                product.category ||
-                                ""
-                            ).trim();
-                        }
-                    )
-                    .filter(
-                        Boolean
-                    )
-            )
-        ].sort();
+        const categories =
+            [
+                ...new Set(
+                    products
+                        .map(
+                            function (product) {
 
-        categoryFilter.innerHTML = `
-            <option value="">
-                All Categories
-            </option>
-
-            ${categories
-                .map(
-                    function (
-                        category
-                    ) {
-
-                        return `
-                            <option
-                                value="${escapeHTML(
-                                    category
-                                )}"
-                            >
-                                ${escapeHTML(
-                                    category
-                                )}
-                            </option>
-                        `;
-                    }
+                                return String(
+                                    product.category ||
+                                    ""
+                                ).trim();
+                            }
+                        )
+                        .filter(Boolean)
                 )
-                .join("")}
-        `;
+            ]
+                .sort();
+
+
+        const signature =
+            categories.join(
+                "||"
+            );
+
+
+        if (
+            categoryFilter.dataset.signature ===
+            signature
+        ) {
+
+            return;
+        }
+
+
+        categoryFilter.dataset.signature =
+            signature;
+
+
+        categoryFilter.innerHTML =
+            `
+                <option value="">
+                    All Categories
+                </option>
+
+                ${
+                    categories
+                        .map(
+                            function (category) {
+
+                                return `
+                                    <option
+                                        value="${escapeHTML(
+                                            category
+                                        )}"
+                                    >
+                                        ${escapeHTML(
+                                            category
+                                        )}
+                                    </option>
+                                `;
+                            }
+                        )
+                        .join("")
+                }
+            `;
+
 
         if (
             categories.includes(
@@ -1901,10 +2560,20 @@
     }
 
 
+    /* ==========================================
+       REFRESH
+    ========================================== */
+
     function refreshInventory() {
 
+        products =
+            readProducts();
+
+
         updateInventorySummary();
+
         updateCategoryFilter();
+
         displayProducts();
     }
 
@@ -1918,34 +2587,235 @@
         branchId
     ) {
 
+        if (!product) {
+            return 0;
+        }
+
+
         if (
             product.branchStock &&
             typeof product.branchStock ===
-                "object" &&
+            "object" &&
             !Array.isArray(
                 product.branchStock
             )
         ) {
 
-            return toNumber(
-                product.branchStock[
+            const key =
+                resolveProductBranchStockKey(
+                    product,
                     branchId
-                ]
+                );
+
+
+            if (
+                Object.prototype
+                    .hasOwnProperty.call(
+                        product.branchStock,
+                        key
+                    )
+            ) {
+
+                return toNumber(
+                    product.branchStock[
+                        key
+                    ]
+                );
+            }
+        }
+
+
+        if (
+            String(
+                branchId
+            ) ===
+            DEFAULT_BRANCH_ID
+        ) {
+
+            return toNumber(
+                product.quantity
             );
         }
+
 
         return 0;
     }
 
 
-    function calculateTotalStock(
-        product
+    function resolveProductBranchStockKey(
+        product,
+        branchId
     ) {
 
-        return sumBranchStock(
-            product.branchStock ||
-            {}
+        const branchStock =
+            normalizeBranchStock(
+                product &&
+                product.branchStock
+            );
+
+
+        const directKey =
+            String(
+                branchId
+            );
+
+
+        if (
+            Object.prototype
+                .hasOwnProperty.call(
+                    branchStock,
+                    directKey
+                )
+        ) {
+
+            return directKey;
+        }
+
+
+        const branches =
+            readArray(
+                BRANCHES_KEY
+            );
+
+
+        const branch =
+            findBranchByAnyIdentifier(
+                branchId,
+                branches
+            );
+
+
+        if (!branch) {
+
+            return directKey;
+        }
+
+
+        const possibleKeys = [
+
+            branch.id,
+            branch.branchId,
+            branch.code,
+            branch.branchName,
+            branch.name
+
+        ]
+            .filter(
+                function (value) {
+
+                    return (
+                        value !== undefined &&
+                        value !== null &&
+                        String(
+                            value
+                        ).trim() !==
+                        ""
+                    );
+                }
+            )
+            .map(
+                function (value) {
+
+                    return String(
+                        value
+                    );
+                }
+            );
+
+
+        for (
+            const possibleKey of
+            possibleKeys
+        ) {
+
+            if (
+                Object.prototype
+                    .hasOwnProperty.call(
+                        branchStock,
+                        possibleKey
+                    )
+            ) {
+
+                return possibleKey;
+            }
+        }
+
+
+        for (
+            const actualKey of
+            Object.keys(
+                branchStock
+            )
+        ) {
+
+            const match =
+                possibleKeys.some(
+                    function (possibleKey) {
+
+                        return (
+                            normalizeComparable(
+                                possibleKey
+                            ) ===
+                            normalizeComparable(
+                                actualKey
+                            )
+                        );
+                    }
+                );
+
+
+            if (match) {
+
+                return actualKey;
+            }
+        }
+
+
+        return directKey;
+    }
+
+
+    function normalizeBranchStock(
+        branchStock
+    ) {
+
+        if (
+            !branchStock ||
+            typeof branchStock !==
+            "object" ||
+            Array.isArray(
+                branchStock
+            )
+        ) {
+
+            return {};
+        }
+
+
+        const result =
+            {};
+
+
+        Object.keys(
+            branchStock
+        ).forEach(
+            function (key) {
+
+                result[
+                    String(
+                        key
+                    )
+                ] =
+                    toNumber(
+                        branchStock[
+                            key
+                        ]
+                    );
+            }
         );
+
+
+        return result;
     }
 
 
@@ -1954,61 +2824,25 @@
     ) {
 
         return Object.values(
-            branchStock
-        ).reduce(
-            function (
-                total,
-                value
-            ) {
+            normalizeBranchStock(
+                branchStock
+            )
+        )
+            .reduce(
+                function (
+                    total,
+                    value
+                ) {
 
-                return (
-                    total +
-                    toNumber(
-                        value
-                    )
-                );
-            },
-            0
-        );
-    }
-
-
-    function getActiveBranchId() {
-
-        const activeBranch =
-            readStoredObject(
-                ACTIVE_BRANCH_KEY
+                    return (
+                        total +
+                        toNumber(
+                            value
+                        )
+                    );
+                },
+                0
             );
-
-        if (
-            activeBranch &&
-            activeBranch.id
-        ) {
-
-            return String(
-                activeBranch.id
-            );
-        }
-
-        const currentUser =
-            readStoredObject(
-                CURRENT_USER_KEY
-            ) ||
-            readStoredObject(
-                "currentUser"
-            );
-
-        if (
-            currentUser &&
-            currentUser.branchId
-        ) {
-
-            return String(
-                currentUser.branchId
-            );
-        }
-
-        return DEFAULT_BRANCH_ID;
     }
 
 
@@ -2025,6 +2859,213 @@
 
 
     /* ==========================================
+       ACTIVE BRANCH
+    ========================================== */
+
+    function getActiveBranchId() {
+
+        /*
+         * Active branch selected on the
+         * current device takes priority.
+         */
+
+        const activeBranch =
+            readStoredObject(
+                ACTIVE_BRANCH_KEY
+            );
+
+
+        if (activeBranch) {
+
+            const value =
+
+                activeBranch.id ||
+                activeBranch.branchId ||
+                activeBranch.code ||
+                activeBranch.branchName ||
+                activeBranch.name;
+
+
+            if (value) {
+
+                return resolveBranchId(
+                    value
+                );
+            }
+        }
+
+
+        const currentUser =
+            readStoredObject(
+                CURRENT_USER_KEY
+            ) ||
+            readStoredObject(
+                "currentUser"
+            );
+
+
+        if (currentUser) {
+
+            const value =
+
+                currentUser.branchId ||
+                currentUser.branch ||
+                currentUser.branchCode ||
+                currentUser.branchName;
+
+
+            if (value) {
+
+                return resolveBranchId(
+                    value
+                );
+            }
+        }
+
+
+        return DEFAULT_BRANCH_ID;
+    }
+
+
+    function getActiveBranchName() {
+
+        const branchId =
+            getActiveBranchId();
+
+
+        if (
+            String(
+                branchId
+            ) ===
+            DEFAULT_BRANCH_ID
+        ) {
+
+            return "Head Office";
+        }
+
+
+        const branch =
+            findBranchByAnyIdentifier(
+                branchId,
+                readArray(
+                    BRANCHES_KEY
+                )
+            );
+
+
+        if (branch) {
+
+            return (
+                branch.branchName ||
+                branch.name ||
+                branch.code ||
+                "Branch"
+            );
+        }
+
+
+        return "Branch";
+    }
+
+
+    function resolveBranchId(
+        value
+    ) {
+
+        if (!value) {
+
+            return DEFAULT_BRANCH_ID;
+        }
+
+
+        const branch =
+            findBranchByAnyIdentifier(
+                value,
+                readArray(
+                    BRANCHES_KEY
+                )
+            );
+
+
+        if (
+            branch &&
+            branch.id
+        ) {
+
+            return String(
+                branch.id
+            );
+        }
+
+
+        return String(
+            value
+        );
+    }
+
+
+    function findBranchByAnyIdentifier(
+        value,
+        branchList
+    ) {
+
+        if (!value) {
+            return null;
+        }
+
+
+        const target =
+            normalizeComparable(
+                value
+            );
+
+
+        return (
+            branchList.find(
+                function (branch) {
+
+                    return [
+
+                        branch.id,
+                        branch.branchId,
+                        branch.code,
+                        branch.branchName,
+                        branch.name
+
+                    ].some(
+                        function (
+                            candidate
+                        ) {
+
+                            return (
+                                normalizeComparable(
+                                    candidate
+                                ) ===
+                                target
+                            );
+                        }
+                    );
+                }
+            ) ||
+            null
+        );
+    }
+
+
+    function normalizeComparable(
+        value
+    ) {
+
+        return String(
+            value ||
+            ""
+        )
+            .trim()
+            .toLowerCase();
+    }
+
+
+    /* ==========================================
        RESET FORM
     ========================================== */
 
@@ -2033,14 +3074,18 @@
         editingProductId =
             null;
 
+
         productImageData =
             "";
+
 
         if (
             form
         ) {
+
             form.reset();
         }
+
 
         if (
             productImageInput
@@ -2050,33 +3095,40 @@
                 "";
         }
 
+
         showProductImagePreview(
             ""
         );
 
+
         setCategoryValue(
             ""
         );
+
 
         setValue(
             "productId",
             ""
         );
 
+
         setValue(
             "productLowStock",
             5
         );
+
 
         setValue(
             "productTax",
             0
         );
 
+
         setValue(
             "productStatus",
             "active"
         );
+
 
         if (
             formTitle
@@ -2086,6 +3138,7 @@
                 "Add New Product";
         }
 
+
         if (
             saveButton
         ) {
@@ -2093,8 +3146,44 @@
             saveButton.disabled =
                 false;
 
+
             saveButton.textContent =
                 "Save Product";
+        }
+    }
+
+
+    /* ==========================================
+       BUTTON STATE
+    ========================================== */
+
+    function setSaveButtonState(
+        saving,
+        editing
+    ) {
+
+        if (!saveButton) {
+            return;
+        }
+
+
+        saveButton.disabled =
+            saving;
+
+
+        if (saving) {
+
+            saveButton.textContent =
+                editing
+                    ? "Updating..."
+                    : "Saving...";
+
+        } else {
+
+            saveButton.textContent =
+                editingProductId
+                    ? "Update Product"
+                    : "Save Product";
         }
     }
 
@@ -2105,68 +3194,90 @@
 
     function loadProducts() {
 
+        products =
+            readProducts();
+    }
+
+
+    function readProducts() {
+
+        return readArray(
+            PRODUCTS_KEY
+        );
+    }
+
+
+    function readArray(
+        key
+    ) {
+
         try {
 
-            const savedProducts =
+            const saved =
                 localStorage.getItem(
-                    PRODUCTS_KEY
+                    key
                 );
 
-            if (
-                !savedProducts
-            ) {
 
-                products =
-                    [];
+            if (!saved) {
 
-                return;
+                return [];
             }
 
-            const parsedProducts =
+
+            const parsed =
                 JSON.parse(
-                    savedProducts
+                    saved
                 );
 
-            products =
-                Array.isArray(
-                    parsedProducts
-                )
-                    ? parsedProducts
-                    : [];
 
-        } catch (
-            error
-        ) {
+            return Array.isArray(
+                parsed
+            )
+                ? parsed
+                : [];
+
+
+        } catch (error) {
 
             console.error(
-                "Unable to load products:",
+                "Unable to read:",
+                key,
                 error
             );
 
-            products =
-                [];
+
+            return [];
         }
     }
 
 
-    function saveProducts() {
+    function saveProductsLocally(
+        productList,
+        dispatchEvent
+    ) {
 
         products =
-            products.map(
-                function (
-                    product
-                ) {
+            productList.map(
+                function (product) {
 
                     return {
+
                         ...product,
 
+                        branchStock:
+                            normalizeBranchStock(
+                                product.branchStock
+                            ),
+
                         quantity:
-                            calculateTotalStock(
-                                product
+                            sumBranchStock(
+                                product.branchStock
                             )
                     };
                 }
             );
+
 
         try {
 
@@ -2177,22 +3288,22 @@
                 )
             );
 
-        } catch (
-            error
-        ) {
+
+        } catch (error) {
 
             console.error(
                 "Local inventory save failed:",
                 error
             );
 
+
             if (
                 error &&
                 (
                     error.name ===
-                        "QuotaExceededError" ||
+                    "QuotaExceededError" ||
                     error.name ===
-                        "NS_ERROR_DOM_QUOTA_REACHED"
+                    "NS_ERROR_DOM_QUOTA_REACHED"
                 )
             ) {
 
@@ -2201,68 +3312,79 @@
                 );
             }
 
+
             throw error;
         }
 
 
-        document.dispatchEvent(
-            new CustomEvent(
-                "jufelix:data-updated",
-                {
-                    detail: {
+        if (
+            dispatchEvent !==
+            false
+        ) {
 
-                        key:
-                            PRODUCTS_KEY,
+            document.dispatchEvent(
 
-                        value:
-                            products
+                new CustomEvent(
+                    "jufelix:data-updated",
+                    {
+                        detail: {
+
+                            key:
+                                PRODUCTS_KEY,
+
+                            value:
+                                products,
+
+                            source:
+                                "inventory-module"
+                        }
                     }
-                }
-            )
-        );
+                )
+            );
+        }
+
+
+        return true;
     }
 
 
     function readStoredObject(
-        storageKey
+        key
     ) {
 
         try {
 
-            const savedData =
+            const saved =
                 localStorage.getItem(
-                    storageKey
+                    key
                 );
 
-            if (
-                !savedData
-            ) {
+
+            if (!saved) {
 
                 return null;
             }
 
-            const parsedData =
+
+            const parsed =
                 JSON.parse(
-                    savedData
+                    saved
                 );
 
-            if (
-                parsedData &&
-                typeof parsedData ===
-                    "object" &&
+
+            return (
+                parsed &&
+                typeof parsed ===
+                "object" &&
                 !Array.isArray(
-                    parsedData
+                    parsed
                 )
-            ) {
+            )
+                ? parsed
+                : null;
 
-                return parsedData;
-            }
 
-            return null;
-
-        } catch (
-            error
-        ) {
+        } catch (error) {
 
             return null;
         }
@@ -2270,7 +3392,99 @@
 
 
     /* ==========================================
-       HELPERS
+       CLOUD ERROR
+    ========================================== */
+
+    function showCloudError(
+        error
+    ) {
+
+        const message =
+            error &&
+            error.message
+                ? error.message
+                : String(
+                    error ||
+                    "Unknown Firebase error"
+                );
+
+
+        let box =
+            document.getElementById(
+                "inventoryFirebaseError"
+            );
+
+
+        if (!box) {
+
+            box =
+                document.createElement(
+                    "div"
+                );
+
+
+            box.id =
+                "inventoryFirebaseError";
+
+
+            box.style.position =
+                "fixed";
+
+            box.style.left =
+                "12px";
+
+            box.style.right =
+                "12px";
+
+            box.style.bottom =
+                "12px";
+
+            box.style.zIndex =
+                "999999";
+
+            box.style.padding =
+                "14px";
+
+            box.style.background =
+                "#7f1d1d";
+
+            box.style.color =
+                "#ffffff";
+
+            box.style.borderRadius =
+                "10px";
+
+            box.style.fontWeight =
+                "700";
+
+
+            document.body.appendChild(
+                box
+            );
+        }
+
+
+        box.textContent =
+            "Inventory Firebase error: " +
+            message;
+
+
+        window.setTimeout(
+            function () {
+
+                if (box) {
+
+                    box.remove();
+                }
+
+            },
+            9000
+        );
+    }
+
+
+    /* ==========================================
+       FORM HELPERS
     ========================================== */
 
     function getValue(
@@ -2281,6 +3495,7 @@
             document.getElementById(
                 id
             );
+
 
         return element
             ? String(
@@ -2313,15 +3528,12 @@
                 id
             );
 
-        if (
-            element
-        ) {
+
+        if (element) {
 
             element.value =
-                value ===
-                    undefined ||
-                value ===
-                    null
+                value === undefined ||
+                value === null
                     ? ""
                     : value;
         }
@@ -2338,9 +3550,8 @@
                 id
             );
 
-        if (
-            element
-        ) {
+
+        if (element) {
 
             element.textContent =
                 value;
@@ -2348,19 +3559,46 @@
     }
 
 
+    /* ==========================================
+       FORMATTERS
+    ========================================== */
+
     function toNumber(
         value
     ) {
 
-        const numberValue =
+        if (
+            value === undefined ||
+            value === null ||
+            value === ""
+        ) {
+
+            return 0;
+        }
+
+
+        const cleaned =
+            typeof value ===
+            "string"
+                ? value
+                    .replace(
+                        /,/g,
+                        ""
+                    )
+                    .trim()
+                : value;
+
+
+        const number =
             Number(
-                value
+                cleaned
             );
 
+
         return Number.isFinite(
-            numberValue
+            number
         )
-            ? numberValue
+            ? number
             : 0;
     }
 
@@ -2421,10 +3659,8 @@
     ) {
 
         return String(
-            value ===
-                undefined ||
-            value ===
-                null
+            value === undefined ||
+            value === null
                 ? ""
                 : value
         )
@@ -2464,13 +3700,25 @@
             deleteProduct,
 
         refresh:
-            refreshInventory,
+            function () {
+
+                loadProducts();
+
+                refreshInventory();
+            },
 
         resetForm:
             resetForm,
 
         getBranchStock:
-            getBranchStock
+            getBranchStock,
+
+        getActiveBranchId:
+            getActiveBranchId,
+
+        getActiveBranchName:
+            getActiveBranchName
     };
+
 
 })();
