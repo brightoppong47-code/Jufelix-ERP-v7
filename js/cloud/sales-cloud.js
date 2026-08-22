@@ -2,32 +2,25 @@
    JUFELIX ERP v7.0 PROFESSIONAL
    SAFE SALES CLOUD BRIDGE
 
-   COMPLETE REPLACEMENT
-
    File:
    js/cloud/sales-cloud.js
 
-   + Firebase Authentication aware
-   + Sales realtime synchronization
-   + Safe branch stock synchronization
-   + Does not overwrite other branch stock
-   + Local product images preserved
-   + Existing unsynced sales retry
+   Protects:
+   - Multi-branch stock
+   - Local product images
+   - Realtime sales
+   - Realtime inventory updates
+   - Transferred branch quantities
 ========================================== */
 
 import {
     collection,
     doc,
-    getDoc,
     onSnapshot,
     serverTimestamp,
     setDoc
 } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js";
 
-
-/* ==========================================
-   CONSTANTS
-========================================== */
 
 const PRODUCTS_KEY =
     "jufelix_products";
@@ -35,62 +28,20 @@ const PRODUCTS_KEY =
 const SALES_KEY =
     "jufelix_v7_sales";
 
-const ACTIVE_BRANCH_KEY =
-    "jufelix_v7_active_branch";
 
-const CURRENT_USER_KEY =
-    "jufelix_v7_current_user";
+let database = null;
 
-const DEFAULT_BRANCH_ID =
-    "head-office";
+let productsUnsubscribe = null;
+let salesUnsubscribe = null;
 
 
 /* ==========================================
-   STATE
+   FIREBASE
 ========================================== */
 
-let productsUnsubscribe =
-    null;
-
-let salesUnsubscribe =
-    null;
-
-let listenerStarted =
-    false;
-
-
-/* ==========================================
-   FIREBASE READY
-========================================== */
-
-async function getFirebase() {
-
-    /*
-     * Preferred helper from the newer
-     * js/core/firebase.js
-     */
-
-    if (
-        typeof window
-            .waitForJufelixFirebase ===
-        "function"
-    ) {
-
-        return await window
-            .waitForJufelixFirebase({
-
-                requireUser:
-                    true,
-
-                timeout:
-                    20000
-            });
-    }
-
-
-    /*
-     * Compatibility fallback.
-     */
+function waitForDb(
+    timeout = 15000
+) {
 
     return new Promise(
         function (
@@ -104,32 +55,16 @@ async function getFirebase() {
 
             function check() {
 
-                const firebase =
-                    window.JufelixFirebase;
-
-
                 if (
-                    firebase &&
-                    firebase.error
+                    window.JufelixFirebase &&
+                    window.JufelixFirebase.db
                 ) {
 
-                    reject(
-                        firebase.error
-                    );
-
-                    return;
-                }
-
-
-                if (
-                    firebase &&
-                    firebase.db &&
-                    firebase.auth &&
-                    firebase.auth.currentUser
-                ) {
+                    database =
+                        window.JufelixFirebase.db;
 
                     resolve(
-                        firebase
+                        database
                     );
 
                     return;
@@ -138,13 +73,13 @@ async function getFirebase() {
 
                 if (
                     Date.now() -
-                    startedAt >
-                    20000
+                        startedAt >
+                    timeout
                 ) {
 
                     reject(
                         new Error(
-                            "Firebase Authentication is not ready."
+                            "Firebase was not ready."
                         )
                     );
 
@@ -152,7 +87,7 @@ async function getFirebase() {
                 }
 
 
-                window.setTimeout(
+                setTimeout(
                     check,
                     100
                 );
@@ -166,7 +101,7 @@ async function getFirebase() {
 
 
 /* ==========================================
-   CLEAN FIRESTORE DATA
+   CLEAN DATA
 ========================================== */
 
 function cleanValue(
@@ -174,21 +109,17 @@ function cleanValue(
 ) {
 
     if (
-        value ===
-        undefined
+        value === undefined
     ) {
-
         return null;
     }
 
 
     if (
-        value ===
-        null ||
+        value === null ||
         typeof value !==
-        "object"
+            "object"
     ) {
-
         return value;
     }
 
@@ -205,14 +136,15 @@ function cleanValue(
     }
 
 
-    const result =
-        {};
+    const result = {};
 
 
     Object.keys(
         value
     ).forEach(
-        function (key) {
+        function (
+            key
+        ) {
 
             if (
                 value[key] !==
@@ -233,113 +165,7 @@ function cleanValue(
 
 
 /* ==========================================
-   SAVE SALE
-========================================== */
-
-async function saveSale(
-    sale
-) {
-
-    if (
-        !sale ||
-        !sale.id
-    ) {
-
-        throw new Error(
-            "Sale ID is missing."
-        );
-    }
-
-
-    const firebase =
-        await getFirebase();
-
-
-    const saleId =
-        String(
-            sale.id
-        );
-
-
-    console.log(
-        "☁️ Uploading sale:",
-        sale.receiptNumber ||
-        saleId
-    );
-
-
-    try {
-
-        await setDoc(
-
-            doc(
-                firebase.db,
-                "sales",
-                saleId
-            ),
-
-            {
-
-                ...cleanValue(
-                    sale
-                ),
-
-                id:
-                    saleId,
-
-                cloudUpdatedAt:
-                    serverTimestamp()
-            },
-
-            {
-                merge:
-                    true
-            }
-        );
-
-
-        console.log(
-            "✅ SALE SAVED TO FIREBASE:",
-            sale.receiptNumber ||
-            saleId
-        );
-
-
-        document.dispatchEvent(
-
-            new CustomEvent(
-                "jufelix:sale-cloud-saved",
-                {
-                    detail: {
-
-                        sale:
-                            sale
-                    }
-                }
-            )
-        );
-
-
-        return true;
-
-
-    } catch (error) {
-
-        console.error(
-            "❌ FIREBASE SALE SAVE FAILED:",
-            error
-        );
-
-
-        throw createFriendlyError(
-            error
-        );
-    }
-}
-
-
-/* ==========================================
-   PREPARE PRODUCT
+   PREPARE PRODUCT FOR FIRESTORE
 ========================================== */
 
 function prepareProductForCloud(
@@ -352,12 +178,19 @@ function prepareProductForCloud(
         ) || {};
 
 
+    /*
+     * Do not upload Base64 images
+     * into Firestore.
+     */
+
     [
         "image",
         "imageData",
         "photo"
     ].forEach(
-        function (field) {
+        function (
+            field
+        ) {
 
             const value =
                 data[field];
@@ -365,7 +198,7 @@ function prepareProductForCloud(
 
             if (
                 typeof value ===
-                "string" &&
+                    "string" &&
                 value.startsWith(
                     "data:image/"
                 )
@@ -380,19 +213,81 @@ function prepareProductForCloud(
     );
 
 
+    data.cloudUpdatedAt =
+        serverTimestamp();
+
+
     return data;
 }
 
 
 /* ==========================================
-   SAVE PRODUCT AFTER SALE
+   SAVE SALE
+========================================== */
 
-   Preserve every other branch's stock.
+async function saveSale(
+    sale
+) {
+
+    const db =
+        await waitForDb();
+
+
+    if (
+        !sale ||
+        !sale.id
+    ) {
+
+        throw new Error(
+            "Sale ID is missing."
+        );
+    }
+
+
+    await setDoc(
+
+        doc(
+            db,
+            "sales",
+            String(
+                sale.id
+            )
+        ),
+
+        {
+            ...cleanValue(
+                sale
+            ),
+
+            cloudUpdatedAt:
+                serverTimestamp()
+        },
+
+        {
+            merge:
+                true
+        }
+    );
+
+
+    console.log(
+        "Sale synced to cloud:",
+        sale.id
+    );
+}
+
+
+/* ==========================================
+   SAVE ONE PRODUCT
 ========================================== */
 
 async function saveProduct(
     product
 ) {
+
+    const db =
+        await waitForDb();
+
 
     if (
         !product ||
@@ -405,165 +300,36 @@ async function saveProduct(
     }
 
 
-    const firebase =
-        await getFirebase();
+    await setDoc(
 
-
-    const productId =
-        String(
-            product.id
-        );
-
-
-    const productRef =
         doc(
-            firebase.db,
+            db,
             "products",
-            productId
-        );
+            String(
+                product.id
+            )
+        ),
 
+        prepareProductForCloud(
+            product
+        ),
 
-    /*
-     * Sale contains the latest stock for the
-     * branch that performed the sale.
-     */
-
-    const activeBranchId =
-        getActiveBranchId();
-
-
-    const localBranchStock =
-        normalizeBranchStock(
-            product.branchStock
-        );
-
-
-    try {
-
-        const cloudSnapshot =
-            await getDoc(
-                productRef
-            );
-
-
-        let finalBranchStock =
-            {};
-
-
-        if (
-            cloudSnapshot.exists()
-        ) {
-
-            const cloudProduct =
-                cloudSnapshot.data() ||
-                {};
-
-
-            finalBranchStock = {
-
-                ...normalizeBranchStock(
-                    cloudProduct.branchStock
-                )
-            };
-
-
-            /*
-             * Update only the branch that
-             * completed this sale.
-             */
-
-            if (
-                Object.prototype
-                    .hasOwnProperty.call(
-                        localBranchStock,
-                        activeBranchId
-                    )
-            ) {
-
-                finalBranchStock[
-                    activeBranchId
-                ] =
-                    toNumber(
-                        localBranchStock[
-                            activeBranchId
-                        ]
-                    );
-            }
-
-
-        } else {
-
-            /*
-             * Compatibility for product that
-             * has not reached Firebase yet.
-             */
-
-            finalBranchStock = {
-
-                ...localBranchStock
-            };
+        {
+            merge:
+                true
         }
+    );
 
 
-        await setDoc(
-
-            productRef,
-
-            {
-
-                ...prepareProductForCloud(
-                    product
-                ),
-
-                id:
-                    productId,
-
-                branchStock:
-                    finalBranchStock,
-
-                quantity:
-                    sumBranchStock(
-                        finalBranchStock
-                    ),
-
-                cloudUpdatedAt:
-                    serverTimestamp()
-            },
-
-            {
-                merge:
-                    true
-            }
-        );
-
-
-        console.log(
-            "✅ SALE STOCK SAVED TO FIREBASE:",
-            product.name ||
-            productId
-        );
-
-
-        return true;
-
-
-    } catch (error) {
-
-        console.error(
-            "❌ Sale product stock sync failed:",
-            error
-        );
-
-
-        throw createFriendlyError(
-            error
-        );
-    }
+    console.log(
+        "Product stock synced:",
+        product.id
+    );
 }
 
 
 /* ==========================================
-   RETRY LOCAL SALES
+   INITIAL LOCAL SALES SYNC
 ========================================== */
 
 async function syncLocal(
@@ -572,13 +338,18 @@ async function syncLocal(
 ) {
 
     /*
-     * Never upload the complete products list.
+     * IMPORTANT:
      *
-     * We only retry local sales here.
+     * Do NOT push the entire local products
+     * array when Sales opens.
+     *
+     * Doing that can upload stale branch
+     * quantities from a salesperson's device
+     * and overwrite transferred stock.
+     *
+     * Products are only written after an
+     * actual completed sale.
      */
-
-    await getFirebase();
-
 
     const localSales =
         Array.isArray(
@@ -590,65 +361,33 @@ async function syncLocal(
             );
 
 
-    let successful =
-        0;
-
-    let failed =
-        0;
-
-
     for (
-        const sale of
-        localSales
+        const sale of localSales
     ) {
 
         if (
-            !sale ||
-            !sale.id
+            sale &&
+            sale.id
         ) {
 
-            continue;
-        }
+            try {
 
+                await saveSale(
+                    sale
+                );
 
-        try {
-
-            await saveSale(
-                sale
-            );
-
-
-            successful++;
-
-
-        } catch (error) {
-
-            failed++;
-
-
-            console.warn(
-                "Existing sale could not sync:",
-                sale.id,
+            } catch (
                 error
-            );
+            ) {
+
+                console.warn(
+                    "Existing sale could not sync:",
+                    sale.id,
+                    error
+                );
+            }
         }
     }
-
-
-    console.log(
-        "Sales retry sync:",
-        {
-            successful,
-            failed
-        }
-    );
-
-
-    return {
-
-        successful,
-        failed
-    };
 }
 
 
@@ -664,33 +403,17 @@ function listen(
         false;
 
 
-    getFirebase()
+    waitForDb()
         .then(
             function (
-                firebase
+                db
             ) {
 
-                if (cancelled) {
-
-                    return;
-                }
-
-
-                /*
-                 * Avoid creating duplicate
-                 * snapshot listeners.
-                 */
-
                 if (
-                    listenerStarted
+                    cancelled
                 ) {
-
                     return;
                 }
-
-
-                listenerStarted =
-                    true;
 
 
                 /* ==================================
@@ -701,7 +424,7 @@ function listen(
                     onSnapshot(
 
                         collection(
-                            firebase.db,
+                            db,
                             "products"
                         ),
 
@@ -722,7 +445,6 @@ function listen(
 
 
                                         return {
-
                                             ...removeCloudFields(
                                                 data
                                             ),
@@ -750,6 +472,10 @@ function listen(
                                 );
 
 
+                            /*
+                             * Only save after safe merge.
+                             */
+
                             saveArray(
                                 PRODUCTS_KEY,
                                 mergedProducts
@@ -758,8 +484,7 @@ function listen(
 
                             dispatchDataUpdated(
                                 PRODUCTS_KEY,
-                                mergedProducts,
-                                "cloud"
+                                mergedProducts
                             );
 
 
@@ -776,15 +501,16 @@ function listen(
 
 
                             console.log(
-                                "☁️ Sales received product updates:",
-                                mergedProducts.length
+                                "Sales cloud products refreshed safely."
                             );
                         },
 
-                        function (error) {
+                        function (
+                            error
+                        ) {
 
-                            console.error(
-                                "❌ Sales product listener failed:",
+                            console.warn(
+                                "Products realtime listener failed:",
                                 error
                             );
                         }
@@ -799,7 +525,7 @@ function listen(
                     onSnapshot(
 
                         collection(
-                            firebase.db,
+                            db,
                             "sales"
                         ),
 
@@ -820,7 +546,6 @@ function listen(
 
 
                                         return {
-
                                             ...removeCloudFields(
                                                 data
                                             ),
@@ -856,8 +581,7 @@ function listen(
 
                             dispatchDataUpdated(
                                 SALES_KEY,
-                                mergedSales,
-                                "cloud"
+                                mergedSales
                             );
 
 
@@ -871,18 +595,14 @@ function listen(
                                     mergedSales
                                 );
                             }
-
-
-                            console.log(
-                                "☁️ Sales realtime records:",
-                                mergedSales.length
-                            );
                         },
 
-                        function (error) {
+                        function (
+                            error
+                        ) {
 
-                            console.error(
-                                "❌ Sales realtime listener failed:",
+                            console.warn(
+                                "Sales realtime listener failed:",
                                 error
                             );
                         }
@@ -890,10 +610,12 @@ function listen(
             }
         )
         .catch(
-            function (error) {
+            function (
+                error
+            ) {
 
-                console.error(
-                    "❌ Sales cloud listener unavailable:",
+                console.warn(
+                    "Sales cloud listener unavailable:",
                     error
                 );
             }
@@ -926,10 +648,6 @@ function listen(
             salesUnsubscribe =
                 null;
         }
-
-
-        listenerStarted =
-            false;
     };
 }
 
@@ -947,6 +665,10 @@ function mergeProductsSafely(
         new Map();
 
 
+    /*
+     * Start with local products.
+     */
+
     (
         Array.isArray(
             localProducts
@@ -954,19 +676,19 @@ function mergeProductsSafely(
             ? localProducts
             : []
     ).forEach(
-        function (product) {
+        function (
+            product
+        ) {
 
             if (
                 !product ||
                 !product.id
             ) {
-
                 return;
             }
 
 
             productMap.set(
-
                 String(
                     product.id
                 ),
@@ -978,6 +700,10 @@ function mergeProductsSafely(
         }
     );
 
+
+    /*
+     * Merge Firestore product data.
+     */
 
     (
         Array.isArray(
@@ -994,7 +720,6 @@ function mergeProductsSafely(
                 !cloudProduct ||
                 !cloudProduct.id
             ) {
-
                 return;
             }
 
@@ -1008,8 +733,21 @@ function mergeProductsSafely(
             const localProduct =
                 productMap.get(
                     productId
-                ) ||
-                {};
+                ) || {};
+
+
+            /*
+             * CRITICAL FIX:
+             *
+             * Do not replace branchStock.
+             *
+             * Merge individual branches.
+             */
+
+            const localBranchStock =
+                normalizeBranchStock(
+                    localProduct.branchStock
+                );
 
 
             const cloudBranchStock =
@@ -1018,67 +756,30 @@ function mergeProductsSafely(
                 );
 
 
+            const mergedBranchStock = {
+
+                ...localBranchStock,
+
+                ...cloudBranchStock
+            };
+
+
+            /*
+             * Preserve local product image
+             * when Firestore does not contain one.
+             */
+
             const localImage =
-
                 localProduct.image ||
-
                 localProduct.imageData ||
-
                 localProduct.photo ||
-
                 "";
 
 
             const cloudImage =
-
                 cloudProduct.image ||
-
                 cloudProduct.imageUrl ||
-
                 "";
-
-
-            /*
-             * Firebase stock is authoritative.
-             */
-
-            let finalBranchStock =
-                cloudBranchStock;
-
-
-            if (
-                Object.keys(
-                    finalBranchStock
-                ).length ===
-                0
-            ) {
-
-                const localBranchStock =
-                    normalizeBranchStock(
-                        localProduct.branchStock
-                    );
-
-
-                if (
-                    Object.keys(
-                        localBranchStock
-                    ).length
-                ) {
-
-                    finalBranchStock =
-                        localBranchStock;
-
-                } else {
-
-                    finalBranchStock = {
-
-                        [DEFAULT_BRANCH_ID]:
-                            toNumber(
-                                cloudProduct.quantity
-                            )
-                    };
-                }
-            }
 
 
             const mergedProduct = {
@@ -1091,21 +792,25 @@ function mergeProductsSafely(
                     productId,
 
                 branchStock:
-                    finalBranchStock,
+                    mergedBranchStock,
 
                 quantity:
                     sumBranchStock(
-                        finalBranchStock
+                        mergedBranchStock
                     )
             };
 
 
-            if (cloudImage) {
+            if (
+                cloudImage
+            ) {
 
                 mergedProduct.image =
                     cloudImage;
 
-            } else if (localImage) {
+            } else if (
+                localImage
+            ) {
 
                 mergedProduct.image =
                     localImage;
@@ -1127,7 +832,86 @@ function mergeProductsSafely(
 
 
 /* ==========================================
-   SALES MERGE
+   NORMALIZE BRANCH STOCK
+========================================== */
+
+function normalizeBranchStock(
+    branchStock
+) {
+
+    if (
+        !branchStock ||
+        typeof branchStock !==
+            "object" ||
+        Array.isArray(
+            branchStock
+        )
+    ) {
+
+        return {};
+    }
+
+
+    const result = {};
+
+
+    Object.keys(
+        branchStock
+    ).forEach(
+        function (
+            branchId
+        ) {
+
+            result[
+                String(
+                    branchId
+                )
+            ] =
+                toNumber(
+                    branchStock[
+                        branchId
+                    ]
+                );
+        }
+    );
+
+
+    return result;
+}
+
+
+/* ==========================================
+   TOTAL STOCK
+========================================== */
+
+function sumBranchStock(
+    branchStock
+) {
+
+    return Object.values(
+        normalizeBranchStock(
+            branchStock
+        )
+    ).reduce(
+        function (
+            total,
+            quantity
+        ) {
+
+            return (
+                total +
+                toNumber(
+                    quantity
+                )
+            );
+        },
+        0
+    );
+}
+
+
+/* ==========================================
+   SAFE SALES MERGE
 ========================================== */
 
 function mergeSalesSafely(
@@ -1146,7 +930,9 @@ function mergeSalesSafely(
             ? localSales
             : []
     ).forEach(
-        function (sale) {
+        function (
+            sale
+        ) {
 
             if (
                 sale &&
@@ -1154,7 +940,6 @@ function mergeSalesSafely(
             ) {
 
                 saleMap.set(
-
                     String(
                         sale.id
                     ),
@@ -1175,7 +960,9 @@ function mergeSalesSafely(
             ? cloudSales
             : []
     ).forEach(
-        function (cloudSale) {
+        function (
+            cloudSale
+        ) {
 
             if (
                 !cloudSale ||
@@ -1195,12 +982,10 @@ function mergeSalesSafely(
             const localSale =
                 saleMap.get(
                     saleId
-                ) ||
-                {};
+                ) || {};
 
 
             saleMap.set(
-
                 saleId,
 
                 {
@@ -1223,132 +1008,7 @@ function mergeSalesSafely(
 
 
 /* ==========================================
-   ACTIVE BRANCH
-========================================== */
-
-function getActiveBranchId() {
-
-    const activeBranch =
-        readObject(
-            ACTIVE_BRANCH_KEY
-        );
-
-
-    if (
-        activeBranch &&
-        (
-            activeBranch.id ||
-            activeBranch.branchId
-        )
-    ) {
-
-        return String(
-            activeBranch.id ||
-            activeBranch.branchId
-        );
-    }
-
-
-    const user =
-        readObject(
-            CURRENT_USER_KEY
-        ) ||
-        readObject(
-            "currentUser"
-        );
-
-
-    if (
-        user &&
-        user.branchId
-    ) {
-
-        return String(
-            user.branchId
-        );
-    }
-
-
-    return DEFAULT_BRANCH_ID;
-}
-
-
-/* ==========================================
-   BRANCH STOCK
-========================================== */
-
-function normalizeBranchStock(
-    branchStock
-) {
-
-    if (
-        !branchStock ||
-        typeof branchStock !==
-        "object" ||
-        Array.isArray(
-            branchStock
-        )
-    ) {
-
-        return {};
-    }
-
-
-    const result =
-        {};
-
-
-    Object.keys(
-        branchStock
-    ).forEach(
-        function (branchId) {
-
-            result[
-                String(
-                    branchId
-                )
-            ] =
-                toNumber(
-                    branchStock[
-                        branchId
-                    ]
-                );
-        }
-    );
-
-
-    return result;
-}
-
-
-function sumBranchStock(
-    branchStock
-) {
-
-    return Object.values(
-        normalizeBranchStock(
-            branchStock
-        )
-    ).reduce(
-        function (
-            total,
-            value
-        ) {
-
-            return (
-                total +
-                toNumber(
-                    value
-                )
-            );
-        },
-        0
-    );
-}
-
-
-/* ==========================================
-   CLOUD FIELDS
+   REMOVE CLOUD-ONLY FIELDS
 ========================================== */
 
 function removeCloudFields(
@@ -1356,7 +1016,6 @@ function removeCloudFields(
 ) {
 
     const result = {
-
         ...(
             data ||
             {}
@@ -1387,7 +1046,9 @@ function readArray(
             );
 
 
-        if (!stored) {
+        if (
+            !stored
+        ) {
 
             return [];
         }
@@ -1405,8 +1066,9 @@ function readArray(
             ? parsed
             : [];
 
-
-    } catch (error) {
+    } catch (
+        error
+    ) {
 
         console.error(
             "Sales Cloud could not read:",
@@ -1416,49 +1078,6 @@ function readArray(
 
 
         return [];
-    }
-}
-
-
-function readObject(
-    key
-) {
-
-    try {
-
-        const stored =
-            localStorage.getItem(
-                key
-            );
-
-
-        if (!stored) {
-
-            return null;
-        }
-
-
-        const parsed =
-            JSON.parse(
-                stored
-            );
-
-
-        return (
-            parsed &&
-            typeof parsed ===
-            "object" &&
-            !Array.isArray(
-                parsed
-            )
-        )
-            ? parsed
-            : null;
-
-
-    } catch (error) {
-
-        return null;
     }
 }
 
@@ -1480,8 +1099,9 @@ function saveArray(
 
         return true;
 
-
-    } catch (error) {
+    } catch (
+        error
+    ) {
 
         console.error(
             "Sales Cloud could not save:",
@@ -1496,19 +1116,19 @@ function saveArray(
 
 
 /* ==========================================
-   EVENTS
+   EVENT
 ========================================== */
 
 function dispatchDataUpdated(
     key,
-    value,
-    source
+    value
 ) {
 
     document.dispatchEvent(
 
         new CustomEvent(
             "jufelix:data-updated",
+
             {
                 detail: {
 
@@ -1516,11 +1136,7 @@ function dispatchDataUpdated(
                         key,
 
                     value:
-                        value,
-
-                    source:
-                        source ||
-                        ""
+                        value
                 }
             }
         )
@@ -1546,103 +1162,17 @@ function toNumber(
     }
 
 
-    const cleaned =
-        typeof value ===
-        "string"
-            ? value
-                .replace(
-                    /,/g,
-                    ""
-                )
-                .trim()
-            : value;
-
-
-    const number =
+    const numberValue =
         Number(
-            cleaned
+            value
         );
 
 
     return Number.isFinite(
-        number
+        numberValue
     )
-        ? number
+        ? numberValue
         : 0;
-}
-
-
-/* ==========================================
-   FRIENDLY ERROR
-========================================== */
-
-function createFriendlyError(
-    error
-) {
-
-    const code =
-        String(
-            error &&
-            error.code ||
-            ""
-        );
-
-
-    const message =
-        String(
-            error &&
-            error.message ||
-            ""
-        );
-
-
-    if (
-        code.includes(
-            "permission-denied"
-        ) ||
-        message
-            .toLowerCase()
-            .includes(
-                "insufficient permissions"
-            )
-    ) {
-
-        return new Error(
-            "Firebase rejected the sale because the signed-in user does not have permission to write to the sales collection."
-        );
-    }
-
-
-    if (
-        code.includes(
-            "unauthenticated"
-        )
-    ) {
-
-        return new Error(
-            "Firebase Authentication is not signed in."
-        );
-    }
-
-
-    if (
-        code.includes(
-            "unavailable"
-        )
-    ) {
-
-        return new Error(
-            "Firebase is temporarily unavailable. Check your internet connection."
-        );
-    }
-
-
-    return error instanceof Error
-        ? error
-        : new Error(
-            message ||
-            "Sales Firebase sync failed."
-        );
 }
 
 
@@ -1670,23 +1200,19 @@ window.JufelixSalesCloud = {
    READY
 ========================================== */
 
-getFirebase()
+waitForDb()
     .then(
-        function (firebase) {
+        function () {
 
             console.log(
-                "✅ Jufelix Sales Cloud authenticated:",
-                firebase.user
-                    ? (
-                        firebase.user.email ||
-                        firebase.user.uid
-                    )
-                    : "User"
+                "Jufelix Sales Cloud ready."
             );
         }
     )
     .catch(
-        function (error) {
+        function (
+            error
+        ) {
 
             console.warn(
                 "Sales Cloud starting offline:",
@@ -1698,7 +1224,6 @@ getFirebase()
         function () {
 
             document.dispatchEvent(
-
                 new CustomEvent(
                     "jufelix:sales-cloud-ready"
                 )
