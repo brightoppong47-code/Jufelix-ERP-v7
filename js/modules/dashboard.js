@@ -1,10 +1,15 @@
 /* ==========================================
    JUFELIX ERP v7.0 PROFESSIONAL
-   Dashboard Module
+   DASHBOARD MODULE v641
 
-   Role-Aware
-   Branch-Aware
-   Permission-Aware
+   + Role-Aware
+   + Branch-Aware
+   + Permission-Aware
+   + Firebase Sync Refresh
+   + Correct COGS
+   + Correct Gross Profit
+   + Correct Net Profit
+   + Cancelled/Void Transaction Filtering
 
    File:
    js/modules/dashboard.js
@@ -12,6 +17,11 @@
 
 (function () {
     "use strict";
+
+
+    /* ==========================================
+       STORAGE KEYS
+    ========================================== */
 
     const PRODUCTS_KEY =
         "jufelix_products";
@@ -38,21 +48,75 @@
         "head-office";
 
 
-    document.addEventListener(
-        "DOMContentLoaded",
-        initializeDashboard
-    );
+    /* ==========================================
+       START
+    ========================================== */
 
+    if (
+        document.readyState ===
+        "loading"
+    ) {
+
+        document.addEventListener(
+            "DOMContentLoaded",
+            initializeDashboard
+        );
+
+    } else {
+
+        initializeDashboard();
+    }
+
+
+    /*
+     * These events are fired by the
+     * Jufelix local/Firebase bridges.
+     */
 
     document.addEventListener(
         "jufelix:data-updated",
-        refreshDashboard
+        handleDataUpdate
     );
 
 
     document.addEventListener(
         "jufelix:dataChanged",
-        refreshDashboard
+        handleDataUpdate
+    );
+
+
+    window.addEventListener(
+        "storage",
+        function (event) {
+
+            const watchedKeys = [
+
+                PRODUCTS_KEY,
+
+                SALES_KEY,
+
+                EXPENSES_KEY,
+
+                CUSTOMERS_KEY,
+
+                SUPPLIERS_KEY,
+
+                ACTIVE_BRANCH_KEY,
+
+                CURRENT_USER_KEY
+
+            ];
+
+
+            if (
+                watchedKeys.includes(
+                    event.key
+                )
+            ) {
+
+                refreshEverything();
+            }
+        }
     );
 
 
@@ -62,23 +126,43 @@
 
     function initializeDashboard() {
 
+        refreshEverything();
+
+
+        console.log(
+            "✅ Jufelix Dashboard v641 loaded."
+        );
+    }
+
+
+    function handleDataUpdate() {
+
+        refreshEverything();
+    }
+
+
+    function refreshEverything() {
+
         const currentUser =
             getCurrentUser();
+
 
         updateWelcomeMessage(
             currentUser
         );
 
+
         applyDashboardPermissions(
             currentUser
         );
+
 
         refreshDashboard();
     }
 
 
     /* ==========================================
-       REFRESH
+       REFRESH DASHBOARD
     ========================================== */
 
     function refreshDashboard() {
@@ -86,10 +170,12 @@
         const currentUser =
             getCurrentUser();
 
+
         const branchId =
             getActiveBranchId(
                 currentUser
             );
+
 
         const companyWide =
             isCompanyWideView(
@@ -98,25 +184,33 @@
             );
 
 
+        /* ======================================
+           LOAD DATA
+        ====================================== */
+
         const allProducts =
             readArray(
                 PRODUCTS_KEY
             );
+
 
         const allSales =
             readArray(
                 SALES_KEY
             );
 
+
         const allExpenses =
             readArray(
                 EXPENSES_KEY
             );
 
+
         const allCustomers =
             readArray(
                 CUSTOMERS_KEY
             );
+
 
         const allSuppliers =
             readArray(
@@ -124,26 +218,26 @@
             );
 
 
-        /*
-         * If Admin deliberately selects an
-         * "all branches" view, show everything.
-         *
-         * Otherwise everyone sees the
-         * currently active/assigned branch.
-         */
+        /* ======================================
+           BRANCH FILTER
+        ====================================== */
 
-        const sales =
+        const branchSales =
             companyWide
+
                 ? allSales
+
                 : filterByBranch(
                     allSales,
                     branchId
                 );
 
 
-        const expenses =
+        const branchExpenses =
             companyWide
+
                 ? allExpenses
+
                 : filterByBranch(
                     allExpenses,
                     branchId
@@ -152,7 +246,9 @@
 
         const customers =
             companyWide
+
                 ? allCustomers
+
                 : filterCustomersByBranch(
                     allCustomers,
                     branchId
@@ -161,7 +257,9 @@
 
         const suppliers =
             companyWide
+
                 ? allSuppliers
+
                 : filterSuppliersByBranch(
                     allSuppliers,
                     branchId
@@ -169,69 +267,107 @@
 
 
         /* ======================================
-           INVENTORY
+           VALID SALES
+        ====================================== */
+
+        const completedSales =
+            branchSales.filter(
+                function (sale) {
+
+                    return isValidTransaction(
+                        sale
+                    );
+                }
+            );
+
+
+        /* ======================================
+           VALID EXPENSES
+        ====================================== */
+
+        const validExpenses =
+            branchExpenses.filter(
+                function (expense) {
+
+                    return isValidTransaction(
+                        expense
+                    );
+                }
+            );
+
+
+        /* ======================================
+           VISIBLE PRODUCTS
         ====================================== */
 
         const visibleProducts =
             allProducts.filter(
                 function (product) {
 
-                    const quantity =
-                        getProductQuantity(
-                            product,
-                            branchId,
-                            companyWide
-                        );
-
-                    /*
-                     * Keep products that are
-                     * registered at the branch,
-                     * including zero-stock items,
-                     * so low-stock warnings work.
-                     */
-
                     if (companyWide) {
+
                         return true;
                     }
 
+
+                    const branchStock =
+                        product.branchStock;
+
+
                     if (
-                        product.branchStock &&
-                        typeof product.branchStock ===
+                        branchStock &&
+                        typeof branchStock ===
                             "object" &&
                         !Array.isArray(
-                            product.branchStock
+                            branchStock
                         )
                     ) {
 
                         return Object.prototype
                             .hasOwnProperty.call(
-                                product.branchStock,
+                                branchStock,
                                 branchId
                             );
                     }
 
+
+                    /*
+                     * Older products without
+                     * branchStock belong to
+                     * Head Office.
+                     */
+
                     return (
-                        branchId ===
+                        String(
+                            branchId
+                        ) ===
                         DEFAULT_BRANCH_ID
                     );
                 }
             );
 
 
+        /* ======================================
+           PRODUCT COUNT
+        ====================================== */
+
+        /*
+         * Total Products now means:
+         *
+         * Number of registered products
+         * visible to this branch.
+         *
+         * It does NOT remove products simply
+         * because their quantity is zero.
+         */
+
         const totalProducts =
-            visibleProducts.filter(
-                function (product) {
+            visibleProducts.length;
 
-                    return (
-                        getProductQuantity(
-                            product,
-                            branchId,
-                            companyWide
-                        ) > 0
-                    );
-                }
-            ).length;
 
+        /* ======================================
+           TOTAL STOCK QUANTITY
+        ====================================== */
 
         const totalQuantity =
             visibleProducts.reduce(
@@ -252,6 +388,10 @@
                 0
             );
 
+
+        /* ======================================
+           INVENTORY VALUE
+        ====================================== */
 
         const stockValue =
             visibleProducts.reduce(
@@ -282,6 +422,10 @@
             );
 
 
+        /* ======================================
+           LOW STOCK
+        ====================================== */
+
         const lowStockProducts =
             visibleProducts.filter(
                 function (product) {
@@ -309,29 +453,8 @@
 
 
         /* ======================================
-           SALES
+           SALES REVENUE
         ====================================== */
-
-        const completedSales =
-            sales.filter(
-                function (sale) {
-
-                    const status =
-                        String(
-                            sale.status ||
-                            "completed"
-                        )
-                            .trim()
-                            .toLowerCase();
-
-
-                    return (
-                        status !==
-                        "cancelled"
-                    );
-                }
-            );
-
 
         const totalSalesValue =
             completedSales.reduce(
@@ -352,22 +475,21 @@
 
 
         /* ======================================
-           EXPENSES
+           COST OF GOODS SOLD
         ====================================== */
 
-        const totalExpenses =
-            expenses.reduce(
+        const totalCOGS =
+            completedSales.reduce(
                 function (
                     total,
-                    expense
+                    sale
                 ) {
 
                     return (
                         total +
-                        toNumber(
-                            expense.amount ??
-                            expense.total ??
-                            expense.totalAmount
+                        getSaleCost(
+                            sale,
+                            allProducts
                         )
                     );
                 },
@@ -375,23 +497,48 @@
             );
 
 
-        /*
-         * Current Dashboard profit is:
-         *
-         * Sales Revenue - Expenses
-         *
-         * Later we can upgrade this to true
-         * gross/net profit using Cost of Goods
-         * Sold from the stock ledger.
-         */
+        /* ======================================
+           GROSS PROFIT
+        ====================================== */
+
+        const grossProfit =
+            totalSalesValue -
+            totalCOGS;
+
+
+        /* ======================================
+           EXPENSES
+        ====================================== */
+
+        const totalExpenses =
+            validExpenses.reduce(
+                function (
+                    total,
+                    expense
+                ) {
+
+                    return (
+                        total +
+                        getExpenseTotal(
+                            expense
+                        )
+                    );
+                },
+                0
+            );
+
+
+        /* ======================================
+           NET PROFIT
+        ====================================== */
 
         const netProfit =
-            totalSalesValue -
+            grossProfit -
             totalExpenses;
 
 
         /* ======================================
-           UPDATE CARDS
+           UPDATE EXISTING CARDS
         ====================================== */
 
         updateText(
@@ -474,10 +621,44 @@
         );
 
 
+        /*
+         * These IDs are optional.
+         *
+         * If we later add Gross Profit and
+         * COGS cards to dashboard.html,
+         * this JS is already prepared.
+         */
+
+        updateText(
+            "totalCOGS",
+            formatMoney(
+                totalCOGS
+            )
+        );
+
+
+        updateText(
+            "grossProfit",
+            formatMoney(
+                grossProfit
+            )
+        );
+
+
         updateProfitAppearance(
             netProfit
         );
 
+
+        updateFinancialAppearance(
+            "grossProfit",
+            grossProfit
+        );
+
+
+        /* ======================================
+           TABLES
+        ====================================== */
 
         displayLowStockProducts(
             lowStockProducts,
@@ -488,6 +669,487 @@
 
         displayRecentSales(
             completedSales
+        );
+
+
+        console.log(
+            "Dashboard refreshed:",
+            {
+                branchId:
+                    branchId,
+
+                companyWide:
+                    companyWide,
+
+                sales:
+                    totalSalesValue,
+
+                cogs:
+                    totalCOGS,
+
+                grossProfit:
+                    grossProfit,
+
+                expenses:
+                    totalExpenses,
+
+                netProfit:
+                    netProfit
+            }
+        );
+    }
+
+
+    /* ==========================================
+       TRANSACTION STATUS
+    ========================================== */
+
+    function isValidTransaction(
+        record
+    ) {
+
+        if (!record) {
+
+            return false;
+        }
+
+
+        if (
+            record.deleted ===
+            true
+        ) {
+
+            return false;
+        }
+
+
+        const status =
+            String(
+                record.status ||
+                "completed"
+            )
+                .trim()
+                .toLowerCase();
+
+
+        const invalidStatuses = [
+
+            "cancelled",
+
+            "canceled",
+
+            "void",
+
+            "voided",
+
+            "deleted"
+
+        ];
+
+
+        return !invalidStatuses.includes(
+            status
+        );
+    }
+
+
+    /* ==========================================
+       SALES TOTAL
+    ========================================== */
+
+    function getSaleTotal(
+        sale
+    ) {
+
+        if (!sale) {
+
+            return 0;
+        }
+
+
+        if (
+            sale.total !==
+            undefined
+        ) {
+
+            return toNumber(
+                sale.total
+            );
+        }
+
+
+        if (
+            sale.grandTotal !==
+            undefined
+        ) {
+
+            return toNumber(
+                sale.grandTotal
+            );
+        }
+
+
+        if (
+            sale.totalAmount !==
+            undefined
+        ) {
+
+            return toNumber(
+                sale.totalAmount
+            );
+        }
+
+
+        if (
+            sale.amount !==
+            undefined
+        ) {
+
+            return toNumber(
+                sale.amount
+            );
+        }
+
+
+        /*
+         * Calculate from items if
+         * no sale-level total exists.
+         */
+
+        if (
+            Array.isArray(
+                sale.items
+            )
+        ) {
+
+            return sale.items.reduce(
+                function (
+                    total,
+                    item
+                ) {
+
+                    return (
+                        total +
+                        getSaleItemRevenue(
+                            item
+                        )
+                    );
+                },
+                0
+            );
+        }
+
+
+        return 0;
+    }
+
+
+    /* ==========================================
+       SALE ITEM REVENUE
+    ========================================== */
+
+    function getSaleItemRevenue(
+        item
+    ) {
+
+        if (!item) {
+
+            return 0;
+        }
+
+
+        if (
+            item.total !==
+            undefined
+        ) {
+
+            return toNumber(
+                item.total
+            );
+        }
+
+
+        if (
+            item.totalAmount !==
+            undefined
+        ) {
+
+            return toNumber(
+                item.totalAmount
+            );
+        }
+
+
+        if (
+            item.revenue !==
+            undefined
+        ) {
+
+            return toNumber(
+                item.revenue
+            );
+        }
+
+
+        return (
+            toNumber(
+                item.quantity
+            ) *
+            toNumber(
+                item.sellingPrice ??
+                item.unitPrice ??
+                item.price
+            )
+        );
+    }
+
+
+    /* ==========================================
+       COST OF GOODS SOLD
+    ========================================== */
+
+    function getSaleCost(
+        sale,
+        products
+    ) {
+
+        if (!sale) {
+
+            return 0;
+        }
+
+
+        /*
+         * Best source:
+         * COGS stored when sale occurred.
+         */
+
+        if (
+            sale.cogs !==
+            undefined
+        ) {
+
+            return toNumber(
+                sale.cogs
+            );
+        }
+
+
+        if (
+            sale.costTotal !==
+            undefined
+        ) {
+
+            return toNumber(
+                sale.costTotal
+            );
+        }
+
+
+        if (
+            sale.totalCost !==
+            undefined
+        ) {
+
+            return toNumber(
+                sale.totalCost
+            );
+        }
+
+
+        /*
+         * Multi-item sale.
+         */
+
+        if (
+            Array.isArray(
+                sale.items
+            ) &&
+            sale.items.length
+        ) {
+
+            return sale.items.reduce(
+                function (
+                    total,
+                    item
+                ) {
+
+                    return (
+                        total +
+                        getSaleItemCost(
+                            item,
+                            products
+                        )
+                    );
+                },
+                0
+            );
+        }
+
+
+        /*
+         * Old single-product sale.
+         */
+
+        return getSaleItemCost(
+            {
+                productId:
+                    sale.productId,
+
+                quantity:
+                    sale.quantity,
+
+                costPrice:
+                    sale.costPrice,
+
+                costPriceAtSale:
+                    sale.costPriceAtSale,
+
+                unitCost:
+                    sale.unitCost,
+
+                costTotal:
+                    sale.costTotal
+            },
+            products
+        );
+    }
+
+
+    function getSaleItemCost(
+        item,
+        products
+    ) {
+
+        if (!item) {
+
+            return 0;
+        }
+
+
+        if (
+            item.costTotal !==
+            undefined
+        ) {
+
+            return toNumber(
+                item.costTotal
+            );
+        }
+
+
+        if (
+            item.cogs !==
+            undefined
+        ) {
+
+            return toNumber(
+                item.cogs
+            );
+        }
+
+
+        let costPrice =
+            item.costPrice ??
+            item.costPriceAtSale ??
+            item.unitCost;
+
+
+        /*
+         * Backward compatibility.
+         *
+         * If old sale records did not save
+         * the cost price, use current product
+         * cost price as an estimate.
+         */
+
+        if (
+            costPrice ===
+            undefined ||
+            costPrice ===
+            null ||
+            costPrice ===
+            ""
+        ) {
+
+            const product =
+                findProduct(
+                    products,
+                    item.productId
+                );
+
+
+            costPrice =
+                product
+                    ? product.costPrice
+                    : 0;
+        }
+
+
+        return (
+            toNumber(
+                item.quantity
+            ) *
+            toNumber(
+                costPrice
+            )
+        );
+    }
+
+
+    function findProduct(
+        products,
+        productId
+    ) {
+
+        if (!productId) {
+
+            return null;
+        }
+
+
+        return (
+            products.find(
+                function (product) {
+
+                    return (
+                        String(
+                            product.id
+                        ) ===
+                        String(
+                            productId
+                        )
+                    );
+                }
+            ) ||
+            null
+        );
+    }
+
+
+    /* ==========================================
+       EXPENSE TOTAL
+    ========================================== */
+
+    function getExpenseTotal(
+        expense
+    ) {
+
+        if (!expense) {
+
+            return 0;
+        }
+
+
+        return toNumber(
+
+            expense.amount ??
+
+            expense.total ??
+
+            expense.totalAmount ??
+
+            0
         );
     }
 
@@ -509,9 +1171,9 @@
             );
 
 
-        /*
-         * ADMIN
-         */
+        /* ======================================
+           ADMIN
+        ====================================== */
 
         if (
             role ===
@@ -524,12 +1186,9 @@
         }
 
 
-        /*
-         * MANAGER
-         *
-         * Operational figures allowed,
-         * but Net Profit stays hidden.
-         */
+        /* ======================================
+           MANAGER
+        ====================================== */
 
         if (
             role ===
@@ -540,15 +1199,26 @@
                 "netProfit"
             );
 
+
+            hideCard(
+                "grossProfit"
+            );
+
+
+            hideCard(
+                "totalCOGS"
+            );
+
+
             applyQuickActionPermissions();
 
             return;
         }
 
 
-        /*
-         * SALES OFFICER / CASHIER
-         */
+        /* ======================================
+           SALES OFFICER / CASHIER
+        ====================================== */
 
         if (
             role ===
@@ -558,13 +1228,25 @@
         ) {
 
             hideCards([
+
                 "totalProducts",
+
                 "totalStockQuantity",
+
                 "stockValue",
+
                 "lowStockCount",
+
                 "totalExpenses",
+
+                "totalCOGS",
+
+                "grossProfit",
+
                 "netProfit",
+
                 "totalSuppliers"
+
             ]);
 
 
@@ -579,9 +1261,9 @@
         }
 
 
-        /*
-         * STORE KEEPER
-         */
+        /* ======================================
+           STORE KEEPER
+        ====================================== */
 
         if (
             role ===
@@ -589,11 +1271,21 @@
         ) {
 
             hideCards([
+
                 "totalSales",
+
                 "totalRevenue",
+
                 "totalExpenses",
+
+                "totalCOGS",
+
+                "grossProfit",
+
                 "netProfit",
+
                 "totalCustomers"
+
             ]);
 
 
@@ -608,9 +1300,9 @@
         }
 
 
-        /*
-         * ACCOUNTANT
-         */
+        /* ======================================
+           ACCOUNTANT
+        ====================================== */
 
         if (
             role ===
@@ -618,12 +1310,19 @@
         ) {
 
             hideCards([
+
                 "totalProducts",
+
                 "totalStockQuantity",
+
                 "stockValue",
+
                 "lowStockCount",
+
                 "totalCustomers",
+
                 "totalSuppliers"
+
             ]);
 
 
@@ -638,19 +1337,30 @@
         }
 
 
-        /*
-         * UNKNOWN ROLE:
-         * safest dashboard.
-         */
+        /* ======================================
+           UNKNOWN ROLE
+        ====================================== */
 
         hideCards([
+
             "totalProducts",
+
             "totalStockQuantity",
+
             "stockValue",
+
             "lowStockCount",
+
             "totalExpenses",
+
+            "totalCOGS",
+
+            "grossProfit",
+
             "netProfit",
+
             "totalSuppliers"
+
         ]);
 
 
@@ -721,19 +1431,11 @@
         );
 
 
-        /*
-         * Recent Sales "View Sales"
-         */
-
         setLinkPermission(
             'a[href="sales.html"]',
             "sales"
         );
 
-
-        /*
-         * Low Stock "View Inventory"
-         */
 
         setLinkPermission(
             '#lowStockPanel a[href="inventory.html"]',
@@ -775,11 +1477,13 @@
                         .JufelixPermissions
                         .hasPermission ===
                         "function"
+
                         ? window
                             .JufelixPermissions
                             .hasPermission(
                                 permission
                             )
+
                         : normalizeRole(
                             getCurrentUser().role
                         ) ===
@@ -838,6 +1542,7 @@
 
 
         if (!element) {
+
             return;
         }
 
@@ -889,6 +1594,7 @@
 
 
         if (!element) {
+
             return;
         }
 
@@ -953,9 +1659,7 @@
 
 
         const activeBranch =
-            readObject(
-                ACTIVE_BRANCH_KEY
-            );
+            readActiveBranch();
 
 
         if (activeBranch) {
@@ -987,6 +1691,7 @@
     ) {
 
         if (!product) {
+
             return 0;
         }
 
@@ -1037,14 +1742,15 @@
 
 
         /*
-         * Backwards compatibility.
-         * Old products are treated as
-         * Head Office stock.
+         * Older products without branchStock
+         * are treated as Head Office stock.
          */
 
         if (
             companyWide ||
-            branchId ===
+            String(
+                branchId
+            ) ===
                 DEFAULT_BRANCH_ID
         ) {
 
@@ -1091,6 +1797,7 @@
 
 
         if (!tableBody) {
+
             return;
         }
 
@@ -1102,14 +1809,17 @@
 
             tableBody.innerHTML = `
                 <tr>
+
                     <td
                         colspan="4"
                         class="dashboard-empty"
                     >
                         No low-stock products.
                     </td>
+
                 </tr>
             `;
+
 
             return;
         }
@@ -1125,11 +1835,13 @@
                     ) {
 
                         return (
+
                             getProductQuantity(
                                 first,
                                 branchId,
                                 companyWide
                             ) -
+
                             getProductQuantity(
                                 second,
                                 branchId,
@@ -1186,27 +1898,34 @@
                                 </td>
 
                                 <td>
+
                                     ${formatNumber(
                                         quantity
                                     )}
+
                                     ${escapeHTML(
                                         product.unit ||
                                         ""
                                     )}
+
                                 </td>
 
                                 <td>
+
                                     ${formatNumber(
                                         lowLevel
                                     )}
+
                                 </td>
 
                                 <td>
+
                                     <span
                                         class="${statusClass}"
                                     >
                                         ${status}
                                     </span>
+
                                 </td>
 
                             </tr>
@@ -1232,6 +1951,7 @@
 
 
         if (!tableBody) {
+
             return;
         }
 
@@ -1243,14 +1963,17 @@
 
             tableBody.innerHTML = `
                 <tr>
+
                     <td
                         colspan="5"
                         class="dashboard-empty"
                     >
                         No sales have been recorded.
                     </td>
+
                 </tr>
             `;
+
 
             return;
         }
@@ -1324,6 +2047,7 @@
                                 </td>
 
                                 <td>
+
                                     <strong>
                                         ${formatMoney(
                                             getSaleTotal(
@@ -1331,6 +2055,7 @@
                                             )
                                         )}
                                     </strong>
+
                                 </td>
 
                             </tr>
@@ -1353,15 +2078,11 @@
         return records.filter(
             function (record) {
 
-                const recordBranchId =
-                    getRecordBranchId(
-                        record
-                    );
-
-
                 return (
                     String(
-                        recordBranchId
+                        getRecordBranchId(
+                            record
+                        )
                     ) ===
                     String(
                         branchId
@@ -1377,9 +2098,15 @@
     ) {
 
         return String(
+
             record.branchId ||
+
             record.branchID ||
+
+            record.activeBranchId ||
+
             record.branch ||
+
             DEFAULT_BRANCH_ID
         );
     }
@@ -1403,8 +2130,10 @@
 
 
                 return (
-                    getRecordBranchId(
-                        customer
+                    String(
+                        getRecordBranchId(
+                            customer
+                        )
                     ) ===
                     String(
                         branchId
@@ -1433,8 +2162,10 @@
 
 
                 return (
-                    getRecordBranchId(
-                        supplier
+                    String(
+                        getRecordBranchId(
+                            supplier
+                        )
                     ) ===
                     String(
                         branchId
@@ -1446,20 +2177,107 @@
 
 
     /* ==========================================
-       CURRENT USER / BRANCH
+       CURRENT USER
     ========================================== */
 
     function getCurrentUser() {
 
         return (
+
             readObject(
                 CURRENT_USER_KEY
             ) ||
+
             readObject(
                 "currentUser"
             ) ||
+
             {}
         );
+    }
+
+
+    /* ==========================================
+       ACTIVE BRANCH
+    ========================================== */
+
+    function readActiveBranch() {
+
+        try {
+
+            const stored =
+                localStorage.getItem(
+                    ACTIVE_BRANCH_KEY
+                );
+
+
+            if (!stored) {
+
+                return null;
+            }
+
+
+            /*
+             * Active branch may be stored
+             * as JSON object.
+             */
+
+            try {
+
+                const parsed =
+                    JSON.parse(
+                        stored
+                    );
+
+
+                if (
+                    parsed &&
+                    typeof parsed ===
+                        "object" &&
+                    !Array.isArray(
+                        parsed
+                    )
+                ) {
+
+                    return parsed;
+                }
+
+
+                /*
+                 * JSON string such as
+                 * "head-office"
+                 */
+
+                if (
+                    typeof parsed ===
+                    "string"
+                ) {
+
+                    return {
+                        id:
+                            parsed
+                    };
+                }
+
+            } catch (error) {
+
+                /*
+                 * Plain string branch ID.
+                 */
+
+                return {
+                    id:
+                        stored
+                };
+            }
+
+
+            return null;
+
+        } catch (error) {
+
+            return null;
+        }
     }
 
 
@@ -1474,8 +2292,8 @@
 
 
         /*
-         * Non-admin users can never switch
-         * away from their assigned branch.
+         * Non-admin users are permanently
+         * tied to their assigned branch.
          */
 
         if (
@@ -1491,9 +2309,7 @@
 
 
         const activeBranch =
-            readObject(
-                ACTIVE_BRANCH_KEY
-            );
+            readActiveBranch();
 
 
         if (
@@ -1547,10 +2363,13 @@
 
 
         return (
+
             value ===
                 "all" ||
+
             value ===
                 "all-branches" ||
+
             value ===
                 "company-wide"
         );
@@ -1639,6 +2458,7 @@
 
             accounts:
                 "accountant"
+
         };
 
 
@@ -1681,6 +2501,7 @@
 
             accountant:
                 "Accountant"
+
         };
 
 
@@ -1695,20 +2516,33 @@
 
 
     /* ==========================================
-       PROFIT DISPLAY
+       FINANCIAL APPEARANCE
     ========================================== */
 
     function updateProfitAppearance(
         value
     ) {
 
+        updateFinancialAppearance(
+            "netProfit",
+            value
+        );
+    }
+
+
+    function updateFinancialAppearance(
+        id,
+        value
+    ) {
+
         const element =
             document.getElementById(
-                "netProfit"
+                id
             );
 
 
         if (!element) {
+
             return;
         }
 
@@ -1739,23 +2573,6 @@
 
 
     /* ==========================================
-       SALES HELPERS
-    ========================================== */
-
-    function getSaleTotal(
-        sale
-    ) {
-
-        return toNumber(
-            sale.total ??
-            sale.grandTotal ??
-            sale.totalAmount ??
-            sale.amount
-        );
-    }
-
-
-    /* ==========================================
        STORAGE
     ========================================== */
 
@@ -1772,6 +2589,7 @@
 
 
             if (!stored) {
+
                 return [];
             }
 
@@ -1815,6 +2633,7 @@
 
 
             if (!stored) {
+
                 return null;
             }
 
@@ -1892,6 +2711,7 @@
             return new Intl.NumberFormat(
                 "en-GH",
                 {
+
                     style:
                         "currency",
 
@@ -1900,6 +2720,7 @@
 
                     minimumFractionDigits:
                         2
+
                 }
             ).format(
                 toNumber(
@@ -1940,6 +2761,7 @@
     ) {
 
         if (!value) {
+
             return "—";
         }
 
@@ -1985,6 +2807,7 @@
         return date.toLocaleDateString(
             "en-GH",
             {
+
                 day:
                     "2-digit",
 
@@ -1993,6 +2816,7 @@
 
                 year:
                     "numeric"
+
             }
         );
     }
@@ -2028,9 +2852,12 @@
     ) {
 
         if (
-            value === null ||
-            value === undefined ||
-            value === ""
+            value ===
+            null ||
+            value ===
+            undefined ||
+            value ===
+            ""
         ) {
 
             return 0;
@@ -2040,12 +2867,14 @@
         const cleaned =
             typeof value ===
                 "string"
+
                 ? value
                     .replace(
                         /,/g,
                         ""
                     )
                     .trim()
+
                 : value;
 
 
@@ -2105,18 +2934,8 @@
     window.JufelixDashboard = {
 
         refresh:
-            function () {
+            refreshEverything,
 
-                updateWelcomeMessage(
-                    getCurrentUser()
-                );
-
-                applyDashboardPermissions(
-                    getCurrentUser()
-                );
-
-                refreshDashboard();
-            },
 
         applyPermissions:
             function () {
@@ -2124,7 +2943,115 @@
                 applyDashboardPermissions(
                     getCurrentUser()
                 );
+            },
+
+
+        getFinancialSummary:
+            function () {
+
+                const products =
+                    readArray(
+                        PRODUCTS_KEY
+                    );
+
+
+                const sales =
+                    readArray(
+                        SALES_KEY
+                    )
+                        .filter(
+                            isValidTransaction
+                        );
+
+
+                const expenses =
+                    readArray(
+                        EXPENSES_KEY
+                    )
+                        .filter(
+                            isValidTransaction
+                        );
+
+
+                const revenue =
+                    sales.reduce(
+                        function (
+                            total,
+                            sale
+                        ) {
+
+                            return (
+                                total +
+                                getSaleTotal(
+                                    sale
+                                )
+                            );
+                        },
+                        0
+                    );
+
+
+                const cogs =
+                    sales.reduce(
+                        function (
+                            total,
+                            sale
+                        ) {
+
+                            return (
+                                total +
+                                getSaleCost(
+                                    sale,
+                                    products
+                                )
+                            );
+                        },
+                        0
+                    );
+
+
+                const expenseTotal =
+                    expenses.reduce(
+                        function (
+                            total,
+                            expense
+                        ) {
+
+                            return (
+                                total +
+                                getExpenseTotal(
+                                    expense
+                                )
+                            );
+                        },
+                        0
+                    );
+
+
+                return {
+
+                    revenue:
+                        revenue,
+
+                    cogs:
+                        cogs,
+
+                    grossProfit:
+                        revenue -
+                        cogs,
+
+                    expenses:
+                        expenseTotal,
+
+                    netProfit:
+                        revenue -
+                        cogs -
+                        expenseTotal
+
+                };
             }
+
     };
+
 
 })();
