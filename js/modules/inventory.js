@@ -15,17 +15,14 @@
    + LocalStorage offline copy
    + Direct single-product Firebase sync
    + Realtime cloud refresh support
-   + Prevents stale full-inventory overwrite
+   + Permanent Firebase deletion
+   + Two-way inventory CRUD
 ========================================== */
 
 (function () {
 
     "use strict";
 
-
-    /* ==========================================
-       STORAGE KEYS
-    ========================================== */
 
     const PRODUCTS_KEY =
         "jufelix_products";
@@ -43,10 +40,6 @@
         "head-office";
 
 
-    /* ==========================================
-       STATE
-    ========================================== */
-
     let products = [];
 
     let editingProductId =
@@ -62,62 +55,23 @@
         false;
 
 
-    /* ==========================================
-       ELEMENTS
-    ========================================== */
+    let form = null;
+    let tableBody = null;
+    let saveButton = null;
+    let formTitle = null;
+    let clearButton = null;
+    let searchInput = null;
+    let categoryFilter = null;
+    let stockFilter = null;
+    let statusFilter = null;
+    let productCategory = null;
+    let customCategoryGroup = null;
+    let customProductCategory = null;
+    let productImageInput = null;
+    let productImagePreview = null;
+    let productImagePreviewContainer = null;
+    let removeProductImageButton = null;
 
-    let form =
-        null;
-
-    let tableBody =
-        null;
-
-    let saveButton =
-        null;
-
-    let formTitle =
-        null;
-
-    let clearButton =
-        null;
-
-    let searchInput =
-        null;
-
-    let categoryFilter =
-        null;
-
-    let stockFilter =
-        null;
-
-    let statusFilter =
-        null;
-
-    let productCategory =
-        null;
-
-    let customCategoryGroup =
-        null;
-
-    let customProductCategory =
-        null;
-
-    let productImageInput =
-        null;
-
-    let productImagePreview =
-        null;
-
-    let productImagePreviewContainer =
-        null;
-
-    let removeProductImageButton =
-        null;
-
-
-    /* ==========================================
-       START
-    ========================================== */
 
     if (
         document.readyState ===
@@ -134,10 +88,6 @@
         initializeInventory();
     }
 
-
-    /* ==========================================
-       INITIALIZE
-    ========================================== */
 
     function initializeInventory() {
 
@@ -167,10 +117,6 @@
     }
 
 
-    /* ==========================================
-       CACHE ELEMENTS
-    ========================================== */
-
     function cacheElements() {
 
         form =
@@ -198,7 +144,6 @@
                 "cancelProductButton"
             );
 
-
         searchInput =
             document.getElementById(
                 "inventorySearch"
@@ -219,7 +164,6 @@
                 "inventoryStatusFilter"
             );
 
-
         productCategory =
             document.getElementById(
                 "productCategory"
@@ -234,7 +178,6 @@
             document.getElementById(
                 "customProductCategory"
             );
-
 
         productImageInput =
             document.getElementById(
@@ -257,10 +200,6 @@
             );
     }
 
-
-    /* ==========================================
-       EVENTS
-    ========================================== */
 
     function connectEvents() {
 
@@ -355,63 +294,15 @@
         }
 
 
-        /* ======================================
-           REALTIME ERP EVENTS
-        ====================================== */
-
         document.addEventListener(
             "jufelix:data-updated",
-            function (event) {
-
-                if (
-                    !event ||
-                    !event.detail
-                ) {
-                    return;
-                }
-
-
-                const key =
-                    event.detail.key;
-
-
-                if (
-                    key === PRODUCTS_KEY ||
-                    key === BRANCHES_KEY ||
-                    key === ACTIVE_BRANCH_KEY
-                ) {
-
-                    scheduleInventoryRefresh();
-                }
-            }
+            handleInventoryDataUpdate
         );
 
 
         document.addEventListener(
             "jufelix:dataChanged",
-            function (event) {
-
-                if (
-                    !event ||
-                    !event.detail
-                ) {
-                    return;
-                }
-
-
-                const key =
-                    event.detail.key;
-
-
-                if (
-                    key === PRODUCTS_KEY ||
-                    key === BRANCHES_KEY ||
-                    key === ACTIVE_BRANCH_KEY
-                ) {
-
-                    scheduleInventoryRefresh();
-                }
-            }
+            handleInventoryDataUpdate
         );
 
 
@@ -441,9 +332,33 @@
     }
 
 
-    /* ==========================================
-       SCHEDULE REFRESH
-    ========================================== */
+    function handleInventoryDataUpdate(
+        event
+    ) {
+
+        if (
+            !event ||
+            !event.detail
+        ) {
+
+            return;
+        }
+
+
+        const key =
+            event.detail.key;
+
+
+        if (
+            key === PRODUCTS_KEY ||
+            key === BRANCHES_KEY ||
+            key === ACTIVE_BRANCH_KEY
+        ) {
+
+            scheduleInventoryRefresh();
+        }
+    }
+
 
     function scheduleInventoryRefresh() {
 
@@ -459,16 +374,11 @@
                     loadProducts();
 
                     refreshInventory();
-
                 },
                 120
             );
     }
 
-
-    /* ==========================================
-       CATEGORY
-    ========================================== */
 
     function handleCategoryChange() {
 
@@ -477,6 +387,7 @@
             !customCategoryGroup ||
             !customProductCategory
         ) {
+
             return;
         }
 
@@ -532,6 +443,7 @@
     ) {
 
         if (!productCategory) {
+
             return;
         }
 
@@ -652,10 +564,6 @@
     }
 
 
-    /* ==========================================
-       PRODUCT IMAGE
-    ========================================== */
-
     function handleProductImage(
         event
     ) {
@@ -666,14 +574,19 @@
 
 
         if (!file) {
+
             return;
         }
 
 
         const allowedTypes = [
+
             "image/jpeg",
+
             "image/png",
+
             "image/webp"
+
         ];
 
 
@@ -713,8 +626,13 @@
             );
 
 
-            productImageInput.value =
-                "";
+            if (
+                productImageInput
+            ) {
+
+                productImageInput.value =
+                    "";
+            }
 
 
             return;
@@ -994,15 +912,6 @@
     }
 
 
-    /* ==========================================
-       LEGACY PRODUCT MIGRATION
-
-       IMPORTANT:
-       Old quantity always belongs to
-       Head Office, NOT whichever branch
-       happens to open Inventory.
-    ========================================== */
-
     function migrateProductsToBranchStock() {
 
         let changed =
@@ -1071,10 +980,6 @@
     }
 
 
-    /* ==========================================
-       SAVE PRODUCT
-    ========================================== */
-
     async function saveProduct(
         event
     ) {
@@ -1083,6 +988,7 @@
 
 
         if (saveInProgress) {
+
             return;
         }
 
@@ -1173,10 +1079,6 @@
         };
 
 
-        /* ======================================
-           VALIDATION
-        ====================================== */
-
         if (!productData.name) {
 
             alert(
@@ -1220,10 +1122,6 @@
             return;
         }
 
-
-        /* ======================================
-           DUPLICATE SKU
-        ====================================== */
 
         const duplicateSku =
             products.find(
@@ -1321,10 +1219,6 @@
             );
 
 
-            /*
-             * Sync ONLY this product.
-             */
-
             const cloudResult =
                 await syncSingleProductToCloud(
                     savedProduct
@@ -1382,10 +1276,6 @@
     }
 
 
-    /* ==========================================
-       CREATE PRODUCT
-    ========================================== */
-
     function createProduct(
         productData,
         branchQuantity,
@@ -1440,6 +1330,9 @@
                     branchStock
                 ),
 
+            localOnly:
+                true,
+
             createdAt:
                 now,
 
@@ -1456,10 +1349,6 @@
         return newProduct;
     }
 
-
-    /* ==========================================
-       UPDATE PRODUCT
-    ========================================== */
 
     function updateProduct(
         productData,
@@ -1484,7 +1373,8 @@
 
 
         if (
-            productIndex === -1
+            productIndex ===
+            -1
         ) {
 
             throw new Error(
@@ -1527,11 +1417,6 @@
             id:
                 existingProduct.id,
 
-            /*
-             * Keep old image unless user
-             * selected or removed it.
-             */
-
             image:
                 productImageData,
 
@@ -1564,10 +1449,6 @@
     }
 
 
-    /* ==========================================
-       CLOUD SAVE ONE PRODUCT
-    ========================================== */
-
     async function syncSingleProductToCloud(
         product
     ) {
@@ -1594,6 +1475,45 @@
 
             await cloud.saveProduct(
                 product
+            );
+
+
+            product.localOnly =
+                false;
+
+
+            products =
+                readProducts()
+                    .map(
+                        function (item) {
+
+                            if (
+                                String(
+                                    item.id
+                                ) ===
+                                String(
+                                    product.id
+                                )
+                            ) {
+
+                                return {
+
+                                    ...item,
+
+                                    localOnly:
+                                        false
+                                };
+                            }
+
+
+                            return item;
+                        }
+                    );
+
+
+            saveProductsLocally(
+                products,
+                true
             );
 
 
@@ -1653,6 +1573,7 @@
                             window.JufelixInventoryCloud
                         );
 
+
                         return;
                     }
 
@@ -1668,6 +1589,7 @@
                                 "Inventory Cloud did not become ready."
                             )
                         );
+
 
                         return;
                     }
@@ -1685,10 +1607,6 @@
         );
     }
 
-
-    /* ==========================================
-       EDIT PRODUCT
-    ========================================== */
 
     function editProduct(
         productId
@@ -1877,13 +1795,10 @@
 
     /* ==========================================
        DELETE PRODUCT
-
-       IMPORTANT:
-       Cloud deletion is intentionally not
-       performed yet.
+       FIREBASE + LOCAL + OTHER DEVICES
     ========================================== */
 
-    function deleteProduct(
+    async function deleteProduct(
         productId
     ) {
 
@@ -1913,72 +1828,134 @@
                 "Product not found."
             );
 
+
             return;
         }
 
 
         const confirmed =
             window.confirm(
-                `Remove "${product.name}" from this device?\n\nCloud deletion is currently disabled for safety.`
+                `Delete "${product.name}" permanently?\n\n` +
+                `This will remove it from Firebase and synchronized devices.`
             );
 
 
         if (!confirmed) {
+
             return;
         }
 
 
-        products =
-            products.filter(
-                function (item) {
+        if (
+            !navigator.onLine
+        ) {
 
-                    return (
-                        String(
-                            item.id
-                        ) !==
-                        String(
-                            productId
-                        )
-                    );
-                }
+            alert(
+                "You must be online to permanently delete a synchronized product."
             );
 
 
-        saveProductsLocally(
-            products,
-            false
-        );
-
-
-        if (
-            String(
-                editingProductId
-            ) ===
-            String(
-                productId
-            )
-        ) {
-
-            resetForm();
+            return;
         }
 
 
-        refreshInventory();
+        try {
+
+            const cloud =
+                await waitForInventoryCloud(
+                    15000
+                );
 
 
-        alert(
-            "Product removed locally. Firebase product was not deleted."
-        );
+            if (
+                typeof cloud.deleteProduct !==
+                "function"
+            ) {
+
+                throw new Error(
+                    "Inventory Cloud deletion is unavailable."
+                );
+            }
+
+
+            await cloud.deleteProduct(
+                product.id
+            );
+
+
+            products =
+                products.filter(
+                    function (item) {
+
+                        return (
+                            String(
+                                item.id
+                            ) !==
+                            String(
+                                product.id
+                            )
+                        );
+                    }
+                );
+
+
+            saveProductsLocally(
+                products,
+                true
+            );
+
+
+            if (
+                String(
+                    editingProductId
+                ) ===
+                String(
+                    product.id
+                )
+            ) {
+
+                resetForm();
+            }
+
+
+            refreshInventory();
+
+
+            alert(
+                "Product deleted successfully from Firebase and synchronized devices."
+            );
+
+
+        } catch (error) {
+
+            console.error(
+                "Product deletion failed:",
+                error
+            );
+
+
+            showCloudError(
+                error
+            );
+
+
+            alert(
+                "Product was not deleted.\n\n" +
+                (
+                    error &&
+                    error.message
+                        ? error.message
+                        : "Firebase deletion failed."
+                )
+            );
+        }
     }
 
-
-    /* ==========================================
-       DISPLAY PRODUCTS
-    ========================================== */
 
     function displayProducts() {
 
         if (!tableBody) {
+
             return;
         }
 
@@ -2159,10 +2136,6 @@
     }
 
 
-    /* ==========================================
-       PRODUCT ROW
-    ========================================== */
-
     function createProductRow(
         product,
         branchId
@@ -2244,7 +2217,6 @@
             <tr>
 
                 <td>
-
                     <div class="product-cell">
 
                         ${productImageHTML}
@@ -2268,9 +2240,7 @@
                         </div>
 
                     </div>
-
                 </td>
-
 
                 <td>
                     ${escapeHTML(
@@ -2279,7 +2249,6 @@
                     )}
                 </td>
 
-
                 <td>
                     ${escapeHTML(
                         product.brand ||
@@ -2287,20 +2256,17 @@
                     )}
                 </td>
 
-
                 <td>
                     ${formatMoney(
                         product.costPrice
                     )}
                 </td>
 
-
                 <td>
                     ${formatMoney(
                         product.sellingPrice
                     )}
                 </td>
-
 
                 <td>
                     ${formatNumber(
@@ -2312,13 +2278,11 @@
                     )}
                 </td>
 
-
                 <td>
                     <span class="stock-status ${stockClass}">
                         ${stockStatus}
                     </span>
                 </td>
-
 
                 <td>
                     ${
@@ -2332,7 +2296,6 @@
                             : "Inactive"
                     }
                 </td>
-
 
                 <td>
 
@@ -2362,10 +2325,6 @@
         `;
     }
 
-
-    /* ==========================================
-       SUMMARY
-    ========================================== */
 
     function updateInventorySummary() {
 
@@ -2466,13 +2425,10 @@
     }
 
 
-    /* ==========================================
-       CATEGORY FILTER
-    ========================================== */
-
     function updateCategoryFilter() {
 
         if (!categoryFilter) {
+
             return;
         }
 
@@ -2560,10 +2516,6 @@
     }
 
 
-    /* ==========================================
-       REFRESH
-    ========================================== */
-
     function refreshInventory() {
 
         products =
@@ -2578,16 +2530,13 @@
     }
 
 
-    /* ==========================================
-       BRANCH STOCK
-    ========================================== */
-
     function getBranchStock(
         product,
         branchId
     ) {
 
         if (!product) {
+
             return 0;
         }
 
@@ -2858,16 +2807,7 @@
     }
 
 
-    /* ==========================================
-       ACTIVE BRANCH
-    ========================================== */
-
     function getActiveBranchId() {
-
-        /*
-         * Active branch selected on the
-         * current device takes priority.
-         */
 
         const activeBranch =
             readStoredObject(
@@ -3010,6 +2950,7 @@
     ) {
 
         if (!value) {
+
             return null;
         }
 
@@ -3064,10 +3005,6 @@
             .toLowerCase();
     }
 
-
-    /* ==========================================
-       RESET FORM
-    ========================================== */
 
     function resetForm() {
 
@@ -3153,16 +3090,13 @@
     }
 
 
-    /* ==========================================
-       BUTTON STATE
-    ========================================== */
-
     function setSaveButtonState(
         saving,
         editing
     ) {
 
         if (!saveButton) {
+
             return;
         }
 
@@ -3187,10 +3121,6 @@
         }
     }
 
-
-    /* ==========================================
-       STORAGE
-    ========================================== */
 
     function loadProducts() {
 
@@ -3301,9 +3231,9 @@
                 error &&
                 (
                     error.name ===
-                    "QuotaExceededError" ||
+                        "QuotaExceededError" ||
                     error.name ===
-                    "NS_ERROR_DOM_QUOTA_REACHED"
+                        "NS_ERROR_DOM_QUOTA_REACHED"
                 )
             ) {
 
@@ -3375,7 +3305,7 @@
             return (
                 parsed &&
                 typeof parsed ===
-                "object" &&
+                    "object" &&
                 !Array.isArray(
                     parsed
                 )
@@ -3390,10 +3320,6 @@
         }
     }
 
-
-    /* ==========================================
-       CLOUD ERROR
-    ========================================== */
 
     function showCloudError(
         error
@@ -3476,16 +3402,11 @@
 
                     box.remove();
                 }
-
             },
             9000
         );
     }
 
-
-    /* ==========================================
-       FORM HELPERS
-    ========================================== */
 
     function getValue(
         id
@@ -3558,10 +3479,6 @@
         }
     }
 
-
-    /* ==========================================
-       FORMATTERS
-    ========================================== */
 
     function toNumber(
         value
@@ -3686,10 +3603,6 @@
             );
     }
 
-
-    /* ==========================================
-       PUBLIC API
-    ========================================== */
 
     window.JufelixInventory = {
 
