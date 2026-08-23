@@ -1156,57 +1156,15 @@
         );
 
 <!-- =========================================
-     JUFELIX ERP v7.0 PROFESSIONAL
-     DASHBOARD SCRIPTS
-========================================== -->
-
-
-<!-- =========================================
      FIREBASE CONFIGURATION
-========================================== -->
+========================================= -->
 
-<script
-    src="config/firebase-config.js?v=701"
-></script>
+<script src="config/firebase-config.js?v=701"></script>
 
 
 <!-- =========================================
-     JUFELIX ERP CORE FILES
-========================================== -->
-
-<script
-    src="js/core/storage.js?v=130"
-></script>
-
-<script
-    src="js/core/permissions.js?v=501"
-></script>
-
-<script
-    src="js/core/auth-guard.js?v=650"
-></script>
-
-<script
-    src="js/core/theme.js?v=580"
-></script>
-
-
-<!-- =========================================
-     SHARED COMPONENTS
-========================================== -->
-
-<script
-    src="js/components/sidebar.js?v=610"
-></script>
-
-<script
-    src="js/components/topbar.js?v=620"
-></script>
-
-
-<!-- =========================================
-     FIREBASE CONNECTION
-========================================== -->
+     FIREBASE
+========================================= -->
 
 <script
     type="module"
@@ -1215,40 +1173,42 @@
 
 
 <!-- =========================================
-     FIRESTORE CORE
-========================================== -->
+     CORE
+========================================= -->
+
+<script src="js/core/storage.js?v=501"></script>
+
+<script src="js/core/permissions.js?v=501"></script>
+
+<script src="js/core/auth-guard.js?v=650"></script>
+
+<script src="js/core/theme.js?v=580"></script>
+
+
+<!-- =========================================
+     COMPONENTS
+========================================= -->
+
+<script src="js/components/sidebar.js?v=610"></script>
+
+<script src="js/components/topbar.js?v=620"></script>
+
+
+<!-- =========================================
+     INVENTORY REALTIME CLOUD
+========================================= -->
 
 <script
     type="module"
-    src="js/core/firestore.js?v=1"
+    src="js/cloud/inventory-cloud.js?v=706"
 ></script>
 
 
 <!-- =========================================
-     DASHBOARD CLOUD
-     
-     Firebase → LocalStorage → Dashboard
-     
-     Realtime:
-     + Products
-     + Sales
-     + Expenses
-     + Customers
-     + Suppliers
-========================================== -->
+     DASHBOARD
+========================================= -->
 
-<script
-    src="js/cloud/dashboard-cloud.js?v=100"
-></script>
-
-
-<!-- =========================================
-     DASHBOARD MODULE
-========================================== -->
-
-<script
-    src="js/modules/dashboard.js?v=641"
-></script>
+<script src="js/modules/dashboard.js?v=642"></script>
 
 
 </body>
