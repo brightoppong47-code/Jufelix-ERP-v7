@@ -5,15 +5,15 @@
    File:
    js/modules/users.js
 
-   Version: 520
+   Version: 512
 
    + Firebase user creation
-   + Firebase profile updates
+   + Firebase profile update
    + Firebase profile deletion
    + Branch assignment
-   + Role normalization
+   + User statistics
    + LocalStorage mirror
-   + Safer edit/update flow
+   + Active / inactive user counters
 ========================================== */
 
 (function () {
@@ -39,7 +39,7 @@
     let editingId =
         null;
 
-    let elements =
+    let el =
         {};
 
 
@@ -47,10 +47,20 @@
        START
     ========================================== */
 
-    document.addEventListener(
-        "DOMContentLoaded",
-        initializeUsers
-    );
+    if (
+        document.readyState ===
+        "loading"
+    ) {
+
+        document.addEventListener(
+            "DOMContentLoaded",
+            initializeUsers
+        );
+
+    } else {
+
+        initializeUsers();
+    }
 
 
     /* ==========================================
@@ -61,16 +71,16 @@
 
         cacheElements();
 
-        ensureLocalAdmin();
+        ensureAdmin();
 
         loadBranches();
 
-        connectEvents();
+        bindEvents();
 
         renderUsers();
 
         console.log(
-            "✅ Jufelix Users module v520 loaded."
+            "✅ Jufelix Users v512 loaded."
         );
     }
 
@@ -81,7 +91,7 @@
 
     function cacheElements() {
 
-        elements = {
+        el = {
 
             form:
                 findElement(
@@ -180,6 +190,27 @@
                     "userMessage",
                     "usersMessage",
                     "formMessage"
+                ),
+
+            totalUsers:
+                findElement(
+                    "totalUsers",
+                    "usersTotal",
+                    "totalUserCount"
+                ),
+
+            activeUsers:
+                findElement(
+                    "activeUsers",
+                    "usersActive",
+                    "activeUserCount"
+                ),
+
+            inactiveUsers:
+                findElement(
+                    "inactiveUsers",
+                    "usersInactive",
+                    "inactiveUserCount"
                 )
         };
     }
@@ -214,13 +245,13 @@
        EVENTS
     ========================================== */
 
-    function connectEvents() {
+    function bindEvents() {
 
         if (
-            elements.form
+            el.form
         ) {
 
-            elements.form.addEventListener(
+            el.form.addEventListener(
                 "submit",
                 saveUser
             );
@@ -228,10 +259,10 @@
 
 
         if (
-            elements.reset
+            el.reset
         ) {
 
-            elements.reset.addEventListener(
+            el.reset.addEventListener(
                 "click",
                 function (
                     event
@@ -245,30 +276,37 @@
         }
 
 
-        [
-            elements.search,
-            elements.roleFilter,
-            elements.branchFilter
-        ]
-            .filter(Boolean)
-            .forEach(
-                function (
-                    element
-                ) {
+        if (
+            el.search
+        ) {
 
-                    const eventName =
-                        element.tagName ===
-                        "INPUT"
-                            ? "input"
-                            : "change";
-
-
-                    element.addEventListener(
-                        eventName,
-                        renderUsers
-                    );
-                }
+            el.search.addEventListener(
+                "input",
+                renderUsers
             );
+        }
+
+
+        if (
+            el.roleFilter
+        ) {
+
+            el.roleFilter.addEventListener(
+                "change",
+                renderUsers
+            );
+        }
+
+
+        if (
+            el.branchFilter
+        ) {
+
+            el.branchFilter.addEventListener(
+                "change",
+                renderUsers
+            );
+        }
 
 
         document.addEventListener(
@@ -284,17 +322,56 @@
 
                 if (
                     detail.key ===
-                    BRANCHES_KEY
+                    USERS_KEY
                 ) {
 
-                    loadBranches();
+                    renderUsers();
                 }
 
 
                 if (
                     detail.key ===
+                    BRANCHES_KEY
+                ) {
+
+                    loadBranches();
+
+                    renderUsers();
+                }
+            }
+        );
+
+
+        document.addEventListener(
+            "jufelix:user-cloud-saved",
+            function () {
+
+                renderUsers();
+            }
+        );
+
+
+        window.addEventListener(
+            "storage",
+            function (
+                event
+            ) {
+
+                if (
+                    event.key ===
                     USERS_KEY
                 ) {
+
+                    renderUsers();
+                }
+
+
+                if (
+                    event.key ===
+                    BRANCHES_KEY
+                ) {
+
+                    loadBranches();
 
                     renderUsers();
                 }
@@ -314,106 +391,90 @@
         event.preventDefault();
 
 
-        const selectedBranchId =
+        const branchId =
             getValue(
-                elements.branch
+                el.branch
             ) ||
             "head-office";
 
 
-        const branches =
+        const branch =
             readArray(
                 BRANCHES_KEY
-            );
+            )
+                .find(
+                    function (
+                        item
+                    ) {
+
+                        return (
+                            String(
+                                item.id
+                            ) ===
+                            String(
+                                branchId
+                            )
+                        );
+                    }
+                );
 
 
-        const selectedBranch =
-            branches.find(
-                function (
-                    branch
-                ) {
-
-                    return (
-                        String(
-                            branch.id
-                        ) ===
-                        String(
-                            selectedBranchId
-                        )
-                    );
-                }
-            );
-
-
-        const userData = {
+        const data = {
 
             fullName:
                 getValue(
-                    elements.fullName
+                    el.fullName
                 ),
 
             name:
                 getValue(
-                    elements.fullName
+                    el.fullName
                 ),
 
             email:
                 getValue(
-                    elements.email
+                    el.email
                 )
                     .toLowerCase(),
 
             phone:
                 getValue(
-                    elements.phone
+                    el.phone
                 ),
 
             username:
                 getValue(
-                    elements.username
+                    el.username
                 )
                     .toLowerCase(),
 
             password:
-                elements.password
-                    ? elements.password.value
+                el.password
+                    ? el.password.value
                     : "",
 
             role:
                 normalizeRole(
                     getValue(
-                        elements.role
+                        el.role
                     )
                 ),
 
             branchId:
-                selectedBranchId,
+                branchId,
 
             branchName:
-                selectedBranch
+                branch
                     ? (
-                        selectedBranch
-                            .branchName ||
-                        selectedBranch
-                            .name ||
+                        branch.branchName ||
+                        branch.name ||
                         "Branch"
                     )
-                    : (
-                        elements.branch &&
-                        elements.branch
-                            .selectedOptions &&
-                        elements.branch
-                            .selectedOptions[0]
-                            ? elements.branch
-                                .selectedOptions[0]
-                                .textContent
-                                .trim()
-                            : "Head Office"
-                    ),
+                    : "Head Office",
 
             status:
                 getValue(
-                    elements.status
+                    el.status
                 ) ||
                 "active"
         };
@@ -424,7 +485,7 @@
         ====================================== */
 
         if (
-            !userData.fullName
+            !data.fullName
         ) {
 
             showMessage(
@@ -437,10 +498,10 @@
 
 
         if (
-            !userData.email ||
+            !data.email ||
             !/^[^\s@]+@[^\s@]+\.[^\s@]+$/
                 .test(
-                    userData.email
+                    data.email
                 )
         ) {
 
@@ -454,17 +515,17 @@
 
 
         if (
-            !userData.username
+            !data.username
         ) {
 
-            userData.username =
-                userData.email
+            data.username =
+                data.email
                     .split("@")[0];
         }
 
 
         if (
-            !userData.role
+            !data.role
         ) {
 
             showMessage(
@@ -478,7 +539,7 @@
 
         if (
             !editingId &&
-            userData.password.length <
+            data.password.length <
                 6
         ) {
 
@@ -509,7 +570,7 @@
                             ""
                         )
                             .toLowerCase() ===
-                            userData.email &&
+                            data.email &&
 
                         String(
                             user.id
@@ -548,7 +609,7 @@
                             ""
                         )
                             .toLowerCase() ===
-                            userData.username &&
+                            data.username &&
 
                         String(
                             user.id
@@ -582,16 +643,14 @@
 
         try {
 
-            let cloudUser =
-                null;
+            const wasEditing =
+                Boolean(
+                    editingId
+                );
 
-
-            /* ==================================
-               CREATE NEW USER
-            ================================== */
 
             if (
-                !editingId
+                !wasEditing
             ) {
 
                 if (
@@ -608,55 +667,27 @@
                 }
 
 
-                cloudUser =
+                const cloudUser =
                     await window
                         .JufelixUsersCloud
                         .createUser(
-                            userData
+                            data
                         );
 
 
-                userData.id =
+                data.id =
                     String(
-                        (
-                            cloudUser &&
-                            (
-                                cloudUser.uid ||
-                                cloudUser.id
-                            )
-                        ) ||
-                        ""
+                        cloudUser.uid ||
+                        cloudUser.id
                     );
 
 
-                userData.uid =
-                    userData.id;
+                data.uid =
+                    data.id;
 
+            } else {
 
-                if (
-                    !userData.id
-                ) {
-
-                    throw new Error(
-                        "Firebase did not return a user ID."
-                    );
-                }
-            }
-
-
-            /* ==================================
-               UPDATE EXISTING USER
-            ================================== */
-
-            else {
-
-                userData.id =
-                    String(
-                        editingId
-                    );
-
-
-                const existingUser =
+                const existing =
                     users.find(
                         function (
                             user
@@ -674,11 +705,17 @@
                     );
 
 
-                userData.uid =
-                    existingUser
+                data.id =
+                    String(
+                        editingId
+                    );
+
+
+                data.uid =
+                    existing
                         ? (
-                            existingUser.uid ||
-                            existingUser.id
+                            existing.uid ||
+                            existing.id
                         )
                         : editingId;
 
@@ -691,13 +728,12 @@
                         "function"
                 ) {
 
-                    cloudUser =
-                        await window
-                            .JufelixUsersCloud
-                            .updateUser(
-                                userData.uid,
-                                userData
-                            );
+                    await window
+                        .JufelixUsersCloud
+                        .updateUser(
+                            data.uid,
+                            data
+                        );
                 }
             }
 
@@ -708,7 +744,7 @@
                 );
 
 
-            const existingIndex =
+            const index =
                 users.findIndex(
                     function (
                         user
@@ -719,8 +755,7 @@
                                 user.id
                             ) ===
                             String(
-                                editingId ||
-                                userData.id
+                                data.id
                             )
                         );
                     }
@@ -735,25 +770,25 @@
             const record = {
 
                 ...(
-                    existingIndex >=
+                    index >=
                     0
                         ? users[
-                            existingIndex
+                            index
                         ]
                         : {}
                 ),
 
-                ...userData,
+                ...data,
 
                 id:
                     String(
-                        userData.id
+                        data.id
                     ),
 
                 uid:
                     String(
-                        userData.uid ||
-                        userData.id
+                        data.uid ||
+                        data.id
                     ),
 
                 updatedAt:
@@ -761,41 +796,31 @@
             };
 
 
-            /*
-             * Password is needed only while
-             * creating Firebase Authentication.
-             * Do not keep a new blank password
-             * during editing.
-             */
-
             if (
-                existingIndex >=
-                0 &&
-                !userData.password
-            ) {
-
-                record.password =
-                    users[
-                        existingIndex
-                    ].password ||
-                    "";
-            }
-
-
-            if (
-                existingIndex >=
+                index >=
                 0
             ) {
 
+                if (
+                    !data.password
+                ) {
+
+                    record.password =
+                        users[
+                            index
+                        ].password ||
+                        "";
+                }
+
+
                 users[
-                    existingIndex
+                    index
                 ] =
                     record;
 
             } else {
 
                 record.createdAt =
-                    record.createdAt ||
                     now;
 
 
@@ -805,18 +830,8 @@
             }
 
 
-            saveUsers(
+            writeUsers(
                 users
-            );
-
-
-            showMessage(
-
-                editingId
-                    ? "User updated successfully."
-                    : "User created successfully.",
-
-                "success"
             );
 
 
@@ -825,9 +840,17 @@
             renderUsers();
 
 
-        } catch (
-            error
-        ) {
+            showMessage(
+
+                wasEditing
+                    ? "User updated successfully."
+                    : "User created successfully.",
+
+                "success"
+            );
+
+
+        } catch (error) {
 
             console.error(
                 "User save failed:",
@@ -853,128 +876,105 @@
 
 
     /* ==========================================
-       LOAD BRANCHES
+       USER STATISTICS
     ========================================== */
 
-    function loadBranches() {
+    function updateUserStatistics() {
 
-        if (
-            !elements.branch
-        ) {
-
-            return;
-        }
-
-
-        const previousValue =
-            elements.branch.value;
-
-
-        let branches =
+        const users =
             readArray(
-                BRANCHES_KEY
+                USERS_KEY
             );
 
 
-        if (
-            !branches.some(
+        const totalUsers =
+            users.length;
+
+
+        const activeUsers =
+            users.filter(
                 function (
-                    branch
+                    user
                 ) {
 
                     return (
                         String(
-                            branch.id
-                        ) ===
-                        "head-office"
-                    );
-                }
-            )
-        ) {
-
-            branches.unshift({
-
-                id:
-                    "head-office",
-
-                name:
-                    "Head Office",
-
-                branchName:
-                    "Head Office",
-
-                status:
-                    "active"
-            });
-        }
-
-
-        const activeBranches =
-            branches.filter(
-                function (
-                    branch
-                ) {
-
-                    return (
-                        String(
-                            branch.status ||
+                            user.status ||
                             "active"
                         )
+                            .trim()
                             .toLowerCase() ===
                         "active"
                     );
                 }
-            );
+            ).length;
 
 
-        elements.branch.innerHTML =
-            '<option value="">Select Branch</option>' +
-            activeBranches
-                .map(
-                    function (
-                        branch
-                    ) {
-
-                        return (
-                            '<option value="' +
-                            escapeHTML(
-                                branch.id
-                            ) +
-                            '">' +
-                            escapeHTML(
-                                branch.branchName ||
-                                branch.name ||
-                                "Branch"
-                            ) +
-                            "</option>"
-                        );
-                    }
-                )
-                .join("");
-
-
-        if (
-            previousValue &&
-            activeBranches.some(
+        const inactiveUsers =
+            users.filter(
                 function (
-                    branch
+                    user
                 ) {
 
                     return (
                         String(
-                            branch.id
-                        ) ===
-                        String(
-                            previousValue
+                            user.status ||
+                            ""
                         )
+                            .trim()
+                            .toLowerCase() ===
+                        "inactive"
                     );
                 }
-            )
+            ).length;
+
+
+        if (
+            el.totalUsers
         ) {
 
-            elements.branch.value =
-                previousValue;
+            el.totalUsers.textContent =
+                String(
+                    totalUsers
+                );
         }
+
+
+        if (
+            el.activeUsers
+        ) {
+
+            el.activeUsers.textContent =
+                String(
+                    activeUsers
+                );
+        }
+
+
+        if (
+            el.inactiveUsers
+        ) {
+
+            el.inactiveUsers.textContent =
+                String(
+                    inactiveUsers
+                );
+        }
+
+
+        console.log(
+            "Users statistics:",
+            {
+                total:
+                    totalUsers,
+
+                active:
+                    activeUsers,
+
+                inactive:
+                    inactiveUsers
+            }
+        );
     }
 
 
@@ -984,8 +984,11 @@
 
     function renderUsers() {
 
+        updateUserStatistics();
+
+
         if (
-            !elements.tbody
+            !el.tbody
         ) {
 
             return;
@@ -1000,7 +1003,7 @@
 
         const search =
             getValue(
-                elements.search
+                el.search
             )
                 .toLowerCase();
 
@@ -1008,14 +1011,14 @@
         const roleFilter =
             normalizeRole(
                 getValue(
-                    elements.roleFilter
+                    el.roleFilter
                 )
             );
 
 
         const branchFilter =
             getValue(
-                elements.branchFilter
+                el.branchFilter
             );
 
 
@@ -1079,23 +1082,30 @@
 
 
         if (
-            !users.length
+            users.length ===
+            0
         ) {
 
-            elements.tbody.innerHTML =
-                '<tr>' +
-                '<td colspan="8" ' +
-                'style="text-align:center;padding:28px">' +
-                "No users found." +
-                "</td>" +
-                "</tr>";
+            el.tbody.innerHTML = `
+                <tr>
+                    <td
+                        colspan="8"
+                        style="
+                            text-align:center;
+                            padding:28px;
+                        "
+                    >
+                        No users found.
+                    </td>
+                </tr>
+            `;
 
 
             return;
         }
 
 
-        elements.tbody.innerHTML =
+        el.tbody.innerHTML =
             users
                 .map(
                     function (
@@ -1150,6 +1160,7 @@
                                 </td>
 
                                 <td>
+
                                     <button
                                         type="button"
                                         data-edit="${escapeHTML(
@@ -1158,9 +1169,11 @@
                                     >
                                         Edit
                                     </button>
+
                                 </td>
 
                                 <td>
+
                                     <button
                                         type="button"
                                         data-delete="${escapeHTML(
@@ -1169,6 +1182,7 @@
                                     >
                                         Delete
                                     </button>
+
                                 </td>
 
                             </tr>
@@ -1178,7 +1192,7 @@
                 .join("");
 
 
-        elements.tbody
+        el.tbody
             .querySelectorAll(
                 "[data-edit]"
             )
@@ -1187,19 +1201,21 @@
                     button
                 ) {
 
-                    button.onclick =
+                    button.addEventListener(
+                        "click",
                         function () {
 
                             editUser(
                                 button.dataset
                                     .edit
                             );
-                        };
+                        }
+                    );
                 }
             );
 
 
-        elements.tbody
+        el.tbody
             .querySelectorAll(
                 "[data-delete]"
             )
@@ -1208,14 +1224,16 @@
                     button
                 ) {
 
-                    button.onclick =
+                    button.addEventListener(
+                        "click",
                         function () {
 
                             deleteUser(
                                 button.dataset
                                     .delete
                             );
-                        };
+                        }
+                    );
                 }
             );
     }
@@ -1265,72 +1283,72 @@
             user.id;
 
 
-        setElementValue(
-            elements.fullName,
+        setValue(
+            el.fullName,
             user.fullName ||
             user.name
         );
 
 
-        setElementValue(
-            elements.email,
+        setValue(
+            el.email,
             user.email
         );
 
 
-        setElementValue(
-            elements.phone,
+        setValue(
+            el.phone,
             user.phone
         );
 
 
-        setElementValue(
-            elements.username,
+        setValue(
+            el.username,
             user.username
         );
 
 
-        setElementValue(
-            elements.role,
+        setValue(
+            el.role,
             normalizeRole(
                 user.role
             )
         );
 
 
-        setElementValue(
-            elements.branch,
+        setValue(
+            el.branch,
             user.branchId
         );
 
 
-        setElementValue(
-            elements.status,
+        setValue(
+            el.status,
             user.status ||
             "active"
         );
 
 
         if (
-            elements.password
+            el.password
         ) {
 
-            elements.password.value =
+            el.password.value =
                 "";
 
-            elements.password.required =
+            el.password.required =
                 false;
 
-            elements.password.placeholder =
-                "Leave blank to keep existing password";
+            el.password.placeholder =
+                "Leave blank to keep current password";
         }
 
 
         if (
-            elements.save
+            el.save
         ) {
 
-            elements.save.textContent =
+            el.save.textContent =
                 "💾 Update User";
         }
     }
@@ -1393,7 +1411,7 @@
 
 
         const confirmed =
-            window.confirm(
+            confirm(
                 "Delete " +
                 (
                     user.fullName ||
@@ -1447,7 +1465,7 @@
                 );
 
 
-            saveUsers(
+            writeUsers(
                 users
             );
 
@@ -1480,6 +1498,140 @@
 
 
     /* ==========================================
+       LOAD BRANCHES
+    ========================================== */
+
+    function loadBranches() {
+
+        const branches =
+            readArray(
+                BRANCHES_KEY
+            );
+
+
+        const activeBranches =
+            branches.filter(
+                function (
+                    branch
+                ) {
+
+                    return (
+                        String(
+                            branch.status ||
+                            "active"
+                        )
+                            .toLowerCase() ===
+                        "active"
+                    );
+                }
+            );
+
+
+        if (
+            el.branch
+        ) {
+
+            const previous =
+                el.branch.value;
+
+
+            el.branch.innerHTML =
+                '<option value="">Select Branch</option>' +
+                activeBranches
+                    .map(
+                        function (
+                            branch
+                        ) {
+
+                            return `
+                                <option
+                                    value="${escapeHTML(
+                                        branch.id
+                                    )}"
+                                >
+                                    ${escapeHTML(
+                                        branch.branchName ||
+                                        branch.name ||
+                                        "Branch"
+                                    )}
+                                </option>
+                            `;
+                        }
+                    )
+                    .join("");
+
+
+            if (
+                previous &&
+                activeBranches.some(
+                    function (
+                        branch
+                    ) {
+
+                        return (
+                            String(
+                                branch.id
+                            ) ===
+                            String(
+                                previous
+                            )
+                        );
+                    }
+                )
+            ) {
+
+                el.branch.value =
+                    previous;
+            }
+        }
+
+
+        if (
+            el.branchFilter
+        ) {
+
+            const previous =
+                el.branchFilter.value;
+
+
+            el.branchFilter.innerHTML =
+                '<option value="">All Branches</option>' +
+                activeBranches
+                    .map(
+                        function (
+                            branch
+                        ) {
+
+                            return `
+                                <option
+                                    value="${escapeHTML(
+                                        branch.id
+                                    )}"
+                                >
+                                    ${escapeHTML(
+                                        branch.branchName ||
+                                        branch.name ||
+                                        "Branch"
+                                    )}
+                                </option>
+                            `;
+                        }
+                    )
+                    .join("");
+
+
+            if (
+                previous
+            ) {
+
+                el.branchFilter.value =
+                    previous;
+            }
+        }
+    }
+
+
+    /* ==========================================
        RESET FORM
     ========================================== */
 
@@ -1490,49 +1642,49 @@
 
 
         if (
-            elements.form
+            el.form
         ) {
 
-            elements.form.reset();
+            el.form.reset();
         }
 
 
         if (
-            elements.password
+            el.password
         ) {
 
-            elements.password.required =
+            el.password.required =
                 true;
 
-            elements.password.placeholder =
+            el.password.placeholder =
                 "Enter password";
         }
 
 
         if (
-            elements.status
+            el.status
         ) {
 
-            elements.status.value =
+            el.status.value =
                 "active";
         }
 
 
         if (
-            elements.save
+            el.save
         ) {
 
-            elements.save.textContent =
+            el.save.textContent =
                 "💾 Save User";
         }
     }
 
 
     /* ==========================================
-       LOCAL ADMIN
+       DEFAULT ADMIN
     ========================================== */
 
-    function ensureLocalAdmin() {
+    function ensureAdmin() {
 
         let users =
             readArray(
@@ -1601,7 +1753,7 @@
         });
 
 
-        saveUsers(
+        writeUsers(
             users
         );
     }
@@ -1652,7 +1804,7 @@
     }
 
 
-    function saveUsers(
+    function writeUsers(
         users
     ) {
 
@@ -1701,76 +1853,56 @@
 
 
     /* ==========================================
-       ROLE NORMALIZATION
+       ROLE
     ========================================== */
 
     function normalizeRole(
         value
     ) {
 
-        const role =
+        let role =
             String(
                 value ||
                 ""
             )
                 .trim()
-                .toLowerCase()
-                .replace(
-                    /_/g,
-                    "-"
-                )
-                .replace(
-                    /\s+/g,
-                    "-"
-                );
+                .toLowerCase();
 
 
         const aliases = {
 
-            admin:
-                "admin",
-
             administrator:
                 "admin",
 
-            "system-administrator":
+            admin:
                 "admin",
 
             manager:
                 "manager",
 
-            "branch-manager":
-                "manager",
-
             sales:
-                "sales-officer",
+                "sales",
 
-            salesperson:
-                "sales-officer",
-
-            "sales-person":
-                "sales-officer",
-
-            "sales-personnel":
-                "sales-officer",
+            "sales officer":
+                "sales",
 
             "sales-officer":
-                "sales-officer",
+                "sales",
+
+            "sales personnel":
+                "sales",
 
             cashier:
                 "cashier",
 
             stockkeeper:
-                "store-keeper",
+                "stockkeeper",
 
-            "stock-keeper":
-                "store-keeper",
+            "stock keeper":
+                "stockkeeper",
 
-            storekeeper:
-                "store-keeper",
-
-            "store-keeper":
-                "store-keeper",
+            "store keeper":
+                "stockkeeper",
 
             accountant:
                 "accountant"
@@ -1804,14 +1936,14 @@
             manager:
                 "Manager",
 
-            "sales-officer":
+            sales:
                 "Sales Officer",
 
             cashier:
                 "Cashier",
 
-            "store-keeper":
-                "Store Keeper",
+            stockkeeper:
+                "Stock Keeper",
 
             accountant:
                 "Accountant"
@@ -1845,7 +1977,7 @@
     }
 
 
-    function setElementValue(
+    function setValue(
         element,
         value
     ) {
@@ -1866,23 +1998,23 @@
 
 
     function setSaving(
-        saving
+        state
     ) {
 
         if (
-            !elements.save
+            !el.save
         ) {
 
             return;
         }
 
 
-        elements.save.disabled =
-            saving;
+        el.save.disabled =
+            state;
 
 
-        elements.save.textContent =
-            saving
+        el.save.textContent =
+            state
                 ? "Saving..."
                 : (
                     editingId
@@ -1934,16 +2066,6 @@
         }
 
 
-        if (
-            code.includes(
-                "requires-recent-login"
-            )
-        ) {
-
-            return "Firebase requires the account to sign in again before this operation.";
-        }
-
-
         return (
             error &&
             error.message
@@ -1959,19 +2081,18 @@
     ) {
 
         if (
-            elements.message
+            el.message
         ) {
 
-            elements.message.textContent =
+            el.message.textContent =
                 text;
 
-            elements.message.className =
+            el.message.className =
                 "user-message " +
                 type;
 
-            elements.message.style.display =
+            el.message.style.display =
                 "block";
-
 
         } else {
 
@@ -2026,14 +2147,17 @@
         refresh:
             renderUsers,
 
-        resetForm:
-            resetForm,
-
         editUser:
             editUser,
 
         deleteUser:
-            deleteUser
+            deleteUser,
+
+        resetForm:
+            resetForm,
+
+        updateStats:
+            updateUserStatistics
     };
 
 
