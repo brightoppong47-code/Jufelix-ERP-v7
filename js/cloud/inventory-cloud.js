@@ -14,11 +14,14 @@
    + Preserves local Base64 product images
    + No automatic full local inventory upload
    + Prevents stale startup overwrite
+   + Permanent cloud product deletion
+   + Two-way inventory synchronization
 ========================================== */
 
 
 import {
     collection,
+    deleteDoc,
     doc,
     getDoc,
     onSnapshot,
@@ -67,11 +70,6 @@ let productsUnsubscribe =
 
 async function getFirebase() {
 
-    /*
-     * Preferred Firebase helper from
-     * js/core/firebase.js
-     */
-
     if (
         typeof window
             .waitForJufelixFirebase ===
@@ -97,10 +95,6 @@ async function getFirebase() {
         return firebase;
     }
 
-
-    /*
-     * Compatibility fallback.
-     */
 
     return new Promise(
         function (
@@ -311,10 +305,6 @@ function readObject(
 
 function getActiveBranchId() {
 
-    /*
-     * Device-selected branch has priority.
-     */
-
     const activeBranch =
         readObject(
             ACTIVE_BRANCH_KEY
@@ -338,10 +328,6 @@ function getActiveBranchId() {
         }
     }
 
-
-    /*
-     * Then use current user's branch.
-     */
 
     const currentUser =
         readObject(
@@ -533,11 +519,6 @@ function prepareProductForCloud(
         ) || {};
 
 
-    /*
-     * Do not store large Base64 images
-     * inside Firestore.
-     */
-
     [
         "image",
         "imageData",
@@ -577,14 +558,6 @@ function prepareProductForCloud(
 
 /* ==========================================
    SAVE ONE PRODUCT SAFELY
-
-   IMPORTANT:
-   When editing Inventory at one branch,
-   only that branch's quantity should replace
-   its Firestore quantity.
-
-   Stock belonging to other branches is
-   preserved from Firestore.
 ========================================== */
 
 async function saveProduct(
@@ -639,10 +612,6 @@ async function saveProduct(
     );
 
 
-    /*
-     * Read the newest cloud copy first.
-     */
-
     const cloudSnapshot =
         await getDoc(
             productRef
@@ -668,20 +637,11 @@ async function saveProduct(
             );
 
 
-        /*
-         * Start from latest Firebase stock.
-         */
-
         finalBranchStock = {
 
             ...cloudBranchStock
         };
 
-
-        /*
-         * Replace ONLY the active branch
-         * quantity from this device.
-         */
 
         if (
             Object.prototype
@@ -719,11 +679,6 @@ async function saveProduct(
 
 
     } else {
-
-        /*
-         * Brand-new product:
-         * local branchStock is authoritative.
-         */
 
         finalBranchStock = {
 
@@ -799,6 +754,64 @@ async function saveProduct(
 
         console.error(
             "❌ Inventory product save failed:",
+            error
+        );
+
+
+        throw createFriendlyError(
+            error
+        );
+    }
+}
+
+
+/* ==========================================
+   DELETE PRODUCT FROM FIREBASE
+========================================== */
+
+async function deleteProduct(
+    productId
+) {
+
+    if (!productId) {
+
+        throw new Error(
+            "Product ID is required."
+        );
+    }
+
+
+    const firebase =
+        await getFirebase();
+
+
+    try {
+
+        await deleteDoc(
+
+            doc(
+                firebase.db,
+                COLLECTION_NAME,
+                String(
+                    productId
+                )
+            )
+        );
+
+
+        console.log(
+            "✅ Product deleted from Firebase:",
+            productId
+        );
+
+
+        return true;
+
+
+    } catch (error) {
+
+        console.error(
+            "❌ Firebase product deletion failed:",
             error
         );
 
@@ -889,14 +902,6 @@ async function startRealtimeListener() {
                 );
 
 
-                /*
-                 * Notify all ERP modules.
-                 *
-                 * source:"cloud" prevents a
-                 * cloud-download → cloud-upload loop
-                 * in modules that respect it.
-                 */
-
                 dispatchDataUpdated(
                     PRODUCTS_KEY,
                     mergedProducts,
@@ -948,6 +953,14 @@ async function startRealtimeListener() {
 
 /* ==========================================
    SAFE CLOUD → LOCAL MERGE
+
+   IMPORTANT:
+   Products removed from Firebase are also
+   removed from localStorage.
+
+   Local products are retained only when they
+   have not yet been uploaded and are marked
+   as local-only.
 ========================================== */
 
 function mergeProductsSafely(
@@ -955,51 +968,9 @@ function mergeProductsSafely(
     cloudProducts
 ) {
 
-    const productMap =
+    const cloudMap =
         new Map();
 
-
-    /*
-     * Start with local data so device-local
-     * images remain available.
-     */
-
-    (
-        Array.isArray(
-            localProducts
-        )
-            ? localProducts
-            : []
-    ).forEach(
-        function (product) {
-
-            if (
-                !product ||
-                !product.id
-            ) {
-
-                return;
-            }
-
-
-            productMap.set(
-
-                String(
-                    product.id
-                ),
-
-                {
-                    ...product
-                }
-            );
-        }
-    );
-
-
-    /*
-     * Firebase data is authoritative for
-     * business fields and branch quantities.
-     */
 
     (
         Array.isArray(
@@ -1021,14 +992,59 @@ function mergeProductsSafely(
             }
 
 
-            const productId =
+            cloudMap.set(
                 String(
                     cloudProduct.id
-                );
+                ),
+                cloudProduct
+            );
+        }
+    );
 
+
+    const localMap =
+        new Map();
+
+
+    (
+        Array.isArray(
+            localProducts
+        )
+            ? localProducts
+            : []
+    ).forEach(
+        function (
+            product
+        ) {
+
+            if (
+                product &&
+                product.id
+            ) {
+
+                localMap.set(
+                    String(
+                        product.id
+                    ),
+                    product
+                );
+            }
+        }
+    );
+
+
+    const result =
+        [];
+
+
+    cloudMap.forEach(
+        function (
+            cloudProduct,
+            productId
+        ) {
 
             const localProduct =
-                productMap.get(
+                localMap.get(
                     productId
                 ) ||
                 {};
@@ -1060,24 +1076,9 @@ function mergeProductsSafely(
                 "";
 
 
-            /*
-             * IMPORTANT:
-             *
-             * Cloud branchStock is authoritative
-             * when it exists.
-             *
-             * We do NOT merge stale local branch
-             * quantities over Firebase quantities.
-             */
-
             let finalBranchStock =
                 cloudBranchStock;
 
-
-            /*
-             * Compatibility for an old cloud
-             * product with no branchStock.
-             */
 
             if (
                 Object.keys(
@@ -1134,11 +1135,6 @@ function mergeProductsSafely(
             };
 
 
-            /*
-             * Preserve local Base64 product image
-             * when Firestore does not contain one.
-             */
-
             if (cloudImage) {
 
                 mergedProduct.image =
@@ -1151,17 +1147,48 @@ function mergeProductsSafely(
             }
 
 
-            productMap.set(
-                productId,
+            result.push(
                 mergedProduct
             );
         }
     );
 
 
-    return Array.from(
-        productMap.values()
+    /*
+     * Preserve local-only products that
+     * have never reached Firebase.
+     */
+
+    localMap.forEach(
+        function (
+            localProduct,
+            productId
+        ) {
+
+            if (
+                cloudMap.has(
+                    productId
+                )
+            ) {
+
+                return;
+            }
+
+
+            if (
+                localProduct.localOnly ===
+                true
+            ) {
+
+                result.push(
+                    localProduct
+                );
+            }
+        }
     );
+
+
+    return result;
 }
 
 
@@ -1191,25 +1218,9 @@ function removeCloudFields(
 
 /* ==========================================
    MANUAL SYNC
-
-   IMPORTANT:
-   This does NOT upload every local product.
-
-   It refreshes the cloud connection/listener.
 ========================================== */
 
 async function syncLocal() {
-
-    /*
-     * Kept for compatibility with other
-     * Jufelix modules that may call:
-     *
-     * JufelixInventoryCloud.syncLocal()
-     *
-     * We deliberately DO NOT upload the full
-     * local inventory here.
-     */
-
 
     await getFirebase();
 
@@ -1292,16 +1303,6 @@ window.addEventListener(
 
 /* ==========================================
    ERP DATA EVENT
-
-   IMPORTANT:
-   We DO NOT automatically upload the entire
-   products array when PRODUCTS_KEY changes.
-
-   Inventory.js now explicitly calls
-   saveProduct(product).
-
-   Sales, Transfers and Purchases use their
-   own cloud bridges.
 ========================================== */
 
 document.addEventListener(
@@ -1469,7 +1470,7 @@ function createFriendlyError(
     ) {
 
         return new Error(
-            "Firebase rejected the inventory update because this user does not have permission to write products."
+            "Firebase rejected the inventory operation because this user does not have permission."
         );
     }
 
@@ -1618,6 +1619,9 @@ window.JufelixInventoryCloud = {
     saveProduct:
         saveProduct,
 
+    deleteProduct:
+        deleteProduct,
+
     syncLocal:
         syncLocal,
 
@@ -1670,13 +1674,6 @@ async function startInventoryCloud() {
         );
 
 
-        /*
-         * DOWNLOAD FIRST.
-         *
-         * We intentionally do not push the
-         * local inventory during startup.
-         */
-
         await startRealtimeListener();
 
 
@@ -1718,11 +1715,6 @@ async function startInventoryCloud() {
             "error"
         );
 
-
-        /*
-         * Still expose the ready event so
-         * Inventory can remain usable offline.
-         */
 
         document.dispatchEvent(
 
