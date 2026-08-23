@@ -1,9 +1,19 @@
 /* ==========================================
    JUFELIX ERP v7.0 PROFESSIONAL
-   EXPENSES CLOUD BRIDGE
+   AUTHENTICATED EXPENSES CLOUD BRIDGE
 
    File:
    js/cloud/expenses-cloud.js
+
+   Version: 701
+
+   + Firebase Authentication aware
+   + Expense create/update sync
+   + Expense delete sync
+   + Realtime Firebase downloads
+   + Safe local/cloud merge
+   + Prevents cloud sync loops
+   + APK / Acode friendly
 ========================================== */
 
 import {
@@ -16,22 +26,57 @@ import {
 } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js";
 
 
+/* ==========================================
+   STORAGE KEY
+========================================== */
+
 const EXPENSES_KEY =
     "jufelix_v7_expenses";
 
 
-let db = null;
+/* ==========================================
+   STATE
+========================================== */
 
-let stopExpenses = null;
+let stopExpenses =
+    null;
+
+let listenerStarted =
+    false;
 
 
 /* ==========================================
-   FIREBASE READY
+   AUTHENTICATED FIREBASE READY
 ========================================== */
 
-function waitForDb(
-    timeout = 15000
-) {
+async function getFirebase() {
+
+    /*
+     * Preferred helper from:
+     * js/core/firebase.js
+     */
+
+    if (
+        typeof window
+            .waitForJufelixFirebase ===
+        "function"
+    ) {
+
+        return await window
+            .waitForJufelixFirebase({
+
+                requireUser:
+                    true,
+
+                timeout:
+                    20000
+            });
+    }
+
+
+    /*
+     * Compatibility fallback.
+     */
 
     return new Promise(
         function (
@@ -45,16 +90,32 @@ function waitForDb(
 
             function check() {
 
+                const firebase =
+                    window.JufelixFirebase;
+
+
                 if (
-                    window.JufelixFirebase &&
-                    window.JufelixFirebase.db
+                    firebase &&
+                    firebase.error
                 ) {
 
-                    db =
-                        window.JufelixFirebase.db;
+                    reject(
+                        firebase.error
+                    );
+
+                    return;
+                }
+
+
+                if (
+                    firebase &&
+                    firebase.db &&
+                    firebase.auth &&
+                    firebase.auth.currentUser
+                ) {
 
                     resolve(
-                        db
+                        firebase
                     );
 
                     return;
@@ -64,12 +125,12 @@ function waitForDb(
                 if (
                     Date.now() -
                     startedAt >
-                    timeout
+                    20000
                 ) {
 
                     reject(
                         new Error(
-                            "Firebase database was not ready."
+                            "Firebase Authentication is not ready."
                         )
                     );
 
@@ -77,7 +138,7 @@ function waitForDb(
                 }
 
 
-                setTimeout(
+                window.setTimeout(
                     check,
                     100
                 );
@@ -91,7 +152,7 @@ function waitForDb(
 
 
 /* ==========================================
-   CLEAN DATA
+   CLEAN FIRESTORE DATA
 ========================================== */
 
 function cleanValue(
@@ -108,7 +169,8 @@ function cleanValue(
 
     if (
         value === null ||
-        typeof value !== "object"
+        typeof value !==
+            "object"
     ) {
 
         return value;
@@ -127,7 +189,8 @@ function cleanValue(
     }
 
 
-    const result = {};
+    const result =
+        {};
 
 
     Object.keys(
@@ -156,35 +219,6 @@ function cleanValue(
 
 
 /* ==========================================
-   FIREBASE ERROR
-========================================== */
-
-function reportError(
-    operation,
-    error
-) {
-
-    console.error(
-        "❌ Expenses Firebase error:",
-        operation,
-        error
-    );
-
-
-    if (
-        error &&
-        error.code ===
-        "permission-denied"
-    ) {
-
-        console.error(
-            "Firestore rules rejected the Expenses operation."
-        );
-    }
-}
-
-
-/* ==========================================
    SAVE / UPDATE EXPENSE
 ========================================== */
 
@@ -192,27 +226,34 @@ async function saveExpense(
     expense
 ) {
 
+    if (
+        !expense ||
+        !expense.id
+    ) {
+
+        throw new Error(
+            "Expense ID is missing."
+        );
+    }
+
+
+    const firebase =
+        await getFirebase();
+
+
     try {
 
-        const database =
-            await waitForDb();
-
-
-        if (
-            !expense ||
-            !expense.id
-        ) {
-
-            throw new Error(
-                "Expense ID is missing."
-            );
-        }
+        console.log(
+            "☁️ Uploading expense:",
+            expense.expenseNumber ||
+            expense.id
+        );
 
 
         await setDoc(
 
             doc(
-                database,
+                firebase.db,
                 "expenses",
                 String(
                     expense.id
@@ -220,9 +261,15 @@ async function saveExpense(
             ),
 
             {
+
                 ...cleanValue(
                     expense
                 ),
+
+                id:
+                    String(
+                        expense.id
+                    ),
 
                 cloudUpdatedAt:
                     serverTimestamp()
@@ -236,18 +283,31 @@ async function saveExpense(
 
 
         console.log(
-            "✅ Expense synced to Firebase:",
+            "✅ EXPENSE SAVED TO FIREBASE:",
             expense.expenseNumber ||
             expense.id
+        );
+
+
+        document.dispatchEvent(
+
+            new CustomEvent(
+                "jufelix:expense-cloud-saved",
+                {
+                    detail: {
+
+                        expense:
+                            expense
+                    }
+                }
+            )
         );
 
 
         return true;
 
 
-    } catch (
-        error
-    ) {
+    } catch (error) {
 
         reportError(
             "SAVE EXPENSE",
@@ -268,23 +328,24 @@ async function deleteExpense(
     expenseId
 ) {
 
+    if (!expenseId) {
+
+        throw new Error(
+            "Expense ID is missing."
+        );
+    }
+
+
+    const firebase =
+        await getFirebase();
+
+
     try {
 
-        const database =
-            await waitForDb();
-
-
-        if (!expenseId) {
-
-            throw new Error(
-                "Expense ID is missing."
-            );
-        }
-
-
         await deleteDoc(
+
             doc(
-                database,
+                firebase.db,
                 "expenses",
                 String(
                     expenseId
@@ -302,9 +363,7 @@ async function deleteExpense(
         return true;
 
 
-    } catch (
-        error
-    ) {
+    } catch (error) {
 
         reportError(
             "DELETE EXPENSE",
@@ -323,7 +382,7 @@ async function deleteExpense(
 
 async function syncLocal() {
 
-    await waitForDb();
+    await getFirebase();
 
 
     const expenses =
@@ -333,14 +392,13 @@ async function syncLocal() {
 
 
     console.log(
-        "☁️ Expenses waiting for cloud sync:",
+        "☁️ Expenses waiting for sync:",
         expenses.length
     );
 
 
     let successful =
         0;
-
 
     let failed =
         0;
@@ -370,9 +428,7 @@ async function syncLocal() {
             successful++;
 
 
-        } catch (
-            error
-        ) {
+        } catch (error) {
 
             failed++;
         }
@@ -380,7 +436,7 @@ async function syncLocal() {
 
 
     console.log(
-        "Expenses cloud sync finished:",
+        "☁️ Expense sync completed:",
         {
             successful,
             failed
@@ -389,6 +445,7 @@ async function syncLocal() {
 
 
     return {
+
         successful,
         failed
     };
@@ -403,17 +460,30 @@ function listen(
     onChange
 ) {
 
+    if (
+        listenerStarted
+    ) {
+
+        return function () {};
+    }
+
+
+    listenerStarted =
+        true;
+
+
     let cancelled =
         false;
 
 
-    waitForDb()
+    getFirebase()
         .then(
             function (
-                database
+                firebase
             ) {
 
                 if (cancelled) {
+
                     return;
                 }
 
@@ -422,7 +492,7 @@ function listen(
                     onSnapshot(
 
                         collection(
-                            database,
+                            firebase.db,
                             "expenses"
                         ),
 
@@ -436,14 +506,22 @@ function listen(
                                         item
                                     ) {
 
+                                        const data =
+                                            item.data() ||
+                                            {};
+
+
                                         return {
 
-                                            id:
-                                                item.id,
-
                                             ...removeCloudFields(
-                                                item.data()
-                                            )
+                                                data
+                                            ),
+
+                                            id:
+                                                String(
+                                                    data.id ||
+                                                    item.id
+                                                )
                                         };
                                     }
                                 );
@@ -451,9 +529,11 @@ function listen(
 
                             const merged =
                                 mergeRecords(
+
                                     readArray(
                                         EXPENSES_KEY
                                     ),
+
                                     cloudExpenses
                                 );
 
@@ -466,7 +546,8 @@ function listen(
 
                             dispatchDataUpdated(
                                 EXPENSES_KEY,
-                                merged
+                                merged,
+                                "cloud"
                             );
 
 
@@ -479,8 +560,13 @@ function listen(
                                     merged
                                 );
                             }
-                        },
 
+
+                            console.log(
+                                "☁️ Expense realtime records:",
+                                merged.length
+                            );
+                        },
 
                         function (
                             error
@@ -499,6 +585,10 @@ function listen(
                 error
             ) {
 
+                listenerStarted =
+                    false;
+
+
                 reportError(
                     "START EXPENSE LISTENER",
                     error
@@ -514,20 +604,25 @@ function listen(
 
 
         if (
-            stopExpenses
+            typeof stopExpenses ===
+                "function"
         ) {
 
             stopExpenses();
-
-            stopExpenses =
-                null;
         }
+
+
+        stopExpenses =
+            null;
+
+        listenerStarted =
+            false;
     };
 }
 
 
 /* ==========================================
-   MERGE
+   SAFE MERGE
 ========================================== */
 
 function mergeRecords(
@@ -556,6 +651,7 @@ function mergeRecords(
             ) {
 
                 map.set(
+
                     String(
                         row.id
                     ),
@@ -596,13 +692,16 @@ function mergeRecords(
 
 
             map.set(
+
                 id,
 
                 {
+
                     ...(
                         map.get(
                             id
-                        ) || {}
+                        ) ||
+                        {}
                     ),
 
                     ...row,
@@ -622,7 +721,7 @@ function mergeRecords(
 
 
 /* ==========================================
-   CLOUD FIELDS
+   REMOVE CLOUD FIELDS
 ========================================== */
 
 function removeCloudFields(
@@ -676,12 +775,10 @@ function readArray(
             : [];
 
 
-    } catch (
-        error
-    ) {
+    } catch (error) {
 
         console.error(
-            "Unable to read expenses storage:",
+            "Unable to read expenses:",
             error
         );
 
@@ -696,12 +793,29 @@ function saveArray(
     value
 ) {
 
-    localStorage.setItem(
-        key,
-        JSON.stringify(
-            value
-        )
-    );
+    try {
+
+        localStorage.setItem(
+            key,
+            JSON.stringify(
+                value
+            )
+        );
+
+
+        return true;
+
+
+    } catch (error) {
+
+        console.error(
+            "Unable to save expenses:",
+            error
+        );
+
+
+        return false;
+    }
 }
 
 
@@ -711,14 +825,14 @@ function saveArray(
 
 function dispatchDataUpdated(
     key,
-    value
+    value,
+    source
 ) {
 
     document.dispatchEvent(
 
         new CustomEvent(
             "jufelix:data-updated",
-
             {
                 detail: {
 
@@ -726,11 +840,167 @@ function dispatchDataUpdated(
                         key,
 
                     value:
-                        value
+                        value,
+
+                    source:
+                        source ||
+                        ""
                 }
             }
         )
     );
+}
+
+
+/* ==========================================
+   ERROR HANDLING
+========================================== */
+
+function reportError(
+    operation,
+    error
+) {
+
+    console.error(
+        "❌ Expenses Firebase error:",
+        operation,
+        error
+    );
+
+
+    const code =
+        String(
+            error &&
+            error.code ||
+            ""
+        );
+
+
+    let message =
+        error &&
+        error.message
+            ? error.message
+            : "Firebase expense sync failed.";
+
+
+    if (
+        code.includes(
+            "permission-denied"
+        )
+    ) {
+
+        message =
+            "Firebase permission denied. Check that this Firebase user has an active Firestore user profile.";
+    }
+
+
+    if (
+        code.includes(
+            "unauthenticated"
+        )
+    ) {
+
+        message =
+            "Firebase Authentication is not signed in.";
+    }
+
+
+    showErrorBox(
+        operation,
+        message
+    );
+}
+
+
+/* ==========================================
+   VISIBLE ERROR
+========================================== */
+
+function showErrorBox(
+    operation,
+    message
+) {
+
+    let box =
+        document.getElementById(
+            "expenseFirebaseError"
+        );
+
+
+    if (!box) {
+
+        box =
+            document.createElement(
+                "div"
+            );
+
+
+        box.id =
+            "expenseFirebaseError";
+
+
+        box.style.position =
+            "fixed";
+
+        box.style.left =
+            "12px";
+
+        box.style.right =
+            "12px";
+
+        box.style.bottom =
+            "12px";
+
+        box.style.zIndex =
+            "999999";
+
+        box.style.padding =
+            "15px";
+
+        box.style.borderRadius =
+            "10px";
+
+        box.style.background =
+            "#7f1d1d";
+
+        box.style.color =
+            "#ffffff";
+
+        box.style.fontSize =
+            "13px";
+
+        box.style.lineHeight =
+            "1.5";
+
+
+        document.body.appendChild(
+            box
+        );
+    }
+
+
+    box.textContent =
+        operation +
+        ": " +
+        message;
+
+
+    window.clearTimeout(
+        showErrorBox.timer
+    );
+
+
+    showErrorBox.timer =
+        window.setTimeout(
+            function () {
+
+                if (box) {
+
+                    box.remove();
+                }
+            },
+            10000
+        );
 }
 
 
@@ -755,64 +1025,67 @@ window.JufelixExpensesCloud = {
 
 
 /* ==========================================
-   READY
+   START
 ========================================== */
 
-waitForDb()
-    .then(
-        async function () {
+async function startExpensesCloud() {
 
-            console.log(
-                "✅ Jufelix Expenses Cloud ready."
-            );
+    try {
+
+        const firebase =
+            await getFirebase();
 
 
-            try {
+        console.log(
+            "✅ Expenses Firebase authenticated:",
+            firebase.user
+                ? (
+                    firebase.user.email ||
+                    firebase.user.uid
+                )
+                : firebase.auth.currentUser.uid
+        );
 
-                await syncLocal();
 
-            } catch (
-                error
+        const result =
+            await syncLocal();
+
+
+        console.log(
+            "Initial expense sync:",
+            result
+        );
+
+
+        listen(
+            function (
+                records
             ) {
 
-                reportError(
-                    "INITIAL EXPENSE SYNC",
-                    error
+                console.log(
+                    "☁️ Expenses Firebase update:",
+                    records.length
                 );
             }
+        );
 
 
-            listen(
-                function (
-                    records
-                ) {
+    } catch (error) {
 
-                    console.log(
-                        "☁️ Expenses Firebase update:",
-                        records.length
-                    );
-                }
-            );
-        }
-    )
-    .catch(
-        function (
+        reportError(
+            "EXPENSE CLOUD STARTUP",
             error
-        ) {
+        );
+    }
 
-            reportError(
-                "EXPENSE CLOUD STARTUP",
-                error
-            );
-        }
-    )
-    .finally(
-        function () {
 
-            document.dispatchEvent(
-                new CustomEvent(
-                    "jufelix:expenses-cloud-ready"
-                )
-            );
-        }
+    document.dispatchEvent(
+
+        new CustomEvent(
+            "jufelix:expenses-cloud-ready"
+        )
     );
+}
+
+
+startExpensesCloud();
