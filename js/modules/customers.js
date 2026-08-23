@@ -4,10 +4,21 @@
 
    File:
    js/modules/customers.js
+
+   Version: 204
+
+   + Two-way cloud compatible
+   + Create / edit / delete support
+   + Customer balance support
+   + Branch-aware customers
+   + Cloud-aware deletion
+   + Realtime refresh from Firebase
 ========================================== */
 
 (function () {
+
     "use strict";
+
 
     /* ==========================================
        STORAGE KEYS
@@ -27,9 +38,11 @@
        STATE
     ========================================== */
 
-    let customers = [];
+    let customers =
+        [];
 
-    let editingCustomerId = null;
+    let editingCustomerId =
+        null;
 
 
     /* ==========================================
@@ -78,7 +91,7 @@
 
 
     /* ==========================================
-       START MODULE
+       START
     ========================================== */
 
     if (
@@ -113,12 +126,14 @@
 
         refreshCustomers();
 
-        console.log(
-            "Jufelix Customers Module loaded."
-        );
 
         console.log(
-            "Current branch:",
+            "✅ Jufelix Customers v204 loaded."
+        );
+
+
+        console.log(
+            "Current customer branch:",
             getActiveBranch()
         );
     }
@@ -130,7 +145,9 @@
 
     function connectEvents() {
 
-        if (customerForm) {
+        if (
+            customerForm
+        ) {
 
             customerForm.addEventListener(
                 "submit",
@@ -139,16 +156,27 @@
         }
 
 
-        if (clearCustomerButton) {
+        if (
+            clearCustomerButton
+        ) {
 
             clearCustomerButton.addEventListener(
                 "click",
-                resetCustomerForm
+                function (
+                    event
+                ) {
+
+                    event.preventDefault();
+
+                    resetCustomerForm();
+                }
             );
         }
 
 
-        if (customerSearch) {
+        if (
+            customerSearch
+        ) {
 
             customerSearch.addEventListener(
                 "input",
@@ -157,7 +185,9 @@
         }
 
 
-        if (customerTypeFilter) {
+        if (
+            customerTypeFilter
+        ) {
 
             customerTypeFilter.addEventListener(
                 "change",
@@ -166,7 +196,9 @@
         }
 
 
-        if (customerStatusFilter) {
+        if (
+            customerStatusFilter
+        ) {
 
             customerStatusFilter.addEventListener(
                 "change",
@@ -175,18 +207,58 @@
         }
 
 
-        /*
-         * Refresh when another module
-         * changes customer information.
-         */
+        /* ======================================
+           REALTIME ERP / FIREBASE UPDATE
+        ====================================== */
 
         document.addEventListener(
             "jufelix:data-updated",
-            function (event) {
+            function (
+                event
+            ) {
+
+                const detail =
+                    event.detail ||
+                    {};
+
 
                 if (
-                    event.detail &&
-                    event.detail.key ===
+                    detail.key ===
+                    CUSTOMERS_KEY
+                ) {
+
+                    loadCustomers();
+
+                    refreshCustomers();
+                }
+
+
+                if (
+                    detail.key ===
+                    BRANCHES_KEY ||
+                    detail.key ===
+                    ACTIVE_BRANCH_KEY
+                ) {
+
+                    refreshCustomers();
+                }
+            }
+        );
+
+
+        document.addEventListener(
+            "jufelix:dataChanged",
+            function (
+                event
+            ) {
+
+                const detail =
+                    event.detail ||
+                    {};
+
+
+                if (
+                    detail.key ===
                     CUSTOMERS_KEY
                 ) {
 
@@ -198,14 +270,11 @@
         );
 
 
-        /*
-         * Refresh if another browser tab
-         * changes customers or branch.
-         */
-
         window.addEventListener(
             "storage",
-            function (event) {
+            function (
+                event
+            ) {
 
                 if (
                     event.key ===
@@ -218,8 +287,6 @@
 
                     loadCustomers();
 
-                    resetCustomerForm();
-
                     refreshCustomers();
                 }
             }
@@ -231,7 +298,9 @@
        SAVE CUSTOMER
     ========================================== */
 
-    function saveCustomer(event) {
+    function saveCustomer(
+        event
+    ) {
 
         event.preventDefault();
 
@@ -306,7 +375,9 @@
            VALIDATION
         ====================================== */
 
-        if (!customerData.name) {
+        if (
+            !customerData.name
+        ) {
 
             alert(
                 "Enter the customer name."
@@ -316,7 +387,9 @@
         }
 
 
-        if (!customerData.phone) {
+        if (
+            !customerData.phone
+        ) {
 
             alert(
                 "Enter the customer phone number."
@@ -353,12 +426,14 @@
 
 
         /* ======================================
-           DUPLICATE PHONE CHECK
+           DUPLICATE PHONE
         ====================================== */
 
         const duplicateCustomer =
             customers.find(
-                function (customer) {
+                function (
+                    customer
+                ) {
 
                     return (
 
@@ -380,7 +455,9 @@
             );
 
 
-        if (duplicateCustomer) {
+        if (
+            duplicateCustomer
+        ) {
 
             alert(
                 "A customer with this phone number already exists."
@@ -395,38 +472,68 @@
             null;
 
 
-        if (wasEditing) {
+        try {
 
-            const updated =
-                updateCustomer(
+            if (
+                wasEditing
+            ) {
+
+                const updated =
+                    updateCustomer(
+                        customerData
+                    );
+
+
+                if (
+                    !updated
+                ) {
+
+                    return;
+                }
+
+            } else {
+
+                createCustomer(
                     customerData
                 );
+            }
 
 
-            if (!updated) {
+            if (
+                !saveCustomers()
+            ) {
+
                 return;
             }
 
-        } else {
 
-            createCustomer(
-                customerData
+            resetCustomerForm();
+
+            refreshCustomers();
+
+
+            alert(
+                wasEditing
+                    ? "Customer updated successfully."
+                    : "Customer saved successfully."
+            );
+
+
+        } catch (
+            error
+        ) {
+
+            console.error(
+                "Customer save failed:",
+                error
+            );
+
+
+            alert(
+                error.message ||
+                "Customer could not be saved."
             );
         }
-
-
-        saveCustomers();
-
-        resetCustomerForm();
-
-        refreshCustomers();
-
-
-        alert(
-            wasEditing
-                ? "Customer updated successfully."
-                : "Customer saved successfully."
-        );
     }
 
 
@@ -452,11 +559,6 @@
                 createCustomerNumber(),
 
             ...customerData,
-
-            /*
-             * Current outstanding balance
-             * begins from opening balance.
-             */
 
             balance:
                 toNumber(
@@ -503,7 +605,9 @@
 
         const customerIndex =
             customers.findIndex(
-                function (customer) {
+                function (
+                    customer
+                ) {
 
                     return (
                         String(
@@ -536,19 +640,6 @@
             ];
 
 
-        /*
-         * Important:
-         *
-         * Editing a customer's name,
-         * phone or credit limit must NOT
-         * destroy balances created later
-         * by Sales/POS.
-         *
-         * We calculate only the difference
-         * between the old and new opening
-         * balance.
-         */
-
         const oldOpeningBalance =
             toNumber(
                 existingCustomer
@@ -558,7 +649,8 @@
 
         const currentBalance =
             toNumber(
-                existingCustomer.balance
+                existingCustomer
+                    .balance
             );
 
 
@@ -635,23 +727,31 @@
        EDIT CUSTOMER
     ========================================== */
 
-    function editCustomer(id) {
+    function editCustomer(
+        id
+    ) {
 
         const customer =
             customers.find(
-                function (item) {
+                function (
+                    item
+                ) {
 
                     return (
                         String(
                             item.id
                         ) ===
-                        String(id)
+                        String(
+                            id
+                        )
                     );
                 }
             );
 
 
-        if (!customer) {
+        if (
+            !customer
+        ) {
 
             alert(
                 "Customer not found."
@@ -696,11 +796,6 @@
         );
 
 
-        /*
-         * Show original opening balance,
-         * not current outstanding balance.
-         */
-
         setValue(
             "customerOpeningBalance",
             toNumber(
@@ -742,7 +837,9 @@
         );
 
 
-        if (customerFormTitle) {
+        if (
+            customerFormTitle
+        ) {
 
             customerFormTitle
                 .textContent =
@@ -750,7 +847,9 @@
         }
 
 
-        if (saveCustomerButton) {
+        if (
+            saveCustomerButton
+        ) {
 
             saveCustomerButton
                 .textContent =
@@ -758,7 +857,9 @@
         }
 
 
-        if (customerForm) {
+        if (
+            customerForm
+        ) {
 
             customerForm
                 .scrollIntoView({
@@ -775,25 +876,34 @@
 
     /* ==========================================
        DELETE CUSTOMER
+       CLOUD-AWARE
     ========================================== */
 
-    function deleteCustomer(id) {
+    async function deleteCustomer(
+        id
+    ) {
 
         const customer =
             customers.find(
-                function (item) {
+                function (
+                    item
+                ) {
 
                     return (
                         String(
                             item.id
                         ) ===
-                        String(id)
+                        String(
+                            id
+                        )
                     );
                 }
             );
 
 
-        if (!customer) {
+        if (
+            !customer
+        ) {
 
             alert(
                 "Customer not found."
@@ -803,10 +913,9 @@
         }
 
 
-        /*
-         * Protect customers with
-         * outstanding balances.
-         */
+        let confirmed =
+            false;
+
 
         if (
             Math.abs(
@@ -817,70 +926,120 @@
             0.001
         ) {
 
-            const continueDelete =
-                confirm(
+            confirmed =
+                window.confirm(
                     `"${customer.name}" currently has a balance of ${formatMoney(
                         customer.balance
                     )}.\n\nDelete this customer anyway?`
                 );
 
-
-            if (
-                !continueDelete
-            ) {
-
-                return;
-            }
-
         } else {
 
-            const confirmed =
-                confirm(
+            confirmed =
+                window.confirm(
                     `Delete "${customer.name}" permanently?`
                 );
-
-
-            if (!confirmed) {
-
-                return;
-            }
         }
-
-
-        customers =
-            customers.filter(
-                function (item) {
-
-                    return (
-                        String(
-                            item.id
-                        ) !==
-                        String(id)
-                    );
-                }
-            );
-
-
-        saveCustomers();
 
 
         if (
-            String(
-                editingCustomerId
-            ) ===
-            String(id)
+            !confirmed
         ) {
 
-            resetCustomerForm();
+            return;
         }
 
 
-        refreshCustomers();
+        try {
+
+            /*
+             * Delete cloud record FIRST.
+             *
+             * If Firestore rejects deletion,
+             * keep the local customer so the
+             * realtime listener cannot restore
+             * inconsistent data later.
+             */
+
+            if (
+                window.JufelixCustomersCloud &&
+                typeof window
+                    .JufelixCustomersCloud
+                    .deleteCustomer ===
+                    "function"
+            ) {
+
+                await window
+                    .JufelixCustomersCloud
+                    .deleteCustomer(
+                        customer.id
+                    );
+
+            } else {
+
+                console.warn(
+                    "Customers Cloud delete API unavailable."
+                );
+            }
 
 
-        alert(
-            "Customer deleted successfully."
-        );
+            customers =
+                customers.filter(
+                    function (
+                        item
+                    ) {
+
+                        return (
+                            String(
+                                item.id
+                            ) !==
+                            String(
+                                id
+                            )
+                        );
+                    }
+                );
+
+
+            saveCustomers();
+
+
+            if (
+                String(
+                    editingCustomerId
+                ) ===
+                String(
+                    id
+                )
+            ) {
+
+                resetCustomerForm();
+            }
+
+
+            refreshCustomers();
+
+
+            alert(
+                "Customer deleted successfully."
+            );
+
+
+        } catch (
+            error
+        ) {
+
+            console.error(
+                "Customer cloud delete failed:",
+                error
+            );
+
+
+            alert(
+                error.message ||
+                "Customer could not be deleted from Firebase."
+            );
+        }
     }
 
 
@@ -890,7 +1049,10 @@
 
     function displayCustomers() {
 
-        if (!customerTableBody) {
+        if (
+            !customerTableBody
+        ) {
+
             return;
         }
 
@@ -919,7 +1081,9 @@
 
         const filteredCustomers =
             customers.filter(
-                function (customer) {
+                function (
+                    customer
+                ) {
 
                     const searchableText = [
 
@@ -944,15 +1108,13 @@
 
                     const matchesSearch =
                         !searchTerm ||
-                        searchableText
-                            .includes(
-                                searchTerm
-                            );
+                        searchableText.includes(
+                            searchTerm
+                        );
 
 
                     const matchesType =
                         !typeFilter ||
-
                         String(
                             customer.type ||
                             "retail"
@@ -966,7 +1128,6 @@
 
                     const matchesStatus =
                         !statusFilter ||
-
                         String(
                             customer.status ||
                             "active"
@@ -996,26 +1157,22 @@
                 return String(
                     firstCustomer.name ||
                     ""
-                )
-                    .localeCompare(
-                        String(
-                            secondCustomer
-                                .name ||
-                            ""
-                        )
-                    );
+                ).localeCompare(
+                    String(
+                        secondCustomer.name ||
+                        ""
+                    )
+                );
             }
         );
 
 
         if (
-            filteredCustomers
-                .length ===
+            filteredCustomers.length ===
             0
         ) {
 
-            customerTableBody
-                .innerHTML = `
+            customerTableBody.innerHTML = `
 
                 <tr>
 
@@ -1034,8 +1191,7 @@
         }
 
 
-        customerTableBody
-            .innerHTML =
+        customerTableBody.innerHTML =
             filteredCustomers
                 .map(
                     function (
@@ -1090,53 +1246,41 @@
 
 
                                 <td>
-
                                     ${escapeHTML(
                                         customer.phone ||
                                         "—"
                                     )}
-
                                 </td>
 
 
                                 <td>
-
                                     ${escapeHTML(
                                         customer.email ||
                                         "—"
                                     )}
-
                                 </td>
 
 
                                 <td>
-
                                     ${formatCustomerType(
                                         customer.type
                                     )}
-
                                 </td>
 
 
                                 <td>
-
                                     <strong>
-
                                         ${formatMoney(
                                             customer.balance
                                         )}
-
                                     </strong>
-
                                 </td>
 
 
                                 <td>
-
                                     ${formatMoney(
                                         customer.creditLimit
                                     )}
-
                                 </td>
 
 
@@ -1167,10 +1311,7 @@
 
                                     <button
                                         type="button"
-                                        class="
-                                            action-button
-                                            edit-button
-                                        "
+                                        class="action-button edit-button"
                                         data-customer-edit="${escapeHTML(
                                             customer.id
                                         )}"
@@ -1181,10 +1322,7 @@
 
                                     <button
                                         type="button"
-                                        class="
-                                            action-button
-                                            delete-button
-                                        "
+                                        class="action-button delete-button"
                                         data-customer-delete="${escapeHTML(
                                             customer.id
                                         )}"
@@ -1201,29 +1339,25 @@
                 .join("");
 
 
-        /*
-         * Connect action buttons without
-         * inline JavaScript.
-         */
-
         customerTableBody
             .querySelectorAll(
                 "[data-customer-edit]"
             )
             .forEach(
-                function (button) {
-
+                function (
                     button
-                        .addEventListener(
-                            "click",
-                            function () {
+                ) {
 
-                                editCustomer(
-                                    button.dataset
-                                        .customerEdit
-                                );
-                            }
-                        );
+                    button.addEventListener(
+                        "click",
+                        function () {
+
+                            editCustomer(
+                                button.dataset
+                                    .customerEdit
+                            );
+                        }
+                    );
                 }
             );
 
@@ -1233,19 +1367,20 @@
                 "[data-customer-delete]"
             )
             .forEach(
-                function (button) {
-
+                function (
                     button
-                        .addEventListener(
-                            "click",
-                            function () {
+                ) {
 
-                                deleteCustomer(
-                                    button.dataset
-                                        .customerDelete
-                                );
-                            }
-                        );
+                    button.addEventListener(
+                        "click",
+                        function () {
+
+                            deleteCustomer(
+                                button.dataset
+                                    .customerDelete
+                            );
+                        }
+                    );
                 }
             );
     }
@@ -1263,7 +1398,9 @@
 
         const activeCustomers =
             customers.filter(
-                function (customer) {
+                function (
+                    customer
+                ) {
 
                     return (
                         String(
@@ -1279,7 +1416,9 @@
 
         const creditCustomers =
             customers.filter(
-                function (customer) {
+                function (
+                    customer
+                ) {
 
                     return (
                         String(
@@ -1354,7 +1493,9 @@
             null;
 
 
-        if (customerForm) {
+        if (
+            customerForm
+        ) {
 
             customerForm.reset();
         }
@@ -1390,7 +1531,9 @@
         );
 
 
-        if (customerFormTitle) {
+        if (
+            customerFormTitle
+        ) {
 
             customerFormTitle
                 .textContent =
@@ -1398,7 +1541,9 @@
         }
 
 
-        if (saveCustomerButton) {
+        if (
+            saveCustomerButton
+        ) {
 
             saveCustomerButton
                 .textContent =
@@ -1449,10 +1594,10 @@
 
 
             document.dispatchEvent(
+
                 new CustomEvent(
                     "jufelix:data-updated",
                     {
-
                         detail: {
 
                             key:
@@ -1468,7 +1613,10 @@
 
             return true;
 
-        } catch (error) {
+
+        } catch (
+            error
+        ) {
 
             console.error(
                 "Unable to save customers:",
@@ -1508,11 +1656,14 @@
                 ) {
 
                     const updated = {
+
                         ...customer
                     };
 
 
-                    if (!updated.id) {
+                    if (
+                        !updated.id
+                    ) {
 
                         updated.id =
                             "cus-old-" +
@@ -1520,21 +1671,21 @@
                             "-" +
                             index;
 
+
                         changed =
                             true;
                     }
 
 
                     if (
-                        !updated
-                            .customerNumber
+                        !updated.customerNumber
                     ) {
 
-                        updated
-                            .customerNumber =
+                        updated.customerNumber =
                             createCustomerNumber(
                                 index
                             );
+
 
                         changed =
                             true;
@@ -1551,6 +1702,7 @@
                         updated.branchName =
                             defaultBranch.name;
 
+
                         changed =
                             true;
                     }
@@ -1561,11 +1713,11 @@
                         undefined
                     ) {
 
-                        updated
-                            .openingBalance =
+                        updated.openingBalance =
                             toNumber(
                                 updated.balance
                             );
+
 
                         changed =
                             true;
@@ -1579,9 +1731,9 @@
 
                         updated.balance =
                             toNumber(
-                                updated
-                                    .openingBalance
+                                updated.openingBalance
                             );
+
 
                         changed =
                             true;
@@ -1601,7 +1753,9 @@
                     }
 
 
-                    if (!updated.type) {
+                    if (
+                        !updated.type
+                    ) {
 
                         updated.type =
                             "retail";
@@ -1611,7 +1765,9 @@
                     }
 
 
-                    if (!updated.status) {
+                    if (
+                        !updated.status
+                    ) {
 
                         updated.status =
                             "active";
@@ -1665,7 +1821,9 @@
             );
 
 
-        if (changed) {
+        if (
+            changed
+        ) {
 
             saveCustomers();
         }
@@ -1684,67 +1842,78 @@
             );
 
 
-        const existingHeadOffice =
-            branches.find(
-                function (branch) {
+        const exists =
+            branches.some(
+                function (
+                    branch
+                ) {
 
                     return (
+
                         branch.id ===
-                        "head-office" ||
+                            "head-office" ||
 
                         branch.isHeadOffice ===
-                        true ||
+                            true ||
 
                         branch.type ===
-                        "head-office"
+                            "head-office"
                     );
                 }
             );
 
 
-        if (!existingHeadOffice) {
+        if (
+            exists
+        ) {
 
-            branches.unshift({
-
-                id:
-                    "head-office",
-
-                name:
-                    "Head Office",
-
-                branchName:
-                    "Head Office",
-
-                code:
-                    "HO",
-
-                type:
-                    "head-office",
-
-                status:
-                    "active",
-
-                isHeadOffice:
-                    true
-            });
+            return;
+        }
 
 
-            try {
+        branches.unshift({
 
-                localStorage.setItem(
-                    BRANCHES_KEY,
-                    JSON.stringify(
-                        branches
-                    )
-                );
+            id:
+                "head-office",
 
-            } catch (error) {
+            name:
+                "Head Office",
 
-                console.error(
-                    "Unable to create Head Office:",
-                    error
-                );
-            }
+            branchName:
+                "Head Office",
+
+            code:
+                "HO",
+
+            type:
+                "head-office",
+
+            status:
+                "active",
+
+            isHeadOffice:
+                true
+        });
+
+
+        try {
+
+            localStorage.setItem(
+                BRANCHES_KEY,
+                JSON.stringify(
+                    branches
+                )
+            );
+
+
+        } catch (
+            error
+        ) {
+
+            console.error(
+                "Unable to create Head Office:",
+                error
+            );
         }
     }
 
@@ -1759,24 +1928,30 @@
 
         const branch =
             branches.find(
-                function (item) {
+                function (
+                    item
+                ) {
 
                     return (
+
                         item.id ===
-                        "head-office" ||
+                            "head-office" ||
 
                         item.isHeadOffice ===
-                        true ||
+                            true ||
 
                         item.type ===
-                        "head-office"
+                            "head-office"
                     );
                 }
             );
 
 
         return normalizeBranch(
-            branch || {
+
+            branch ||
+
+            {
 
                 id:
                     "head-office",
@@ -1802,12 +1977,9 @@
                 );
 
 
-            if (saved) {
-
-                /*
-                 * Active branch may be saved
-                 * either as an object or ID.
-                 */
+            if (
+                saved
+            ) {
 
                 try {
 
@@ -1820,14 +1992,17 @@
                     if (
                         parsed &&
                         typeof parsed ===
-                        "object"
+                            "object"
                     ) {
 
                         activeBranch =
                             parsed;
                     }
 
-                } catch (error) {
+
+                } catch (
+                    error
+                ) {
 
                     const branches =
                         readArray(
@@ -1837,7 +2012,9 @@
 
                     activeBranch =
                         branches.find(
-                            function (branch) {
+                            function (
+                                branch
+                            ) {
 
                                 return (
                                     String(
@@ -1852,7 +2029,10 @@
                 }
             }
 
-        } catch (error) {
+
+        } catch (
+            error
+        ) {
 
             console.warn(
                 "Unable to read active branch:",
@@ -1861,28 +2041,25 @@
         }
 
 
-        /*
-         * Some versions of the ERP may
-         * expose the active branch globally.
-         */
-
         if (
             !activeBranch &&
             window.JufelixBranch &&
             typeof window
                 .JufelixBranch
                 .getActive ===
-            "function"
+                "function"
         ) {
 
             try {
 
                 activeBranch =
-                    window
-                        .JufelixBranch
+                    window.JufelixBranch
                         .getActive();
 
-            } catch (error) {
+
+            } catch (
+                error
+            ) {
 
                 activeBranch =
                     null;
@@ -1890,7 +2067,9 @@
         }
 
 
-        if (!activeBranch) {
+        if (
+            !activeBranch
+        ) {
 
             activeBranch =
                 getHeadOffice();
@@ -1915,23 +2094,26 @@
                 "head-office",
 
             name:
-                branch.name ||
                 branch.branchName ||
+                branch.name ||
                 "Head Office"
         };
     }
 
 
     /* ==========================================
-       CUSTOMER API FOR SALES / POS
+       CUSTOMER API
     ========================================== */
 
     function getAllCustomers() {
 
         return customers.map(
-            function (customer) {
+            function (
+                customer
+            ) {
 
                 return {
+
                     ...customer
                 };
             }
@@ -1943,7 +2125,9 @@
 
         return customers
             .filter(
-                function (customer) {
+                function (
+                    customer
+                ) {
 
                     return (
                         String(
@@ -1956,9 +2140,12 @@
                 }
             )
             .map(
-                function (customer) {
+                function (
+                    customer
+                ) {
 
                     return {
+
                         ...customer
                     };
                 }
@@ -1966,17 +2153,23 @@
     }
 
 
-    function getCustomerById(id) {
+    function getCustomerById(
+        id
+    ) {
 
         const customer =
             customers.find(
-                function (item) {
+                function (
+                    item
+                ) {
 
                     return (
                         String(
                             item.id
                         ) ===
-                        String(id)
+                        String(
+                            id
+                        )
                     );
                 }
             );
@@ -1984,6 +2177,7 @@
 
         return customer
             ? {
+
                 ...customer
             }
             : null;
@@ -1996,9 +2190,12 @@
 
         return customers
             .filter(
-                function (customer) {
+                function (
+                    customer
+                ) {
 
                     return (
+
                         !customer.branchId ||
 
                         String(
@@ -2011,9 +2208,12 @@
                 }
             )
             .map(
-                function (customer) {
+                function (
+                    customer
+                ) {
 
                     return {
+
                         ...customer
                     };
                 }
@@ -2022,8 +2222,7 @@
 
 
     /* ==========================================
-       UPDATE CUSTOMER BALANCE
-       FOR FUTURE CREDIT SALES
+       CUSTOMER BALANCE
     ========================================== */
 
     function adjustCustomerBalance(
@@ -2034,7 +2233,9 @@
 
         const customerIndex =
             customers.findIndex(
-                function (customer) {
+                function (
+                    customer
+                ) {
 
                     return (
                         String(
@@ -2108,8 +2309,7 @@
                     ].totalPurchases
                 ) +
                 toNumber(
-                    options
-                        .purchaseAmount
+                    options.purchaseAmount
                 );
         }
 
@@ -2128,8 +2328,7 @@
                     ].totalPaid
                 ) +
                 toNumber(
-                    options
-                        .paymentAmount
+                    options.paymentAmount
                 );
         }
 
@@ -2151,10 +2350,12 @@
 
 
     /* ==========================================
-       STORAGE HELPERS
+       STORAGE
     ========================================== */
 
-    function readArray(key) {
+    function readArray(
+        key
+    ) {
 
         try {
 
@@ -2164,7 +2365,9 @@
                 );
 
 
-            if (!saved) {
+            if (
+                !saved
+            ) {
 
                 return [];
             }
@@ -2182,7 +2385,10 @@
                 ? parsed
                 : [];
 
-        } catch (error) {
+
+        } catch (
+            error
+        ) {
 
             console.warn(
                 "Unable to read:",
@@ -2197,7 +2403,7 @@
 
 
     /* ==========================================
-       ID GENERATORS
+       IDS
     ========================================== */
 
     function createCustomerId() {
@@ -2208,7 +2414,10 @@
             "-" +
             Math.random()
                 .toString(36)
-                .substring(2, 7)
+                .substring(
+                    2,
+                    7
+                )
         );
     }
 
@@ -2225,7 +2434,9 @@
             date
                 .getFullYear()
                 .toString()
-                .slice(-2);
+                .slice(
+                    -2
+                );
 
 
         const month =
@@ -2253,7 +2464,9 @@
             String(
                 Date.now()
             )
-                .slice(-5);
+                .slice(
+                    -5
+                );
 
 
         return (
@@ -2277,7 +2490,9 @@
        FORM HELPERS
     ========================================== */
 
-    function getValue(id) {
+    function getValue(
+        id
+    ) {
 
         const element =
             document.getElementById(
@@ -2294,10 +2509,14 @@
     }
 
 
-    function getNumber(id) {
+    function getNumber(
+        id
+    ) {
 
         return toNumber(
-            getValue(id)
+            getValue(
+                id
+            )
         );
     }
 
@@ -2313,7 +2532,9 @@
             );
 
 
-        if (element) {
+        if (
+            element
+        ) {
 
             element.value =
                 value ===
@@ -2337,7 +2558,9 @@
             );
 
 
-        if (element) {
+        if (
+            element
+        ) {
 
             element.textContent =
                 value;
@@ -2376,14 +2599,19 @@
                     )
                 );
 
-        } catch (error) {
+
+        } catch (
+            error
+        ) {
 
             return (
                 "GH₵" +
                 toNumber(
                     value
                 )
-                    .toFixed(2)
+                    .toFixed(
+                        2
+                    )
             );
         }
     }
@@ -2456,7 +2684,9 @@
     ) {
 
         const number =
-            Number(value);
+            Number(
+                value
+            );
 
 
         return Number.isFinite(
