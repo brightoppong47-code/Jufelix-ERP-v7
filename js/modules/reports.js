@@ -1,20 +1,27 @@
 /* ==========================================
    JUFELIX ERP v7.0 PROFESSIONAL
-   REPORTS & ANALYTICS MODULE
+   REPORTS & ANALYTICS MODULE v2
+
+   COMPLETE REPLACEMENT
 
    File:
    js/modules/reports.js
 
-   COMPLETE REPLACEMENT
-
    + Firebase/localStorage refresh
    + Branch dropdown anti-blinking
    + New Firebase branches appear automatically
-   + Cancelled/void sales excluded
-   + Draft/cancelled purchases excluded
+   + Sales v1011 compatible
+   + Multi-item sales compatible
+   + Correct COGS
+   + Correct Gross Profit
+   + Correct Net Profit
+   + Cancelled / Canceled / Void / Voided excluded
+   + Draft purchases excluded
+   + Robust branch-stock matching
+   + Branch ID / Code / Name compatibility
+   + No false low-stock branches
    + Branch-aware reports
    + Sales / Purchases / Expenses
-   + Gross & Net Profit
    + Inventory Value
    + Low Stock
    + Branch Performance
@@ -160,7 +167,7 @@
 
 
         console.log(
-            "✅ Jufelix Reports module loaded."
+            "✅ Jufelix Reports & Analytics v2 loaded."
         );
     }
 
@@ -306,7 +313,8 @@
                 function () {
 
                     /*
-                     * Do not rebuild dropdown here.
+                     * Important:
+                     * Do not rebuild branch dropdown here.
                      */
 
                     refreshReports();
@@ -334,7 +342,7 @@
 
 
         /* ======================================
-           SAME-PAGE / FIREBASE DATA EVENTS
+           SAME PAGE / FIREBASE
         ====================================== */
 
         document.addEventListener(
@@ -350,7 +358,7 @@
 
 
         /* ======================================
-           OTHER TAB / WINDOW STORAGE CHANGES
+           OTHER BROWSER TAB
         ====================================== */
 
         window.addEventListener(
@@ -405,7 +413,7 @@
 
 
     /* ==========================================
-       APPLICATION DATA UPDATE
+       DATA UPDATE
     ========================================== */
 
     function handleReportDataUpdate(
@@ -418,15 +426,6 @@
                 ? event.detail
                 : {};
 
-
-        /*
-         * If Firebase sends a new branch,
-         * refresh branch options.
-         *
-         * populateBranchFilter() compares
-         * the current options first, so it
-         * will not rebuild unnecessarily.
-         */
 
         if (
             detail.key ===
@@ -536,19 +535,18 @@
                     return (
 
                         String(
-                            branch.id
+                            branch.id ||
+                            ""
                         ) ===
                         DEFAULT_BRANCH_ID ||
 
                         branch.isHeadOffice ===
                         true ||
 
-                        String(
-                            branch.type ||
-                            ""
-                        )
-                            .toLowerCase() ===
-                        "head-office"
+                        normalizeComparable(
+                            branch.type
+                        ) ===
+                        DEFAULT_BRANCH_ID
                     );
                 }
             );
@@ -559,6 +557,9 @@
             branches.unshift({
 
                 id:
+                    DEFAULT_BRANCH_ID,
+
+                branchId:
                     DEFAULT_BRANCH_ID,
 
                 name:
@@ -605,11 +606,10 @@
                     function (branch) {
 
                         return (
-                            String(
+                            normalizeComparable(
                                 branch.status ||
                                 "active"
-                            )
-                                .toLowerCase() ===
+                            ) ===
                             "active"
                         );
                     }
@@ -617,12 +617,10 @@
                 .sort(
                     function (a, b) {
 
-                        /*
-                         * Keep Head Office first.
-                         */
-
                         if (
-                            String(a.id) ===
+                            getCanonicalBranchId(
+                                a
+                            ) ===
                             DEFAULT_BRANCH_ID
                         ) {
 
@@ -631,7 +629,9 @@
 
 
                         if (
-                            String(b.id) ===
+                            getCanonicalBranchId(
+                                b
+                            ) ===
                             DEFAULT_BRANCH_ID
                         ) {
 
@@ -666,8 +666,8 @@
                     return {
 
                         value:
-                            String(
-                                branch.id
+                            getCanonicalBranchId(
+                                branch
                             ),
 
                         label:
@@ -700,7 +700,8 @@
 
 
         /*
-         * Anti-blinking protection.
+         * Anti blinking:
+         * only rebuild when options changed.
          */
 
         if (
@@ -753,16 +754,10 @@
             );
 
 
-        if (previousExists) {
-
-            el.branch.value =
-                previousValue;
-
-        } else {
-
-            el.branch.value =
-                "";
-        }
+        el.branch.value =
+            previousExists
+                ? previousValue
+                : "";
     }
 
 
@@ -892,6 +887,61 @@
 
 
     /* ==========================================
+       INVALID TRANSACTIONS
+    ========================================== */
+
+    function isInvalidStatus(
+        status
+    ) {
+
+        const value =
+            normalizeComparable(
+                status
+            );
+
+
+        return [
+
+            "cancelled",
+
+            "canceled",
+
+            "void",
+
+            "voided",
+
+            "deleted"
+
+        ].includes(
+            value
+        );
+    }
+
+
+    function isInvalidPurchaseStatus(
+        status
+    ) {
+
+        const value =
+            normalizeComparable(
+                status ||
+                "received"
+            );
+
+
+        return (
+
+            value ===
+                "draft" ||
+
+            isInvalidStatus(
+                value
+            )
+        );
+    }
+
+
+    /* ==========================================
        REFRESH REPORTS
     ========================================== */
 
@@ -908,32 +958,17 @@
 
         /* ======================================
            SALES
-
-           Exclude cancelled / void sales.
         ====================================== */
 
         filteredSales =
             sales.filter(
                 function (sale) {
 
-                    const status =
-                        String(
+                    if (
+                        isInvalidStatus(
                             sale.status ||
                             "completed"
                         )
-                            .trim()
-                            .toLowerCase();
-
-
-                    if (
-                        status ===
-                            "cancelled" ||
-                        status ===
-                            "canceled" ||
-                        status ===
-                            "void" ||
-                        status ===
-                            "deleted"
                     ) {
 
                         return false;
@@ -955,35 +990,16 @@
 
         /* ======================================
            PURCHASES
-
-           Draft / cancelled purchases are not
-           completed financial transactions.
         ====================================== */
 
         filteredPurchases =
             purchases.filter(
                 function (purchase) {
 
-                    const status =
-                        String(
-                            purchase.status ||
-                            "received"
-                        )
-                            .trim()
-                            .toLowerCase();
-
-
                     if (
-                        status ===
-                            "draft" ||
-                        status ===
-                            "cancelled" ||
-                        status ===
-                            "canceled" ||
-                        status ===
-                            "void" ||
-                        status ===
-                            "deleted"
+                        isInvalidPurchaseStatus(
+                            purchase.status
+                        )
                     ) {
 
                         return false;
@@ -1011,24 +1027,11 @@
             expenses.filter(
                 function (expense) {
 
-                    const status =
-                        String(
+                    if (
+                        isInvalidStatus(
                             expense.status ||
                             "completed"
                         )
-                            .trim()
-                            .toLowerCase();
-
-
-                    if (
-                        status ===
-                            "cancelled" ||
-                        status ===
-                            "canceled" ||
-                        status ===
-                            "void" ||
-                        status ===
-                            "deleted"
                     ) {
 
                         return false;
@@ -1049,31 +1052,18 @@
 
 
         /* ======================================
-           SUPPLIER PAYMENTS
+           PAYMENTS
         ====================================== */
 
         filteredPayments =
             payments.filter(
                 function (payment) {
 
-                    const status =
-                        String(
+                    if (
+                        isInvalidStatus(
                             payment.status ||
                             "completed"
                         )
-                            .trim()
-                            .toLowerCase();
-
-
-                    if (
-                        status ===
-                            "cancelled" ||
-                        status ===
-                            "canceled" ||
-                        status ===
-                            "void" ||
-                        status ===
-                            "deleted"
                     ) {
 
                         return false;
@@ -1101,24 +1091,11 @@
             transfers.filter(
                 function (transfer) {
 
-                    const status =
-                        String(
+                    if (
+                        isInvalidStatus(
                             transfer.status ||
                             "completed"
                         )
-                            .trim()
-                            .toLowerCase();
-
-
-                    if (
-                        status ===
-                            "cancelled" ||
-                        status ===
-                            "canceled" ||
-                        status ===
-                            "void" ||
-                        status ===
-                            "deleted"
                     ) {
 
                         return false;
@@ -1135,20 +1112,34 @@
                         );
 
 
+                    const fromBranchId =
+                        resolveBranchIdFromValue(
+                            transfer.fromBranchId ||
+                            transfer.fromBranch ||
+                            transfer.fromBranchName
+                        );
+
+
+                    const toBranchId =
+                        resolveBranchIdFromValue(
+                            transfer.toBranchId ||
+                            transfer.toBranch ||
+                            transfer.toBranchName
+                        );
+
+
                     const branchMatches =
                         !filters.branchId ||
 
                         String(
-                            transfer.fromBranchId ||
-                            ""
+                            fromBranchId
                         ) ===
                         String(
                             filters.branchId
                         ) ||
 
                         String(
-                            transfer.toBranchId ||
-                            ""
+                            toBranchId
                         ) ===
                         String(
                             filters.branchId
@@ -1214,6 +1205,13 @@
         filters
     ) {
 
+        const resolvedBranchId =
+            resolveBranchIdFromValue(
+                branchId ||
+                DEFAULT_BRANCH_ID
+            );
+
+
         return (
 
             isDateInRange(
@@ -1226,8 +1224,7 @@
                 !filters.branchId ||
 
                 String(
-                    branchId ||
-                    DEFAULT_BRANCH_ID
+                    resolvedBranchId
                 ) ===
                 String(
                     filters.branchId
@@ -1338,8 +1335,8 @@
 
                     return (
                         total +
-                        toNumber(
-                            expense.amount
+                        getExpenseAmount(
+                            expense
                         )
                     );
                 },
@@ -1366,15 +1363,15 @@
 
 
         /*
-         * Correct accounting logic:
+         * ACCOUNTING:
          *
          * Gross Profit =
-         * Sales Revenue - Cost of Goods Sold
+         * Revenue - Cost of Goods Sold
          *
          * Net Profit =
          * Gross Profit - Expenses
          *
-         * Purchases are NOT subtracted again.
+         * Purchases are not deducted again.
          */
 
         const grossProfit =
@@ -1469,23 +1466,54 @@
         );
 
 
-        const netProfitElement =
+        updateFinancialAppearance(
+            "reportGrossProfit",
+            grossProfit
+        );
+
+
+        updateFinancialAppearance(
+            "reportNetProfit",
+            netProfit
+        );
+    }
+
+
+    function updateFinancialAppearance(
+        id,
+        value
+    ) {
+
+        const element =
             document.getElementById(
-                "reportNetProfit"
+                id
             );
 
 
-        if (netProfitElement) {
+        if (!element) {
 
-            netProfitElement.classList.toggle(
-                "positive-value",
-                netProfit >= 0
+            return;
+        }
+
+
+        element.classList.remove(
+            "positive-value",
+            "negative-value"
+        );
+
+
+        if (
+            value >= 0
+        ) {
+
+            element.classList.add(
+                "positive-value"
             );
 
+        } else {
 
-            netProfitElement.classList.toggle(
-                "negative-value",
-                netProfit < 0
+            element.classList.add(
+                "negative-value"
             );
         }
     }
@@ -1616,6 +1644,17 @@
         }
 
 
+        if (
+            sale.grandTotal !==
+            undefined
+        ) {
+
+            return toNumber(
+                sale.grandTotal
+            );
+        }
+
+
         return getSaleItems(
             sale
         ).reduce(
@@ -1662,6 +1701,17 @@
         }
 
 
+        if (
+            sale.totalCost !==
+            undefined
+        ) {
+
+            return toNumber(
+                sale.totalCost
+            );
+        }
+
+
         return getSaleItems(
             sale
         ).reduce(
@@ -1693,6 +1743,17 @@
 
             return toNumber(
                 item.total
+            );
+        }
+
+
+        if (
+            item.totalAmount !==
+            undefined
+        ) {
+
+            return toNumber(
+                item.totalAmount
             );
         }
 
@@ -1748,8 +1809,8 @@
 
 
         let costPrice =
-            item.costPrice ??
             item.costPriceAtSale ??
+            item.costPrice ??
             item.unitCost;
 
 
@@ -1757,7 +1818,9 @@
             costPrice ===
             undefined ||
             costPrice ===
-            null
+            null ||
+            costPrice ===
+            ""
         ) {
 
             const product =
@@ -1790,7 +1853,8 @@
 
     function buildSalesByProductRows() {
 
-        const grouped = {};
+        const grouped =
+            {};
 
 
         filteredSales.forEach(
@@ -1809,9 +1873,15 @@
                             );
 
 
-                        if (!grouped[key]) {
+                        if (
+                            !grouped[
+                                key
+                            ]
+                        ) {
 
-                            grouped[key] = {
+                            grouped[
+                                key
+                            ] = {
 
                                 productName:
                                     item.productName ||
@@ -1831,19 +1901,25 @@
                         }
 
 
-                        grouped[key].quantity +=
+                        grouped[
+                            key
+                        ].quantity +=
                             toNumber(
                                 item.quantity
                             );
 
 
-                        grouped[key].revenue +=
+                        grouped[
+                            key
+                        ].revenue +=
                             getSaleItemRevenue(
                                 item
                             );
 
 
-                        grouped[key].cost +=
+                        grouped[
+                            key
+                        ].cost +=
                             getSaleItemCost(
                                 item
                             );
@@ -1894,7 +1970,9 @@
 
     function renderSalesByProduct() {
 
-        if (!el.salesByProductTable) {
+        if (
+            !el.salesByProductTable
+        ) {
 
             return;
         }
@@ -1904,15 +1982,21 @@
             buildSalesByProductRows();
 
 
-        if (!rows.length) {
+        if (
+            !rows.length
+        ) {
 
             el.salesByProductTable.innerHTML = `
                 <tr>
-                    <td colspan="5" class="table-empty">
+                    <td
+                        colspan="5"
+                        class="table-empty"
+                    >
                         No sales data available for this period.
                     </td>
                 </tr>
             `;
+
 
             return;
         }
@@ -1986,20 +2070,25 @@
             .filter(
                 function (branch) {
 
+                    const branchId =
+                        getCanonicalBranchId(
+                            branch
+                        );
+
+
                     return (
 
-                        String(
+                        normalizeComparable(
                             branch.status ||
                             "active"
-                        )
-                            .toLowerCase() ===
+                        ) ===
                         "active" &&
 
                         (
                             !selectedBranch ||
 
                             String(
-                                branch.id
+                                branchId
                             ) ===
                             String(
                                 selectedBranch
@@ -2011,18 +2100,26 @@
             .map(
                 function (branch) {
 
+                    const branchId =
+                        getCanonicalBranchId(
+                            branch
+                        );
+
+
                     const branchSales =
                         filteredSales.filter(
                             function (sale) {
 
                                 return (
                                     String(
-                                        getRecordBranchId(
-                                            sale
+                                        resolveBranchIdFromValue(
+                                            getRecordBranchId(
+                                                sale
+                                            )
                                         )
                                     ) ===
                                     String(
-                                        branch.id
+                                        branchId
                                     )
                                 );
                             }
@@ -2035,12 +2132,14 @@
 
                                 return (
                                     String(
-                                        getRecordBranchId(
-                                            expense
+                                        resolveBranchIdFromValue(
+                                            getRecordBranchId(
+                                                expense
+                                            )
                                         )
                                     ) ===
                                     String(
-                                        branch.id
+                                        branchId
                                     )
                                 );
                             }
@@ -2092,8 +2191,8 @@
 
                                 return (
                                     total +
-                                    toNumber(
-                                        expense.amount
+                                    getExpenseAmount(
+                                        expense
                                     )
                                 );
                             },
@@ -2156,7 +2255,9 @@
 
     function renderBranchPerformance() {
 
-        if (!el.branchPerformanceTable) {
+        if (
+            !el.branchPerformanceTable
+        ) {
 
             return;
         }
@@ -2166,15 +2267,21 @@
             buildBranchPerformanceRows();
 
 
-        if (!rows.length) {
+        if (
+            !rows.length
+        ) {
 
             el.branchPerformanceTable.innerHTML = `
                 <tr>
-                    <td colspan="5" class="table-empty">
+                    <td
+                        colspan="5"
+                        class="table-empty"
+                    >
                         No branch performance data available.
                     </td>
                 </tr>
             `;
+
 
             return;
         }
@@ -2236,9 +2343,27 @@
        EXPENSE BREAKDOWN
     ========================================== */
 
+    function getExpenseAmount(
+        expense
+    ) {
+
+        return toNumber(
+
+            expense.amount ??
+
+            expense.total ??
+
+            expense.totalAmount ??
+
+            0
+        );
+    }
+
+
     function buildExpenseBreakdownRows() {
 
-        const grouped = {};
+        const grouped =
+            {};
 
 
         filteredExpenses.forEach(
@@ -2249,12 +2374,19 @@
                         expense.category ||
                         "miscellaneous"
                     )
+                        .trim()
                         .toLowerCase();
 
 
-                if (!grouped[category]) {
+                if (
+                    !grouped[
+                        category
+                    ]
+                ) {
 
-                    grouped[category] = {
+                    grouped[
+                        category
+                    ] = {
 
                         category:
                             formatCategory(
@@ -2270,13 +2402,17 @@
                 }
 
 
-                grouped[category].transactions +=
+                grouped[
+                    category
+                ].transactions +=
                     1;
 
 
-                grouped[category].amount +=
-                    toNumber(
-                        expense.amount
+                grouped[
+                    category
+                ].amount +=
+                    getExpenseAmount(
+                        expense
                     );
             }
         );
@@ -2300,7 +2436,9 @@
 
     function renderExpenseBreakdown() {
 
-        if (!el.expenseBreakdownTable) {
+        if (
+            !el.expenseBreakdownTable
+        ) {
 
             return;
         }
@@ -2310,15 +2448,21 @@
             buildExpenseBreakdownRows();
 
 
-        if (!rows.length) {
+        if (
+            !rows.length
+        ) {
 
             el.expenseBreakdownTable.innerHTML = `
                 <tr>
-                    <td colspan="3" class="table-empty">
+                    <td
+                        colspan="3"
+                        class="table-empty"
+                    >
                         No expense data available.
                     </td>
                 </tr>
             `;
+
 
             return;
         }
@@ -2378,23 +2522,44 @@
                     0;
 
 
-                if (branchId) {
+                if (
+                    branchId
+                ) {
 
-                    quantity =
-                        getBranchStock(
+                    /*
+                     * A product that does not belong
+                     * to a selected branch should
+                     * contribute zero value.
+                     */
+
+                    if (
+                        productExistsAtBranch(
                             product,
                             branchId
-                        );
+                        )
+                    ) {
+
+                        quantity =
+                            getBranchStock(
+                                product,
+                                branchId
+                            );
+                    }
+
 
                 } else {
 
                     if (
                         product.branchStock &&
                         typeof product.branchStock ===
-                        "object" &&
+                            "object" &&
                         !Array.isArray(
                             product.branchStock
-                        )
+                        ) &&
+                        Object.keys(
+                            product.branchStock
+                        ).length >
+                        0
                     ) {
 
                         quantity =
@@ -2433,27 +2598,33 @@
         filters
     ) {
 
-        const rows = [];
+        const rows =
+            [];
 
 
         const branchesToCheck =
             branches.filter(
                 function (branch) {
 
+                    const branchId =
+                        getCanonicalBranchId(
+                            branch
+                        );
+
+
                     return (
 
-                        String(
+                        normalizeComparable(
                             branch.status ||
                             "active"
-                        )
-                            .toLowerCase() ===
+                        ) ===
                         "active" &&
 
                         (
                             !filters.branchId ||
 
                             String(
-                                branch.id
+                                branchId
                             ) ===
                             String(
                                 filters.branchId
@@ -2467,6 +2638,22 @@
         products.forEach(
             function (product) {
 
+                const productStatus =
+                    normalizeComparable(
+                        product.status ||
+                        "active"
+                    );
+
+
+                if (
+                    productStatus !==
+                    "active"
+                ) {
+
+                    return;
+                }
+
+
                 const lowLevel =
                     getLowStockLevel(
                         product
@@ -2476,10 +2663,35 @@
                 branchesToCheck.forEach(
                     function (branch) {
 
+                        const branchId =
+                            getCanonicalBranchId(
+                                branch
+                            );
+
+
+                        /*
+                         * CRITICAL FIX:
+                         *
+                         * Do not report a product as
+                         * out-of-stock in a branch where
+                         * that product has never existed.
+                         */
+
+                        if (
+                            !productExistsAtBranch(
+                                product,
+                                branchId
+                            )
+                        ) {
+
+                            return;
+                        }
+
+
                         const stock =
                             getBranchStock(
                                 product,
-                                branch.id
+                                branchId
                             );
 
 
@@ -2520,9 +2732,20 @@
         return rows.sort(
             function (a, b) {
 
-                return (
-                    a.stock -
+                if (
+                    a.stock !==
                     b.stock
+                ) {
+
+                    return (
+                        a.stock -
+                        b.stock
+                    );
+                }
+
+
+                return a.productName.localeCompare(
+                    b.productName
                 );
             }
         );
@@ -2533,7 +2756,9 @@
         filters
     ) {
 
-        if (!el.lowStockReportTable) {
+        if (
+            !el.lowStockReportTable
+        ) {
 
             return;
         }
@@ -2545,15 +2770,21 @@
             );
 
 
-        if (!rows.length) {
+        if (
+            !rows.length
+        ) {
 
             el.lowStockReportTable.innerHTML = `
                 <tr>
-                    <td colspan="5" class="table-empty">
+                    <td
+                        colspan="5"
+                        class="table-empty"
+                    >
                         No low-stock products found.
                     </td>
                 </tr>
             `;
+
 
             return;
         }
@@ -2611,7 +2842,8 @@
 
     function buildRecentTransactionsRows() {
 
-        const rows = [];
+        const rows =
+            [];
 
 
         filteredSales.forEach(
@@ -2630,7 +2862,9 @@
                                 );
                             }
                         )
-                        .join(", ");
+                        .join(
+                            ", "
+                        );
 
 
                 rows.push({
@@ -2645,6 +2879,7 @@
 
                     reference:
                         sale.receiptNumber ||
+                        sale.receipt ||
                         sale.id ||
                         "—",
 
@@ -2749,8 +2984,8 @@
                         ),
 
                     amount:
-                        toNumber(
-                            expense.amount
+                        getExpenseAmount(
+                            expense
                         ),
 
                     direction:
@@ -2881,7 +3116,9 @@
 
     function renderRecentTransactions() {
 
-        if (!el.recentTransactionsTable) {
+        if (
+            !el.recentTransactionsTable
+        ) {
 
             return;
         }
@@ -2891,15 +3128,21 @@
             buildRecentTransactionsRows();
 
 
-        if (!rows.length) {
+        if (
+            !rows.length
+        ) {
 
             el.recentTransactionsTable.innerHTML = `
                 <tr>
-                    <td colspan="6" class="table-empty">
+                    <td
+                        colspan="6"
+                        class="table-empty"
+                    >
                         No recent transactions available.
                     </td>
                 </tr>
             `;
+
 
             return;
         }
@@ -2981,7 +3224,7 @@
 
 
     /* ==========================================
-       PURCHASE / PAYMENT HELPERS
+       PURCHASE / PAYMENT
     ========================================== */
 
     function getPurchaseTotal(
@@ -2995,6 +3238,17 @@
 
             return toNumber(
                 purchase.total
+            );
+        }
+
+
+        if (
+            purchase.totalAmount !==
+            undefined
+        ) {
+
+            return toNumber(
+                purchase.totalAmount
             );
         }
 
@@ -3039,11 +3293,733 @@
         return toNumber(
 
             payment.amount ??
-            payment.paymentAmount ??
-            payment.amountPaid ??
-            payment.paidAmount
 
+            payment.paymentAmount ??
+
+            payment.amountPaid ??
+
+            payment.paidAmount ??
+
+            0
         );
+    }
+
+
+    /* ==========================================
+       PRODUCT / BRANCH STOCK
+    ========================================== */
+
+    function productExistsAtBranch(
+        product,
+        branchId
+    ) {
+
+        if (
+            !product
+        ) {
+
+            return false;
+        }
+
+
+        const canonicalBranchId =
+            resolveBranchIdFromValue(
+                branchId
+            );
+
+
+        if (
+            product.branchStock &&
+            typeof product.branchStock ===
+                "object" &&
+            !Array.isArray(
+                product.branchStock
+            )
+        ) {
+
+            const stockKeys =
+                Object.keys(
+                    product.branchStock
+                );
+
+
+            if (
+                stockKeys.length >
+                0
+            ) {
+
+                const stockKey =
+                    resolveProductBranchStockKey(
+                        product,
+                        canonicalBranchId
+                    );
+
+
+                return Object.prototype
+                    .hasOwnProperty.call(
+                        product.branchStock,
+                        stockKey
+                    );
+            }
+        }
+
+
+        /*
+         * Legacy products without branchStock
+         * belong to Head Office only.
+         */
+
+        return (
+            String(
+                canonicalBranchId
+            ) ===
+            DEFAULT_BRANCH_ID
+        );
+    }
+
+
+    function getBranchStock(
+        product,
+        branchId
+    ) {
+
+        if (
+            !product
+        ) {
+
+            return 0;
+        }
+
+
+        const canonicalBranchId =
+            resolveBranchIdFromValue(
+                branchId
+            );
+
+
+        if (
+            product.branchStock &&
+            typeof product.branchStock ===
+                "object" &&
+            !Array.isArray(
+                product.branchStock
+            )
+        ) {
+
+            const stockKey =
+                resolveProductBranchStockKey(
+                    product,
+                    canonicalBranchId
+                );
+
+
+            if (
+                Object.prototype
+                    .hasOwnProperty.call(
+                        product.branchStock,
+                        stockKey
+                    )
+            ) {
+
+                return toNumber(
+                    product.branchStock[
+                        stockKey
+                    ]
+                );
+            }
+        }
+
+
+        /*
+         * Legacy product:
+         * total quantity is Head Office stock.
+         */
+
+        if (
+            String(
+                canonicalBranchId
+            ) ===
+            DEFAULT_BRANCH_ID
+        ) {
+
+            return toNumber(
+                product.quantity
+            );
+        }
+
+
+        return 0;
+    }
+
+
+    function resolveProductBranchStockKey(
+        product,
+        branchId
+    ) {
+
+        const targetBranchId =
+            String(
+                branchId ||
+                DEFAULT_BRANCH_ID
+            );
+
+
+        if (
+            !product ||
+            !product.branchStock ||
+            typeof product.branchStock !==
+                "object" ||
+            Array.isArray(
+                product.branchStock
+            )
+        ) {
+
+            return targetBranchId;
+        }
+
+
+        const branchStock =
+            product.branchStock;
+
+
+        /*
+         * Exact branch ID first.
+         */
+
+        if (
+            Object.prototype
+                .hasOwnProperty.call(
+                    branchStock,
+                    targetBranchId
+                )
+        ) {
+
+            return targetBranchId;
+        }
+
+
+        const branch =
+            findBranchByAnyIdentifier(
+                targetBranchId
+            );
+
+
+        if (
+            !branch
+        ) {
+
+            return targetBranchId;
+        }
+
+
+        const possibleKeys = [
+
+            branch.id,
+
+            branch.branchId,
+
+            branch.code,
+
+            branch.branchName,
+
+            branch.name
+
+        ]
+            .filter(
+                function (value) {
+
+                    return (
+                        value !==
+                        undefined &&
+                        value !==
+                        null &&
+                        String(
+                            value
+                        ).trim() !==
+                        ""
+                    );
+                }
+            )
+            .map(
+                String
+            );
+
+
+        for (
+            const possibleKey of
+            possibleKeys
+        ) {
+
+            if (
+                Object.prototype
+                    .hasOwnProperty.call(
+                        branchStock,
+                        possibleKey
+                    )
+            ) {
+
+                return possibleKey;
+            }
+        }
+
+
+        /*
+         * Case-insensitive / formatting match.
+         */
+
+        const actualKeys =
+            Object.keys(
+                branchStock
+            );
+
+
+        for (
+            const actualKey of
+            actualKeys
+        ) {
+
+            const matches =
+                possibleKeys.some(
+                    function (
+                        possibleKey
+                    ) {
+
+                        return (
+                            normalizeComparable(
+                                possibleKey
+                            ) ===
+                            normalizeComparable(
+                                actualKey
+                            )
+                        );
+                    }
+                );
+
+
+            if (
+                matches
+            ) {
+
+                return actualKey;
+            }
+        }
+
+
+        return targetBranchId;
+    }
+
+
+    function sumBranchStock(
+        branchStock
+    ) {
+
+        return Object
+            .values(
+                branchStock ||
+                {}
+            )
+            .reduce(
+                function (
+                    total,
+                    value
+                ) {
+
+                    return (
+                        total +
+                        toNumber(
+                            value
+                        )
+                    );
+                },
+                0
+            );
+    }
+
+
+    /* ==========================================
+       BRANCH RESOLUTION
+    ========================================== */
+
+    function normalizeComparable(
+        value
+    ) {
+
+        return String(
+            value ||
+            ""
+        )
+            .trim()
+            .toLowerCase();
+    }
+
+
+    function getCanonicalBranchId(
+        branch
+    ) {
+
+        if (
+            !branch
+        ) {
+
+            return DEFAULT_BRANCH_ID;
+        }
+
+
+        if (
+            branch.isHeadOffice ===
+            true
+        ) {
+
+            return DEFAULT_BRANCH_ID;
+        }
+
+
+        const value =
+
+            branch.id ||
+
+            branch.branchId ||
+
+            branch.code ||
+
+            branch.branchName ||
+
+            branch.name;
+
+
+        if (
+            !value
+        ) {
+
+            return DEFAULT_BRANCH_ID;
+        }
+
+
+        if (
+            normalizeComparable(
+                value
+            ) ===
+            "head-office" ||
+            normalizeComparable(
+                value
+            ) ===
+            "head office"
+        ) {
+
+            return DEFAULT_BRANCH_ID;
+        }
+
+
+        return String(
+            value
+        );
+    }
+
+
+    function findBranchByAnyIdentifier(
+        value
+    ) {
+
+        if (
+            value ===
+            undefined ||
+            value ===
+            null ||
+            String(
+                value
+            ).trim() ===
+            ""
+        ) {
+
+            return null;
+        }
+
+
+        const target =
+            normalizeComparable(
+                value
+            );
+
+
+        if (
+            target ===
+            "head-office" ||
+            target ===
+            "head office" ||
+            target ===
+            "ho"
+        ) {
+
+            return (
+                branches.find(
+                    function (branch) {
+
+                        return (
+                            getCanonicalBranchId(
+                                branch
+                            ) ===
+                            DEFAULT_BRANCH_ID
+                        );
+                    }
+                ) ||
+                null
+            );
+        }
+
+
+        return (
+            branches.find(
+                function (branch) {
+
+                    const values = [
+
+                        branch.id,
+
+                        branch.branchId,
+
+                        branch.code,
+
+                        branch.branchName,
+
+                        branch.name
+
+                    ];
+
+
+                    return values.some(
+                        function (candidate) {
+
+                            return (
+                                normalizeComparable(
+                                    candidate
+                                ) ===
+                                target
+                            );
+                        }
+                    );
+                }
+            ) ||
+            null
+        );
+    }
+
+
+    function resolveBranchIdFromValue(
+        value
+    ) {
+
+        if (
+            value ===
+            undefined ||
+            value ===
+            null ||
+            String(
+                value
+            ).trim() ===
+            ""
+        ) {
+
+            return DEFAULT_BRANCH_ID;
+        }
+
+
+        const normalized =
+            normalizeComparable(
+                value
+            );
+
+
+        if (
+            normalized ===
+            "head-office" ||
+            normalized ===
+            "head office" ||
+            normalized ===
+            "ho"
+        ) {
+
+            return DEFAULT_BRANCH_ID;
+        }
+
+
+        const branch =
+            findBranchByAnyIdentifier(
+                value
+            );
+
+
+        if (
+            branch
+        ) {
+
+            return getCanonicalBranchId(
+                branch
+            );
+        }
+
+
+        return String(
+            value
+        );
+    }
+
+
+    /* ==========================================
+       PRODUCT HELPERS
+    ========================================== */
+
+    function getProductById(
+        productId
+    ) {
+
+        return (
+            products.find(
+                function (product) {
+
+                    return (
+                        String(
+                            product.id
+                        ) ===
+                        String(
+                            productId
+                        )
+                    );
+                }
+            ) ||
+            null
+        );
+    }
+
+
+    function getProductName(
+        productId
+    ) {
+
+        const product =
+            getProductById(
+                productId
+            );
+
+
+        return product
+            ? (
+                product.name ||
+                "Unnamed Product"
+            )
+            : "Unknown Product";
+    }
+
+
+    function getLowStockLevel(
+        product
+    ) {
+
+        if (
+            product.lowStockLevel !==
+            undefined &&
+            product.lowStockLevel !==
+            null &&
+            product.lowStockLevel !==
+            ""
+        ) {
+
+            return toNumber(
+                product.lowStockLevel
+            );
+        }
+
+
+        if (
+            product.lowStock !==
+            undefined &&
+            product.lowStock !==
+            null &&
+            product.lowStock !==
+            ""
+        ) {
+
+            return toNumber(
+                product.lowStock
+            );
+        }
+
+
+        return 5;
+    }
+
+
+    /* ==========================================
+       BRANCH NAMES
+    ========================================== */
+
+    function getBranchName(
+        branch
+    ) {
+
+        if (
+            !branch
+        ) {
+
+            return "Unknown Branch";
+        }
+
+
+        if (
+            getCanonicalBranchId(
+                branch
+            ) ===
+            DEFAULT_BRANCH_ID
+        ) {
+
+            return "Head Office";
+        }
+
+
+        return (
+
+            branch.branchName ||
+
+            branch.name ||
+
+            branch.code ||
+
+            "Unnamed Branch"
+        );
+    }
+
+
+    function getBranchNameById(
+        branchId
+    ) {
+
+        const resolvedBranchId =
+            resolveBranchIdFromValue(
+                branchId
+            );
+
+
+        if (
+            String(
+                resolvedBranchId
+            ) ===
+            DEFAULT_BRANCH_ID
+        ) {
+
+            return "Head Office";
+        }
+
+
+        const branch =
+            findBranchByAnyIdentifier(
+                resolvedBranchId
+            );
+
+
+        return branch
+            ? getBranchName(
+                branch
+            )
+            : "Unknown Branch";
     }
 
 
@@ -3064,6 +4040,7 @@
             alert(
                 "The PDF library did not load."
             );
+
 
             return;
         }
@@ -3091,6 +4068,7 @@
             alert(
                 "The PDF table library did not load."
             );
+
 
             return;
         }
@@ -3147,7 +4125,9 @@
                     );
 
 
-            if (!rawBase64) {
+            if (
+                !rawBase64
+            ) {
 
                 throw new Error(
                     "Generated PDF was empty."
@@ -3241,7 +4221,9 @@
         working
     ) {
 
-        if (!el.pdfButton) {
+        if (
+            !el.pdfButton
+        ) {
 
             return;
         }
@@ -3337,8 +4319,8 @@
 
                     return (
                         total +
-                        toNumber(
-                            expense.amount
+                        getExpenseAmount(
+                            expense
                         )
                     );
                 },
@@ -3460,7 +4442,8 @@
         );
 
 
-        y += 8;
+        y +=
+            8;
 
 
         doc.setFontSize(
@@ -3475,7 +4458,8 @@
         );
 
 
-        y += 7;
+        y +=
+            7;
 
 
         doc.setFontSize(
@@ -3497,7 +4481,8 @@
         );
 
 
-        y += 5;
+        y +=
+            5;
 
 
         doc.text(
@@ -3508,7 +4493,8 @@
         );
 
 
-        y += 5;
+        y +=
+            5;
 
 
         doc.text(
@@ -3522,7 +4508,8 @@
         );
 
 
-        y += 8;
+        y +=
+            8;
 
 
         doc.autoTable({
@@ -4131,8 +5118,10 @@
 
 
         for (
-            let page = 1;
-            page <= pages;
+            let page =
+                1;
+            page <=
+                pages;
             page++
         ) {
 
@@ -4199,6 +5188,7 @@
                     "Sale",
 
                     sale.receiptNumber ||
+                    sale.receipt ||
                     sale.id ||
                     "",
 
@@ -4225,7 +5215,9 @@
                                 );
                             }
                         )
-                        .join(", "),
+                        .join(
+                            ", "
+                        ),
 
                     getSaleQuantity(
                         sale
@@ -4308,8 +5300,8 @@
 
                     "",
 
-                    toNumber(
-                        expense.amount
+                    getExpenseAmount(
+                        expense
                     )
                 ]);
             }
@@ -4404,10 +5396,14 @@
                             .map(
                                 csvEscape
                             )
-                            .join(",");
+                            .join(
+                                ","
+                            );
                     }
                 )
-                .join("\n");
+                .join(
+                    "\n"
+                );
 
 
         const blob =
@@ -4477,8 +5473,10 @@
         return (
             '"' +
             String(
-                value === undefined ||
-                value === null
+                value ===
+                    undefined ||
+                value ===
+                    null
                     ? ""
                     : value
             )
@@ -4492,7 +5490,7 @@
 
 
     /* ==========================================
-       COMMON HELPERS
+       COMMON RECORD HELPERS
     ========================================== */
 
     function getRecordDate(
@@ -4528,209 +5526,14 @@
 
             record.branchId ||
 
+            record.branchID ||
+
             record.activeBranchId ||
 
+            record.branch ||
+
             DEFAULT_BRANCH_ID
         );
-    }
-
-
-    function getProductById(
-        productId
-    ) {
-
-        return (
-            products.find(
-                function (product) {
-
-                    return (
-                        String(
-                            product.id
-                        ) ===
-                        String(
-                            productId
-                        )
-                    );
-                }
-            ) ||
-            null
-        );
-    }
-
-
-    function getProductName(
-        productId
-    ) {
-
-        const product =
-            getProductById(
-                productId
-            );
-
-
-        return product
-            ? (
-                product.name ||
-                "Unnamed Product"
-            )
-            : "Unknown Product";
-    }
-
-
-    function getBranchName(
-        branch
-    ) {
-
-        return (
-
-            branch.branchName ||
-
-            branch.name ||
-
-            "Unnamed Branch"
-        );
-    }
-
-
-    function getBranchNameById(
-        branchId
-    ) {
-
-        if (
-            String(
-                branchId
-            ) ===
-            DEFAULT_BRANCH_ID
-        ) {
-
-            return "Head Office";
-        }
-
-
-        const branch =
-            branches.find(
-                function (item) {
-
-                    return (
-                        String(
-                            item.id
-                        ) ===
-                        String(
-                            branchId
-                        )
-                    );
-                }
-            );
-
-
-        return branch
-            ? getBranchName(
-                branch
-            )
-            : "Unknown Branch";
-    }
-
-
-    function getBranchStock(
-        product,
-        branchId
-    ) {
-
-        if (
-            product &&
-            product.branchStock &&
-            typeof product.branchStock ===
-            "object" &&
-            !Array.isArray(
-                product.branchStock
-            )
-        ) {
-
-            return toNumber(
-                product.branchStock[
-                    branchId
-                ]
-            );
-        }
-
-
-        if (
-            String(
-                branchId
-            ) ===
-            DEFAULT_BRANCH_ID
-        ) {
-
-            return toNumber(
-                product
-                    ? product.quantity
-                    : 0
-            );
-        }
-
-
-        return 0;
-    }
-
-
-    function sumBranchStock(
-        branchStock
-    ) {
-
-        return Object
-            .values(
-                branchStock ||
-                {}
-            )
-            .reduce(
-                function (
-                    total,
-                    value
-                ) {
-
-                    return (
-                        total +
-                        toNumber(
-                            value
-                        )
-                    );
-                },
-                0
-            );
-    }
-
-
-    function getLowStockLevel(
-        product
-    ) {
-
-        if (
-            product.lowStockLevel !==
-            undefined &&
-            product.lowStockLevel !==
-            null
-        ) {
-
-            return toNumber(
-                product.lowStockLevel
-            );
-        }
-
-
-        if (
-            product.lowStock !==
-            undefined &&
-            product.lowStock !==
-            null
-        ) {
-
-            return toNumber(
-                product.lowStock
-            );
-        }
-
-
-        return 5;
     }
 
 
@@ -4750,7 +5553,9 @@
                 );
 
 
-            if (!stored) {
+            if (
+                !stored
+            ) {
 
                 return [];
             }
@@ -4787,9 +5592,12 @@
         keys
     ) {
 
-        const all = [];
+        const all =
+            [];
 
-        const seen = {};
+
+        const seen =
+            {};
 
 
         keys.forEach(
@@ -4811,16 +5619,22 @@
 
                         if (
                             identity &&
-                            seen[identity]
+                            seen[
+                                identity
+                            ]
                         ) {
 
                             return;
                         }
 
 
-                        if (identity) {
+                        if (
+                            identity
+                        ) {
 
-                            seen[identity] =
+                            seen[
+                                identity
+                            ] =
                                 true;
                         }
 
@@ -4846,7 +5660,9 @@
         value
     ) {
 
-        if (!value) {
+        if (
+            !value
+        ) {
 
             return "";
         }
@@ -4933,7 +5749,9 @@
             );
 
 
-        if (!normalized) {
+        if (
+            !normalized
+        ) {
 
             return "—";
         }
@@ -5024,15 +5842,16 @@
 
 
         const key =
-            String(
+            normalizeComparable(
                 category ||
                 "miscellaneous"
-            )
-                .toLowerCase();
+            );
 
 
         return (
-            labels[key] ||
+            labels[
+                key
+            ] ||
             category ||
             "Miscellaneous"
         );
@@ -5043,24 +5862,52 @@
         value
     ) {
 
-        return new Intl.NumberFormat(
-            "en-GH",
-            {
+        const settings =
+            readObject(
+                "jufelix_v7_settings"
+            );
 
-                style:
-                    "currency",
 
-                currency:
-                    "GHS",
+        const currency =
+            settings &&
+            settings.currency
+                ? settings.currency
+                : "GHS";
 
-                minimumFractionDigits:
+
+        try {
+
+            return new Intl.NumberFormat(
+                "en-GH",
+                {
+
+                    style:
+                        "currency",
+
+                    currency:
+                        currency,
+
+                    minimumFractionDigits:
+                        2
+                }
+            ).format(
+                toNumber(
+                    value
+                )
+            );
+
+
+        } catch (error) {
+
+            return (
+                "GH₵" +
+                toNumber(
+                    value
+                ).toFixed(
                     2
-            }
-        ).format(
-            toNumber(
-                value
-            )
-        );
+                )
+            );
+        }
     }
 
 
@@ -5138,6 +5985,51 @@
     }
 
 
+    function readObject(
+        key
+    ) {
+
+        try {
+
+            const stored =
+                localStorage.getItem(
+                    key
+                );
+
+
+            if (
+                !stored
+            ) {
+
+                return null;
+            }
+
+
+            const parsed =
+                JSON.parse(
+                    stored
+                );
+
+
+            return (
+                parsed &&
+                typeof parsed ===
+                    "object" &&
+                !Array.isArray(
+                    parsed
+                )
+            )
+                ? parsed
+                : null;
+
+
+        } catch (error) {
+
+            return null;
+        }
+    }
+
+
     function setText(
         id,
         value
@@ -5149,7 +6041,9 @@
             );
 
 
-        if (element) {
+        if (
+            element
+        ) {
 
             element.textContent =
                 value;
@@ -5176,8 +6070,10 @@
     ) {
 
         return String(
-            value === undefined ||
-            value === null
+            value ===
+                undefined ||
+            value ===
+                null
                 ? ""
                 : value
         )
@@ -5232,7 +6128,24 @@
 
 
         exportCsv:
-            exportCsvReport
+            exportCsvReport,
+
+
+        getBranchStock:
+            getBranchStock,
+
+
+        productExistsAtBranch:
+            productExistsAtBranch,
+
+
+        getSaleRevenue:
+            getSaleRevenue,
+
+
+        getSaleCost:
+            getSaleCost
+
     };
 
 
