@@ -1,15 +1,18 @@
 /* ==========================================
    JUFELIX ERP v7.0 PROFESSIONAL
-   DASHBOARD MODULE v641
+   DASHBOARD MODULE v642
 
    + Role-Aware
    + Branch-Aware
    + Permission-Aware
-   + Firebase Sync Refresh
+   + Firebase Realtime Refresh
+   + Inventory Cloud Refresh
+   + Multi-Device Product Refresh
    + Correct COGS
    + Correct Gross Profit
    + Correct Net Profit
    + Cancelled/Void Transaction Filtering
+   + Debounced Cloud Updates
 
    File:
    js/modules/dashboard.js
@@ -49,6 +52,40 @@
 
 
     /* ==========================================
+       STATE
+    ========================================== */
+
+    let refreshTimer =
+        null;
+
+    let initialized =
+        false;
+
+
+    /* ==========================================
+       WATCHED STORAGE KEYS
+    ========================================== */
+
+    const WATCHED_KEYS = [
+
+        PRODUCTS_KEY,
+
+        SALES_KEY,
+
+        EXPENSES_KEY,
+
+        CUSTOMERS_KEY,
+
+        SUPPLIERS_KEY,
+
+        ACTIVE_BRANCH_KEY,
+
+        CURRENT_USER_KEY
+
+    ];
+
+
+    /* ==========================================
        START
     ========================================== */
 
@@ -68,10 +105,9 @@
     }
 
 
-    /*
-     * These events are fired by the
-     * Jufelix local/Firebase bridges.
-     */
+    /* ==========================================
+       ERP DATA EVENTS
+    ========================================== */
 
     document.addEventListener(
         "jufelix:data-updated",
@@ -85,36 +121,145 @@
     );
 
 
+    /*
+     * Fired directly by
+     * inventory-cloud.js whenever
+     * Firestore products change.
+     */
+
+    document.addEventListener(
+        "jufelix:cloud-products-updated",
+        function () {
+
+            console.log(
+                "☁️ Dashboard received realtime product update."
+            );
+
+
+            scheduleRefresh();
+        }
+    );
+
+
+    /*
+     * Fired when inventory cloud
+     * becomes ready.
+     */
+
+    document.addEventListener(
+        "jufelix:inventory-cloud-ready",
+        function () {
+
+            console.log(
+                "☁️ Dashboard inventory cloud ready."
+            );
+
+
+            scheduleRefresh();
+        }
+    );
+
+
+    /* ==========================================
+       CROSS-TAB / CROSS-WINDOW STORAGE
+    ========================================== */
+
     window.addEventListener(
         "storage",
         function (event) {
 
-            const watchedKeys = [
-
-                PRODUCTS_KEY,
-
-                SALES_KEY,
-
-                EXPENSES_KEY,
-
-                CUSTOMERS_KEY,
-
-                SUPPLIERS_KEY,
-
-                ACTIVE_BRANCH_KEY,
-
-                CURRENT_USER_KEY
-
-            ];
-
-
             if (
-                watchedKeys.includes(
+                event.key &&
+                WATCHED_KEYS.includes(
                     event.key
                 )
             ) {
 
-                refreshEverything();
+                console.log(
+                    "🔄 Dashboard storage update:",
+                    event.key
+                );
+
+
+                scheduleRefresh();
+            }
+        }
+    );
+
+
+    /* ==========================================
+       PAGE VISIBILITY
+    ========================================== */
+
+    document.addEventListener(
+        "visibilitychange",
+        function () {
+
+            if (
+                document.visibilityState ===
+                "visible"
+            ) {
+
+                scheduleRefresh();
+            }
+        }
+    );
+
+
+    /* ==========================================
+       WINDOW FOCUS
+    ========================================== */
+
+    window.addEventListener(
+        "focus",
+        function () {
+
+            scheduleRefresh();
+        }
+    );
+
+
+    /* ==========================================
+       ONLINE AGAIN
+    ========================================== */
+
+    window.addEventListener(
+        "online",
+        function () {
+
+            console.log(
+                "🌐 Dashboard back online."
+            );
+
+
+            scheduleRefresh();
+
+
+            /*
+             * Ask inventory cloud listener
+             * to reconnect if available.
+             */
+
+            if (
+                window.JufelixInventoryCloud &&
+                typeof window
+                    .JufelixInventoryCloud
+                    .refresh ===
+                    "function"
+            ) {
+
+                window
+                    .JufelixInventoryCloud
+                    .refresh()
+                    .catch(
+                        function (error) {
+
+                            console.warn(
+                                "Dashboard inventory cloud refresh failed:",
+                                error
+                            );
+                        }
+                    );
             }
         }
     );
@@ -126,20 +271,76 @@
 
     function initializeDashboard() {
 
+        if (initialized) {
+
+            return;
+        }
+
+
+        initialized =
+            true;
+
+
         refreshEverything();
 
 
         console.log(
-            "✅ Jufelix Dashboard v641 loaded."
+            "✅ Jufelix Dashboard v642 loaded."
         );
     }
 
 
-    function handleDataUpdate() {
+    /* ==========================================
+       DATA UPDATE HANDLER
+    ========================================== */
 
-        refreshEverything();
+    function handleDataUpdate(
+        event
+    ) {
+
+        if (
+            event &&
+            event.detail &&
+            event.detail.key &&
+            !WATCHED_KEYS.includes(
+                event.detail.key
+            )
+        ) {
+
+            return;
+        }
+
+
+        scheduleRefresh();
     }
 
+
+    /* ==========================================
+       DEBOUNCED REFRESH
+    ========================================== */
+
+    function scheduleRefresh() {
+
+        window.clearTimeout(
+            refreshTimer
+        );
+
+
+        refreshTimer =
+            window.setTimeout(
+                function () {
+
+                    refreshEverything();
+
+                },
+                80
+            );
+    }
+
+
+    /* ==========================================
+       REFRESH EVERYTHING
+    ========================================== */
 
     function refreshEverything() {
 
@@ -348,18 +549,8 @@
 
 
         /* ======================================
-           PRODUCT COUNT
+           TOTAL PRODUCTS
         ====================================== */
-
-        /*
-         * Total Products now means:
-         *
-         * Number of registered products
-         * visible to this branch.
-         *
-         * It does NOT remove products simply
-         * because their quantity is zero.
-         */
 
         const totalProducts =
             visibleProducts.length;
@@ -538,7 +729,7 @@
 
 
         /* ======================================
-           UPDATE EXISTING CARDS
+           UPDATE CARDS
         ====================================== */
 
         updateText(
@@ -621,14 +812,6 @@
         );
 
 
-        /*
-         * These IDs are optional.
-         *
-         * If we later add Gross Profit and
-         * COGS cards to dashboard.html,
-         * this JS is already prepared.
-         */
-
         updateText(
             "totalCOGS",
             formatMoney(
@@ -673,8 +856,18 @@
 
 
         console.log(
-            "Dashboard refreshed:",
+            "📊 Dashboard refreshed:",
             {
+
+                products:
+                    totalProducts,
+
+                stockQuantity:
+                    totalQuantity,
+
+                stockValue:
+                    stockValue,
+
                 branchId:
                     branchId,
 
@@ -695,6 +888,7 @@
 
                 netProfit:
                     netProfit
+
             }
         );
     }
@@ -811,11 +1005,6 @@
         }
 
 
-        /*
-         * Calculate from items if
-         * no sale-level total exists.
-         */
-
         if (
             Array.isArray(
                 sale.items
@@ -919,11 +1108,6 @@
         }
 
 
-        /*
-         * Best source:
-         * COGS stored when sale occurred.
-         */
-
         if (
             sale.cogs !==
             undefined
@@ -957,10 +1141,6 @@
         }
 
 
-        /*
-         * Multi-item sale.
-         */
-
         if (
             Array.isArray(
                 sale.items
@@ -987,12 +1167,9 @@
         }
 
 
-        /*
-         * Old single-product sale.
-         */
-
         return getSaleItemCost(
             {
+
                 productId:
                     sale.productId,
 
@@ -1010,6 +1187,7 @@
 
                 costTotal:
                     sale.costTotal
+
             },
             products
         );
@@ -1054,14 +1232,6 @@
             item.costPriceAtSale ??
             item.unitCost;
 
-
-        /*
-         * Backward compatibility.
-         *
-         * If old sale records did not save
-         * the cost price, use current product
-         * cost price as an estimate.
-         */
 
         if (
             costPrice ===
@@ -1171,10 +1341,6 @@
             );
 
 
-        /* ======================================
-           ADMIN
-        ====================================== */
-
         if (
             role ===
             "admin"
@@ -1185,10 +1351,6 @@
             return;
         }
 
-
-        /* ======================================
-           MANAGER
-        ====================================== */
 
         if (
             role ===
@@ -1215,10 +1377,6 @@
             return;
         }
 
-
-        /* ======================================
-           SALES OFFICER / CASHIER
-        ====================================== */
 
         if (
             role ===
@@ -1261,10 +1419,6 @@
         }
 
 
-        /* ======================================
-           STORE KEEPER
-        ====================================== */
-
         if (
             role ===
             "store-keeper"
@@ -1300,10 +1454,6 @@
         }
 
 
-        /* ======================================
-           ACCOUNTANT
-        ====================================== */
-
         if (
             role ===
             "accountant"
@@ -1336,10 +1486,6 @@
             return;
         }
 
-
-        /* ======================================
-           UNKNOWN ROLE
-        ====================================== */
 
         hideCards([
 
@@ -1741,11 +1887,6 @@
         }
 
 
-        /*
-         * Older products without branchStock
-         * are treated as Head Office stock.
-         */
-
         if (
             companyWide ||
             String(
@@ -1809,14 +1950,12 @@
 
             tableBody.innerHTML = `
                 <tr>
-
                     <td
                         colspan="4"
                         class="dashboard-empty"
                     >
                         No low-stock products.
                     </td>
-
                 </tr>
             `;
 
@@ -1898,34 +2037,27 @@
                                 </td>
 
                                 <td>
-
                                     ${formatNumber(
                                         quantity
                                     )}
-
                                     ${escapeHTML(
                                         product.unit ||
                                         ""
                                     )}
-
                                 </td>
 
                                 <td>
-
                                     ${formatNumber(
                                         lowLevel
                                     )}
-
                                 </td>
 
                                 <td>
-
                                     <span
                                         class="${statusClass}"
                                     >
                                         ${status}
                                     </span>
-
                                 </td>
 
                             </tr>
@@ -1963,14 +2095,12 @@
 
             tableBody.innerHTML = `
                 <tr>
-
                     <td
                         colspan="5"
                         class="dashboard-empty"
                     >
                         No sales have been recorded.
                     </td>
-
                 </tr>
             `;
 
@@ -2047,7 +2177,6 @@
                                 </td>
 
                                 <td>
-
                                     <strong>
                                         ${formatMoney(
                                             getSaleTotal(
@@ -2055,7 +2184,6 @@
                                             )
                                         )}
                                     </strong>
-
                                 </td>
 
                             </tr>
@@ -2217,11 +2345,6 @@
             }
 
 
-            /*
-             * Active branch may be stored
-             * as JSON object.
-             */
-
             try {
 
                 const parsed =
@@ -2243,11 +2366,6 @@
                 }
 
 
-                /*
-                 * JSON string such as
-                 * "head-office"
-                 */
-
                 if (
                     typeof parsed ===
                     "string"
@@ -2260,10 +2378,6 @@
                 }
 
             } catch (error) {
-
-                /*
-                 * Plain string branch ID.
-                 */
 
                 return {
                     id:
@@ -2290,11 +2404,6 @@
                 user.role
             );
 
-
-        /*
-         * Non-admin users are permanently
-         * tied to their assigned branch.
-         */
 
         if (
             role !==
@@ -2412,13 +2521,11 @@
             "system-administrator":
                 "admin",
 
-
             manager:
                 "manager",
 
             "branch-manager":
                 "manager",
-
 
             sales:
                 "sales-officer",
@@ -2435,10 +2542,8 @@
             "sales-officer":
                 "sales-officer",
 
-
             cashier:
                 "cashier",
-
 
             stockkeeper:
                 "store-keeper",
@@ -2451,7 +2556,6 @@
 
             "store-keeper":
                 "store-keeper",
-
 
             accountant:
                 "accountant",
@@ -2935,6 +3039,10 @@
 
         refresh:
             refreshEverything,
+
+
+        scheduleRefresh:
+            scheduleRefresh,
 
 
         applyPermissions:
