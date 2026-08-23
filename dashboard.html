@@ -15,11 +15,13 @@
         content="#0b5ed7"
     >
 
-    <title>Dashboard | Jufelix ERP v7.0</title>
+    <title>
+        Dashboard | Jufelix ERP v7.0
+    </title>
 
     <link
         rel="stylesheet"
-        href="assets/css/style.css"
+        href="assets/css/style.css?v=642"
     >
 
     <style>
@@ -296,8 +298,7 @@
         }
 
         .panel-link:hover {
-            text-decoration:
-                underline;
+            text-decoration: underline;
         }
 
         .dashboard-table-wrapper {
@@ -314,8 +315,7 @@
 
             min-width: 650px;
 
-            border-collapse:
-                collapse;
+            border-collapse: collapse;
         }
 
         .dashboard-table th,
@@ -448,7 +448,6 @@
             font-size: 26px;
         }
 
-
         @media screen and
         (max-width: 1200px) {
 
@@ -461,11 +460,9 @@
             }
 
             .dashboard-content-grid {
-                grid-template-columns:
-                    1fr;
+                grid-template-columns: 1fr;
             }
         }
-
 
         @media screen and
         (max-width: 900px) {
@@ -479,7 +476,6 @@
             }
         }
 
-
         @media screen and
         (max-width: 600px) {
 
@@ -488,8 +484,7 @@
             }
 
             .dashboard-header {
-                flex-direction:
-                    column;
+                flex-direction: column;
             }
 
             .dashboard-title h1 {
@@ -501,8 +496,7 @@
             }
 
             .dashboard-grid {
-                grid-template-columns:
-                    1fr;
+                grid-template-columns: 1fr;
             }
 
             .stat-card {
@@ -519,13 +513,11 @@
             }
         }
 
-
         @media screen and
         (max-width: 420px) {
 
             .quick-actions {
-                grid-template-columns:
-                    1fr;
+                grid-template-columns: 1fr;
             }
         }
 
@@ -537,7 +529,9 @@
 <body>
 
 
-    <!-- SIDEBAR -->
+    <!-- =========================================
+         SIDEBAR
+    ========================================== -->
 
     <aside
         id="sidebar"
@@ -545,12 +539,16 @@
     ></aside>
 
 
-    <!-- MAIN -->
+    <!-- =========================================
+         MAIN
+    ========================================== -->
 
     <main class="main-content">
 
 
-        <!-- TOPBAR -->
+        <!-- =====================================
+             TOPBAR
+        ====================================== -->
 
         <header
             id="topbar"
@@ -558,11 +556,12 @@
         ></header>
 
 
-
         <div class="dashboard-page">
 
 
-            <!-- HEADER -->
+            <!-- =================================
+                 HEADER
+            ================================== -->
 
             <section class="dashboard-header">
 
@@ -591,8 +590,9 @@
             </section>
 
 
-
-            <!-- STATISTICS -->
+            <!-- =================================
+                 STATISTICS
+            ================================== -->
 
             <section class="dashboard-grid">
 
@@ -621,7 +621,6 @@
                 </article>
 
 
-
                 <article
                     class="stat-card"
                     id="stockQuantityCard"
@@ -644,7 +643,6 @@
                     </div>
 
                 </article>
-
 
 
                 <article
@@ -671,7 +669,6 @@
                 </article>
 
 
-
                 <article
                     class="stat-card"
                     id="lowStockCard"
@@ -694,7 +691,6 @@
                     </div>
 
                 </article>
-
 
 
                 <article
@@ -721,7 +717,6 @@
                 </article>
 
 
-
                 <article
                     class="stat-card"
                     id="totalRevenueCard"
@@ -744,7 +739,6 @@
                     </div>
 
                 </article>
-
 
 
                 <article
@@ -771,7 +765,6 @@
                 </article>
 
 
-
                 <article
                     class="stat-card"
                     id="netProfitCard"
@@ -796,7 +789,6 @@
                 </article>
 
 
-
                 <article
                     class="stat-card"
                     id="customersCard"
@@ -819,7 +811,6 @@
                     </div>
 
                 </article>
-
 
 
                 <article
@@ -849,8 +840,9 @@
             </section>
 
 
-
-            <!-- CONTENT -->
+            <!-- =================================
+                 CONTENT
+            ================================== -->
 
             <section class="dashboard-content-grid">
 
@@ -923,7 +915,6 @@
                 </article>
 
 
-
                 <!-- QUICK ACTIONS -->
 
                 <article
@@ -948,13 +939,11 @@
                             class="quick-action"
                             data-permission="sales"
                         >
-
                             <span class="quick-action-icon">
                                 🛒
                             </span>
 
                             New Sale
-
                         </a>
 
 
@@ -963,13 +952,11 @@
                             class="quick-action"
                             data-permission="inventory"
                         >
-
                             <span class="quick-action-icon">
                                 📦
                             </span>
 
                             Inventory
-
                         </a>
 
 
@@ -978,13 +965,11 @@
                             class="quick-action"
                             data-permission="customers"
                         >
-
                             <span class="quick-action-icon">
                                 👥
                             </span>
 
                             Customers
-
                         </a>
 
 
@@ -993,13 +978,11 @@
                             class="quick-action"
                             data-permission="expenses"
                         >
-
                             <span class="quick-action-icon">
                                 💸
                             </span>
 
                             Expenses
-
                         </a>
 
 
@@ -1008,13 +991,11 @@
                             class="quick-action"
                             data-permission="purchases"
                         >
-
                             <span class="quick-action-icon">
                                 🧾
                             </span>
 
                             Purchases
-
                         </a>
 
 
@@ -1023,13 +1004,11 @@
                             class="quick-action"
                             data-permission="reports"
                         >
-
                             <span class="quick-action-icon">
                                 📊
                             </span>
 
                             Reports
-
                         </a>
 
 
@@ -1041,8 +1020,9 @@
             </section>
 
 
-
-            <!-- LOW STOCK -->
+            <!-- =================================
+                 LOW STOCK
+            ================================== -->
 
             <section
                 class="dashboard-panel"
@@ -1114,8 +1094,9 @@
     </main>
 
 
-
-    <!-- DASHBOARD DATE -->
+    <!-- =========================================
+         DASHBOARD DATE
+    ========================================== -->
 
     <script>
 
@@ -1130,6 +1111,7 @@
 
 
                 if (!dashboardDate) {
+
                     return;
                 }
 
@@ -1155,61 +1137,81 @@
             }
         );
 
-<!-- =========================================
-     FIREBASE CONFIGURATION
-========================================= -->
-
-<script src="config/firebase-config.js?v=701"></script>
+    </script>
 
 
-<!-- =========================================
-     FIREBASE
-========================================= -->
+    <!-- =========================================
+         FIREBASE CONFIGURATION
+    ========================================== -->
 
-<script
-    type="module"
-    src="js/core/firebase.js?v=702"
-></script>
-
-
-<!-- =========================================
-     CORE
-========================================= -->
-
-<script src="js/core/storage.js?v=501"></script>
-
-<script src="js/core/permissions.js?v=501"></script>
-
-<script src="js/core/auth-guard.js?v=650"></script>
-
-<script src="js/core/theme.js?v=580"></script>
+    <script
+        src="config/firebase-config.js?v=701"
+    ></script>
 
 
-<!-- =========================================
-     COMPONENTS
-========================================= -->
+    <!-- =========================================
+         FIREBASE CONNECTION
+    ========================================== -->
 
-<script src="js/components/sidebar.js?v=610"></script>
-
-<script src="js/components/topbar.js?v=620"></script>
-
-
-<!-- =========================================
-     INVENTORY REALTIME CLOUD
-========================================= -->
-
-<script
-    type="module"
-    src="js/cloud/inventory-cloud.js?v=706"
-></script>
+    <script
+        type="module"
+        src="js/core/firebase.js?v=702"
+    ></script>
 
 
-<!-- =========================================
-     DASHBOARD
-========================================= -->
+    <!-- =========================================
+         CORE
+    ========================================== -->
 
-<script src="js/modules/dashboard.js?v=642"></script>
+    <script
+        src="js/core/storage.js?v=501"
+    ></script>
+
+    <script
+        src="js/core/permissions.js?v=501"
+    ></script>
+
+    <script
+        src="js/core/auth-guard.js?v=650"
+    ></script>
+
+    <script
+        src="js/core/theme.js?v=580"
+    ></script>
+
+
+    <!-- =========================================
+         COMPONENTS
+    ========================================== -->
+
+    <script
+        src="js/components/sidebar.js?v=610"
+    ></script>
+
+    <script
+        src="js/components/topbar.js?v=620"
+    ></script>
+
+
+    <!-- =========================================
+         INVENTORY REALTIME CLOUD
+    ========================================== -->
+
+    <script
+        type="module"
+        src="js/cloud/inventory-cloud.js?v=706"
+    ></script>
+
+
+    <!-- =========================================
+         DASHBOARD MODULE
+    ========================================== -->
+
+    <script
+        src="js/modules/dashboard.js?v=642"
+    ></script>
 
 
 </body>
+
 </html>
