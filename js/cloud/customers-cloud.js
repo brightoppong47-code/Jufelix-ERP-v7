@@ -2,18 +2,18 @@
    JUFELIX ERP v7.0 PROFESSIONAL
    CUSTOMERS CLOUD BRIDGE
 
-   COMPLETE REPLACEMENT
-
    File:
    js/cloud/customers-cloud.js
 
-   + Waits for Firebase initialization
-   + Waits for Firebase Authentication
-   + Saves customers to Firestore
-   + Uploads existing local customers
-   + Updates customer records
-   + Deletes customer records
-   + Prevents overlapping syncs
+   Version: 703
+
+   + Firebase Authentication aware
+   + Local → Firebase sync
+   + Firebase → Local realtime sync
+   + Customer create/update/delete
+   + Multi-device support
+   + Safe merge
+   + Prevents sync loops
 ========================================== */
 
 (function () {
@@ -28,7 +28,6 @@
     const CUSTOMERS_KEY =
         "jufelix_v7_customers";
 
-
     const COLLECTION_NAME =
         "customers";
 
@@ -40,21 +39,27 @@
     let firestoreTools =
         null;
 
-
     let syncTimer =
         null;
-
 
     let syncRunning =
         false;
 
-
     let syncAgain =
+        false;
+
+    let stopListener =
+        null;
+
+    let listenerStarted =
+        false;
+
+    let applyingCloudData =
         false;
 
 
     /* ==========================================
-       LOAD FIRESTORE SDK
+       FIRESTORE TOOLS
     ========================================== */
 
     async function getFirestoreTools() {
@@ -76,21 +81,10 @@
 
 
     /* ==========================================
-       WAIT FOR FIREBASE
-
-       IMPORTANT:
-       Do not only wait for db.
-
-       Firestore rules may require the
-       Firebase authenticated user.
+       AUTHENTICATED FIREBASE
     ========================================== */
 
     async function getFirebase() {
-
-        /*
-         * Preferred method from the newer
-         * js/core/firebase.js
-         */
 
         if (
             typeof window
@@ -110,25 +104,20 @@
         }
 
 
-        /*
-         * Compatibility fallback.
-         */
-
         return new Promise(
             function (
                 resolve,
                 reject
             ) {
 
-                const started =
+                const startedAt =
                     Date.now();
 
 
                 function check() {
 
                     const firebase =
-                        window
-                            .JufelixFirebase;
+                        window.JufelixFirebase;
 
 
                     if (
@@ -148,8 +137,7 @@
                         firebase &&
                         firebase.db &&
                         firebase.auth &&
-                        firebase.authReady &&
-                        firebase.user
+                        firebase.auth.currentUser
                     ) {
 
                         resolve(
@@ -162,7 +150,7 @@
 
                     if (
                         Date.now() -
-                        started >
+                        startedAt >
                         20000
                     ) {
 
@@ -198,8 +186,7 @@
     ) {
 
         if (
-            value ===
-            undefined
+            value === undefined
         ) {
 
             return null;
@@ -207,8 +194,7 @@
 
 
         if (
-            value ===
-                null ||
+            value === null ||
             typeof value !==
                 "object"
         ) {
@@ -241,19 +227,13 @@
             ) {
 
                 if (
-                    value[
-                        key
-                    ] !==
+                    value[key] !==
                     undefined
                 ) {
 
-                    result[
-                        key
-                    ] =
+                    result[key] =
                         cleanData(
-                            value[
-                                key
-                            ]
+                            value[key]
                         );
                 }
             }
@@ -339,8 +319,7 @@
 
             openingBalance:
                 toNumber(
-                    customer
-                        .openingBalance
+                    customer.openingBalance
                 ),
 
             balance:
@@ -355,8 +334,7 @@
 
             totalPurchases:
                 toNumber(
-                    customer
-                        .totalPurchases
+                    customer.totalPurchases
                 ),
 
             totalPaid:
@@ -366,8 +344,7 @@
 
             totalCreditSales:
                 toNumber(
-                    customer
-                        .totalCreditSales
+                    customer.totalCreditSales
                 )
         };
     }
@@ -395,14 +372,6 @@
             );
 
 
-        console.log(
-            "Saving customer to Firebase:",
-            normalized.id,
-            normalized.name,
-            normalized.branchId
-        );
-
-
         try {
 
             await tools.setDoc(
@@ -418,8 +387,7 @@
                     ...normalized,
 
                     cloudUpdatedAt:
-                        tools
-                            .serverTimestamp()
+                        tools.serverTimestamp()
                 },
 
                 {
@@ -430,25 +398,9 @@
 
 
             console.log(
-                "✅ Customer synced to Firebase:",
+                "✅ CUSTOMER SAVED TO FIREBASE:",
                 normalized.name ||
                 normalized.id
-            );
-
-
-            document.dispatchEvent(
-
-                new CustomEvent(
-                    "jufelix:customer-cloud-saved",
-                    {
-
-                        detail: {
-
-                            customer:
-                                normalized
-                        }
-                    }
-                )
             );
 
 
@@ -457,8 +409,8 @@
 
         } catch (error) {
 
-            console.error(
-                "❌ Customer Firestore save failed:",
+            reportError(
+                "SAVE CUSTOMER",
                 error
             );
 
@@ -471,7 +423,7 @@
 
 
     /* ==========================================
-       DELETE ONE CUSTOMER
+       DELETE CUSTOMER
     ========================================== */
 
     async function deleteCustomer(
@@ -519,8 +471,8 @@
 
         } catch (error) {
 
-            console.error(
-                "❌ Firebase customer delete failed:",
+            reportError(
+                "DELETE CUSTOMER",
                 error
             );
 
@@ -546,16 +498,12 @@
                 );
 
 
-            if (!stored) {
-
-                return [];
-            }
-
-
             const parsed =
-                JSON.parse(
-                    stored
-                );
+                stored
+                    ? JSON.parse(
+                        stored
+                    )
+                    : [];
 
 
             return Array.isArray(
@@ -568,7 +516,7 @@
         } catch (error) {
 
             console.error(
-                "Unable to read local customers:",
+                "Unable to read customers:",
                 error
             );
 
@@ -579,23 +527,141 @@
 
 
     /* ==========================================
-       SYNC ALL LOCAL CUSTOMERS
+       SAVE CLOUD DATA LOCALLY
+    ========================================== */
+
+    function saveCustomersLocally(
+        customers,
+        source
+    ) {
+
+        try {
+
+            applyingCloudData =
+                source ===
+                "cloud";
+
+
+            localStorage.setItem(
+                CUSTOMERS_KEY,
+                JSON.stringify(
+                    customers
+                )
+            );
+
+
+            document.dispatchEvent(
+
+                new CustomEvent(
+                    "jufelix:data-updated",
+                    {
+                        detail: {
+
+                            key:
+                                CUSTOMERS_KEY,
+
+                            value:
+                                customers,
+
+                            source:
+                                source ||
+                                ""
+                        }
+                    }
+                )
+            );
+
+
+            document.dispatchEvent(
+
+                new CustomEvent(
+                    "jufelix:dataChanged",
+                    {
+                        detail: {
+
+                            key:
+                                CUSTOMERS_KEY,
+
+                            value:
+                                customers,
+
+                            source:
+                                source ||
+                                ""
+                        }
+                    }
+                )
+            );
+
+
+            return true;
+
+
+        } catch (error) {
+
+            console.error(
+                "Unable to save customers locally:",
+                error
+            );
+
+
+            return false;
+
+
+        } finally {
+
+            if (
+                source ===
+                "cloud"
+            ) {
+
+                window.setTimeout(
+                    function () {
+
+                        applyingCloudData =
+                            false;
+                    },
+                    100
+                );
+            }
+        }
+    }
+
+
+    /* ==========================================
+       LOCAL → FIREBASE SYNC
     ========================================== */
 
     async function syncLocal() {
 
-        /*
-         * Prevent multiple data-updated events
-         * from starting several uploads at once.
-         */
+        if (
+            applyingCloudData
+        ) {
 
-        if (syncRunning) {
+            return {
+
+                successful:
+                    0,
+
+                failed:
+                    0,
+
+                skipped:
+                    true
+            };
+        }
+
+
+        if (
+            syncRunning
+        ) {
 
             syncAgain =
                 true;
 
 
             return {
+
                 successful:
                     0,
 
@@ -615,24 +681,11 @@
         let successful =
             0;
 
-
         let failed =
             0;
 
 
-        const errors =
-            [];
-
-
         try {
-
-            /*
-             * Authenticate first.
-             *
-             * This means we don't loop through
-             * every customer when Firebase isn't
-             * actually ready.
-             */
 
             await getFirebase();
 
@@ -668,33 +721,12 @@
                 } catch (error) {
 
                     failed++;
-
-
-                    errors.push({
-
-                        id:
-                            customer.id,
-
-                        name:
-                            customer.name ||
-                            "",
-
-                        error:
-                            error.message
-                    });
-
-
-                    console.error(
-                        "❌ Customer sync failed:",
-                        customer.id,
-                        error
-                    );
                 }
             }
 
 
             console.log(
-                "Customer Firebase sync complete:",
+                "☁️ Customer sync completed:",
                 {
                     successful,
                     failed
@@ -705,8 +737,7 @@
             return {
 
                 successful,
-                failed,
-                errors
+                failed
             };
 
 
@@ -716,7 +747,9 @@
                 false;
 
 
-            if (syncAgain) {
+            if (
+                syncAgain
+            ) {
 
                 syncAgain =
                     false;
@@ -731,13 +764,12 @@
                                     error
                                 ) {
 
-                                    console.error(
-                                        "Queued customer sync failed:",
+                                    reportError(
+                                        "QUEUED CUSTOMER SYNC",
                                         error
                                     );
                                 }
                             );
-
                     },
                     250
                 );
@@ -747,10 +779,270 @@
 
 
     /* ==========================================
+       SAFE MERGE
+    ========================================== */
+
+    function mergeCustomers(
+        localCustomers,
+        cloudCustomers
+    ) {
+
+        const map =
+            new Map();
+
+
+        (
+            Array.isArray(
+                localCustomers
+            )
+                ? localCustomers
+                : []
+        ).forEach(
+            function (
+                customer
+            ) {
+
+                if (
+                    customer &&
+                    customer.id
+                ) {
+
+                    map.set(
+
+                        String(
+                            customer.id
+                        ),
+
+                        {
+                            ...customer
+                        }
+                    );
+                }
+            }
+        );
+
+
+        (
+            Array.isArray(
+                cloudCustomers
+            )
+                ? cloudCustomers
+                : []
+        ).forEach(
+            function (
+                customer
+            ) {
+
+                if (
+                    !customer ||
+                    !customer.id
+                ) {
+
+                    return;
+                }
+
+
+                const id =
+                    String(
+                        customer.id
+                    );
+
+
+                map.set(
+
+                    id,
+
+                    {
+
+                        ...(
+                            map.get(
+                                id
+                            ) ||
+                            {}
+                        ),
+
+                        ...customer,
+
+                        id:
+                            id
+                    }
+                );
+            }
+        );
+
+
+        return Array.from(
+            map.values()
+        );
+    }
+
+
+    /* ==========================================
+       FIREBASE → LOCAL REALTIME
+    ========================================== */
+
+    async function startListener() {
+
+        if (
+            listenerStarted
+        ) {
+
+            return true;
+        }
+
+
+        const firebase =
+            await getFirebase();
+
+
+        const tools =
+            await getFirestoreTools();
+
+
+        listenerStarted =
+            true;
+
+
+        try {
+
+            stopListener =
+                tools.onSnapshot(
+
+                    tools.collection(
+                        firebase.db,
+                        COLLECTION_NAME
+                    ),
+
+                    function (
+                        snapshot
+                    ) {
+
+                        const cloudCustomers =
+                            snapshot.docs.map(
+                                function (
+                                    documentSnapshot
+                                ) {
+
+                                    const data =
+                                        documentSnapshot
+                                            .data() ||
+                                        {};
+
+
+                                    const customer = {
+
+                                        ...data,
+
+                                        id:
+                                            String(
+                                                data.id ||
+                                                documentSnapshot.id
+                                            )
+                                    };
+
+
+                                    delete customer
+                                        .cloudUpdatedAt;
+
+
+                                    return customer;
+                                }
+                            );
+
+
+                        const merged =
+                            mergeCustomers(
+
+                                readCustomers(),
+
+                                cloudCustomers
+                            );
+
+
+                        saveCustomersLocally(
+                            merged,
+                            "cloud"
+                        );
+
+
+                        console.log(
+                            "☁️ Customer realtime update:",
+                            merged.length
+                        );
+                    },
+
+                    function (
+                        error
+                    ) {
+
+                        listenerStarted =
+                            false;
+
+
+                        reportError(
+                            "CUSTOMER LISTENER",
+                            error
+                        );
+                    }
+                );
+
+
+            return true;
+
+
+        } catch (error) {
+
+            listenerStarted =
+                false;
+
+
+            reportError(
+                "START CUSTOMER LISTENER",
+                error
+            );
+
+
+            throw error;
+        }
+    }
+
+
+    /* ==========================================
+       STOP LISTENER
+    ========================================== */
+
+    function stopListenerSync() {
+
+        if (
+            typeof stopListener ===
+            "function"
+        ) {
+
+            stopListener();
+        }
+
+
+        stopListener =
+            null;
+
+        listenerStarted =
+            false;
+    }
+
+
+    /* ==========================================
        SCHEDULE SYNC
     ========================================== */
 
     function scheduleSync() {
+
+        if (
+            applyingCloudData
+        ) {
+
+            return;
+        }
+
 
         window.clearTimeout(
             syncTimer
@@ -767,13 +1059,12 @@
                                 error
                             ) {
 
-                                console.error(
-                                    "Customer scheduled sync failed:",
+                                reportError(
+                                    "CUSTOMER AUTO SYNC",
                                     error
                                 );
                             }
                         );
-
                 },
                 400
             );
@@ -781,7 +1072,7 @@
 
 
     /* ==========================================
-       CUSTOMER DATA UPDATED
+       ERP DATA EVENTS
     ========================================== */
 
     document.addEventListener(
@@ -790,10 +1081,33 @@
             event
         ) {
 
+            const detail =
+                event.detail ||
+                {};
+
+
             if (
-                event.detail &&
-                event.detail.key ===
-                    CUSTOMERS_KEY
+                applyingCloudData
+            ) {
+
+                return;
+            }
+
+
+            if (
+                detail.source ===
+                    "cloud" ||
+                detail.source ===
+                    "firebase"
+            ) {
+
+                return;
+            }
+
+
+            if (
+                detail.key ===
+                CUSTOMERS_KEY
             ) {
 
                 scheduleSync();
@@ -808,10 +1122,33 @@
             event
         ) {
 
+            const detail =
+                event.detail ||
+                {};
+
+
             if (
-                event.detail &&
-                event.detail.key ===
-                    CUSTOMERS_KEY
+                applyingCloudData
+            ) {
+
+                return;
+            }
+
+
+            if (
+                detail.source ===
+                    "cloud" ||
+                detail.source ===
+                    "firebase"
+            ) {
+
+                return;
+            }
+
+
+            if (
+                detail.key ===
+                CUSTOMERS_KEY
             ) {
 
                 scheduleSync();
@@ -820,15 +1157,19 @@
     );
 
 
-    /* ==========================================
-       OTHER TAB CHANGES
-    ========================================== */
-
     window.addEventListener(
         "storage",
         function (
             event
         ) {
+
+            if (
+                applyingCloudData
+            ) {
+
+                return;
+            }
+
 
             if (
                 event.key ===
@@ -841,10 +1182,6 @@
     );
 
 
-    /* ==========================================
-       ONLINE AGAIN
-    ========================================== */
-
     window.addEventListener(
         "online",
         function () {
@@ -855,28 +1192,7 @@
 
 
     /* ==========================================
-       FIREBASE READY
-    ========================================== */
-
-    document.addEventListener(
-        "jufelix:firebase-ready",
-        function (
-            event
-        ) {
-
-            if (
-                event.detail &&
-                event.detail.authenticated
-            ) {
-
-                scheduleSync();
-            }
-        }
-    );
-
-
-    /* ==========================================
-       NUMBER HELPER
+       NUMBER
     ========================================== */
 
     function toNumber(
@@ -884,12 +1200,9 @@
     ) {
 
         if (
-            value ===
-                undefined ||
-            value ===
-                null ||
-            value ===
-                ""
+            value === undefined ||
+            value === null ||
+            value === ""
         ) {
 
             return 0;
@@ -917,7 +1230,7 @@
 
 
     /* ==========================================
-       FRIENDLY FIREBASE ERROR
+       ERROR
     ========================================== */
 
     function createFriendlyError(
@@ -943,16 +1256,11 @@
         if (
             code.includes(
                 "permission-denied"
-            ) ||
-            message
-                .toLowerCase()
-                .includes(
-                    "insufficient permissions"
-                )
+            )
         ) {
 
             return new Error(
-                "Firebase rejected the customer because the signed-in user does not have permission to write to the customers collection."
+                "Firebase permission denied. Check the signed-in user's Firestore profile."
             );
         }
 
@@ -969,24 +1277,25 @@
         }
 
 
-        if (
-            code.includes(
-                "unavailable"
-            )
-        ) {
-
-            return new Error(
-                "Firebase is temporarily unavailable. Check your internet connection."
-            );
-        }
-
-
         return error instanceof Error
             ? error
             : new Error(
                 message ||
                 "Customer Firebase sync failed."
             );
+    }
+
+
+    function reportError(
+        operation,
+        error
+    ) {
+
+        console.error(
+            "❌ Customers Firebase error:",
+            operation,
+            error
+        );
     }
 
 
@@ -1005,58 +1314,83 @@
         syncLocal:
             syncLocal,
 
+        listen:
+            startListener,
+
+        stop:
+            stopListenerSync,
+
         refresh:
-            scheduleSync
+            async function () {
+
+                await syncLocal();
+
+                await startListener();
+
+                return true;
+            }
     };
 
 
     /* ==========================================
-       READY EVENT
+       START
     ========================================== */
 
-    document.dispatchEvent(
+    async function startCustomersCloud() {
 
-        new CustomEvent(
-            "jufelix:customers-cloud-ready"
-        )
-    );
+        try {
 
-
-    console.log(
-        "✅ Jufelix Customers Cloud ready."
-    );
+            const firebase =
+                await getFirebase();
 
 
-    /* ==========================================
-       INITIAL SYNC
-    ========================================== */
+            console.log(
+                "✅ Customers Firebase authenticated:",
+                firebase.auth.currentUser
+                    ? (
+                        firebase.auth.currentUser.email ||
+                        firebase.auth.currentUser.uid
+                    )
+                    : "User"
+            );
 
-    window.setTimeout(
-        function () {
 
-            syncLocal()
-                .catch(
-                    function (
-                        error
-                    ) {
+            const result =
+                await syncLocal();
 
-                        /*
-                         * Do not show an alert here.
-                         * Login/authentication may still
-                         * be establishing itself.
-                         */
 
-                        console.warn(
-                            "Initial customer Firebase sync waiting:",
-                            error.message ||
-                            error
-                        );
-                    }
-                );
+            console.log(
+                "Initial customer sync:",
+                result
+            );
 
-        },
-        1200
-    );
 
+            await startListener();
+
+
+            console.log(
+                "✅ Jufelix Customers Cloud v703 ready."
+            );
+
+
+        } catch (error) {
+
+            reportError(
+                "CUSTOMER CLOUD STARTUP",
+                error
+            );
+        }
+
+
+        document.dispatchEvent(
+
+            new CustomEvent(
+                "jufelix:customers-cloud-ready"
+            )
+        );
+    }
+
+
+    startCustomersCloud();
 
 })();
