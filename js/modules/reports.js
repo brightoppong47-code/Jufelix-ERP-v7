@@ -6,10 +6,23 @@
    js/modules/reports.js
 
    COMPLETE REPLACEMENT
-   FIXED:
-   + Branch dropdown blinking
-   + Firebase refresh safe
-   + Branch selection preserved
+
+   + Firebase/localStorage refresh
+   + Branch dropdown anti-blinking
+   + New Firebase branches appear automatically
+   + Cancelled/void sales excluded
+   + Draft/cancelled purchases excluded
+   + Branch-aware reports
+   + Sales / Purchases / Expenses
+   + Gross & Net Profit
+   + Inventory Value
+   + Low Stock
+   + Branch Performance
+   + Recent Transactions
+   + Supplier Payments
+   + Transfers
+   + PDF Preview
+   + CSV Export
 ========================================== */
 
 (function () {
@@ -109,7 +122,6 @@
     } else {
 
         initializeReports();
-
     }
 
 
@@ -121,11 +133,6 @@
 
         ensureHeadOffice();
 
-        /*
-         * IMPORTANT:
-         * Populate branch selector ONCE
-         * during initial page load.
-         */
         populateBranchFilter();
 
         connectEvents();
@@ -142,10 +149,10 @@
             el.period.value =
                 "month";
 
+
             applyQuickPeriod(
                 "month"
             );
-
         }
 
 
@@ -153,9 +160,8 @@
 
 
         console.log(
-            "Jufelix Reports module loaded."
+            "✅ Jufelix Reports module loaded."
         );
-
     }
 
 
@@ -170,56 +176,65 @@
                 "reportPeriod"
             );
 
+
         el.startDate =
             document.getElementById(
                 "reportStartDate"
             );
+
 
         el.endDate =
             document.getElementById(
                 "reportEndDate"
             );
 
+
         el.branch =
             document.getElementById(
                 "reportBranch"
             );
+
 
         el.pdfButton =
             document.getElementById(
                 "printReportButton"
             );
 
+
         el.csvButton =
             document.getElementById(
                 "exportReportButton"
             );
+
 
         el.salesByProductTable =
             document.getElementById(
                 "salesByProductTable"
             );
 
+
         el.branchPerformanceTable =
             document.getElementById(
                 "branchPerformanceTable"
             );
+
 
         el.expenseBreakdownTable =
             document.getElementById(
                 "expenseBreakdownTable"
             );
 
+
         el.lowStockReportTable =
             document.getElementById(
                 "lowStockReportTable"
             );
 
+
         el.recentTransactionsTable =
             document.getElementById(
                 "recentTransactionsTable"
             );
-
     }
 
 
@@ -239,11 +254,10 @@
                         el.period.value
                     );
 
-                    refreshReports();
 
+                    refreshReports();
                 }
             );
-
         }
 
 
@@ -257,14 +271,12 @@
 
                         el.period.value =
                             "";
-
                     }
 
-                    refreshReports();
 
+                    refreshReports();
                 }
             );
-
         }
 
 
@@ -278,14 +290,12 @@
 
                         el.period.value =
                             "";
-
                     }
 
-                    refreshReports();
 
+                    refreshReports();
                 }
             );
-
         }
 
 
@@ -296,15 +306,12 @@
                 function () {
 
                     /*
-                     * IMPORTANT:
-                     * We only refresh report data.
-                     * We DO NOT rebuild the select.
+                     * Do not rebuild dropdown here.
                      */
-                    refreshReports();
 
+                    refreshReports();
                 }
             );
-
         }
 
 
@@ -314,7 +321,6 @@
                 "click",
                 generatePdfPreview
             );
-
         }
 
 
@@ -324,49 +330,33 @@
                 "click",
                 exportCsvReport
             );
-
         }
 
 
-        /*
-         * Firebase / application updates.
-         *
-         * DO NOT repopulate branch selector here.
-         * Doing that repeatedly causes Android's
-         * native select menu to blink/flicker.
-         */
+        /* ======================================
+           SAME-PAGE / FIREBASE DATA EVENTS
+        ====================================== */
+
         document.addEventListener(
             "jufelix:data-updated",
-            function () {
-
-                refreshReports();
-
-            }
+            handleReportDataUpdate
         );
 
 
         document.addEventListener(
             "jufelix:dataChanged",
-            function () {
-
-                refreshReports();
-
-            }
+            handleReportDataUpdate
         );
 
 
-        /*
-         * Cross-tab localStorage synchronization.
-         */
+        /* ======================================
+           OTHER TAB / WINDOW STORAGE CHANGES
+        ====================================== */
+
         window.addEventListener(
             "storage",
             function (event) {
 
-                /*
-                 * Branch data itself changed.
-                 * This is the ONLY storage event
-                 * that should rebuild the dropdown.
-                 */
                 if (
                     event.key ===
                     BRANCHES_KEY
@@ -381,7 +371,6 @@
                     refreshReports();
 
                     return;
-
                 }
 
 
@@ -409,12 +398,79 @@
                 ) {
 
                     refreshReports();
-
                 }
-
             }
         );
+    }
 
+
+    /* ==========================================
+       APPLICATION DATA UPDATE
+    ========================================== */
+
+    function handleReportDataUpdate(
+        event
+    ) {
+
+        const detail =
+            event &&
+            event.detail
+                ? event.detail
+                : {};
+
+
+        /*
+         * If Firebase sends a new branch,
+         * refresh branch options.
+         *
+         * populateBranchFilter() compares
+         * the current options first, so it
+         * will not rebuild unnecessarily.
+         */
+
+        if (
+            detail.key ===
+            BRANCHES_KEY
+        ) {
+
+            loadData();
+
+            ensureHeadOffice();
+
+            populateBranchFilter();
+
+            refreshReports();
+
+            return;
+        }
+
+
+        const reportKeys = [
+
+            PRODUCTS_KEY,
+
+            SALES_KEY,
+
+            PURCHASES_KEY,
+
+            EXPENSES_KEY,
+
+            TRANSFERS_KEY,
+
+            ...PAYMENT_KEYS
+
+        ];
+
+
+        if (
+            !detail.key ||
+            reportKeys.includes(
+                detail.key
+            )
+        ) {
+
+            refreshReports();
+        }
     }
 
 
@@ -429,36 +485,41 @@
                 PRODUCTS_KEY
             );
 
+
         sales =
             readArray(
                 SALES_KEY
             );
+
 
         purchases =
             readArray(
                 PURCHASES_KEY
             );
 
+
         expenses =
             readArray(
                 EXPENSES_KEY
             );
+
 
         branches =
             readArray(
                 BRANCHES_KEY
             );
 
+
         transfers =
             readArray(
                 TRANSFERS_KEY
             );
 
+
         payments =
             readCombinedArrays(
                 PAYMENT_KEYS
             );
-
     }
 
 
@@ -488,9 +549,7 @@
                         )
                             .toLowerCase() ===
                         "head-office"
-
                     );
-
                 }
             );
 
@@ -519,11 +578,8 @@
 
                 isHeadOffice:
                     true
-
             });
-
         }
-
     }
 
 
@@ -536,7 +592,6 @@
         if (!el.branch) {
 
             return;
-
         }
 
 
@@ -557,11 +612,32 @@
                                 .toLowerCase() ===
                             "active"
                         );
-
                     }
                 )
                 .sort(
                     function (a, b) {
+
+                        /*
+                         * Keep Head Office first.
+                         */
+
+                        if (
+                            String(a.id) ===
+                            DEFAULT_BRANCH_ID
+                        ) {
+
+                            return -1;
+                        }
+
+
+                        if (
+                            String(b.id) ===
+                            DEFAULT_BRANCH_ID
+                        ) {
+
+                            return 1;
+                        }
+
 
                         return getBranchName(
                             a
@@ -570,26 +646,18 @@
                                 b
                             )
                         );
-
                     }
                 );
 
 
-        /*
-         * Build expected option signature first.
-         *
-         * If dropdown contents are already correct,
-         * do NOTHING to the DOM.
-         *
-         * This is another protection against
-         * Android select flickering.
-         */
-
         const newOptions = [
 
             {
-                value: "",
-                label: "All Branches"
+                value:
+                    "",
+
+                label:
+                    "All Branches"
             },
 
             ...activeBranches.map(
@@ -606,12 +674,9 @@
                             getBranchName(
                                 branch
                             )
-
                     };
-
                 }
             )
-
         ];
 
 
@@ -627,88 +692,68 @@
                             option.value,
 
                         label:
-                            option.textContent.trim()
-
+                            option.textContent
+                                .trim()
                     };
-
                 }
             );
 
 
-        const currentSignature =
+        /*
+         * Anti-blinking protection.
+         */
+
+        if (
             JSON.stringify(
                 currentOptions
-            );
-
-
-        const newSignature =
+            ) ===
             JSON.stringify(
                 newOptions
-            );
-
-
-        /*
-         * If branch options didn't change,
-         * don't touch the select element.
-         */
-        if (
-            currentSignature ===
-            newSignature
+            )
         ) {
 
             return;
-
         }
 
 
         el.branch.innerHTML =
-            '<option value="">All Branches</option>' +
-
-            activeBranches
+            newOptions
                 .map(
-                    function (branch) {
+                    function (option) {
 
-                        return `
-                            <option value="${escapeHTML(
-                                branch.id
-                            )}">
-                                ${escapeHTML(
-                                    getBranchName(
-                                        branch
-                                    )
-                                )}
-                            </option>
-                        `;
-
+                        return (
+                            '<option value="' +
+                            escapeHTML(
+                                option.value
+                            ) +
+                            '">' +
+                            escapeHTML(
+                                option.label
+                            ) +
+                            "</option>"
+                        );
                     }
                 )
                 .join("");
 
 
-        /*
-         * Restore previous selected branch.
-         */
         const previousExists =
-            activeBranches.some(
-                function (branch) {
+            newOptions.some(
+                function (option) {
 
                     return (
                         String(
-                            branch.id
+                            option.value
                         ) ===
                         String(
                             previousValue
                         )
                     );
-
                 }
             );
 
 
-        if (
-            previousValue &&
-            previousExists
-        ) {
+        if (previousExists) {
 
             el.branch.value =
                 previousValue;
@@ -717,9 +762,7 @@
 
             el.branch.value =
                 "";
-
         }
-
     }
 
 
@@ -756,7 +799,6 @@
 
                 el.startDate.value =
                     "";
-
             }
 
 
@@ -764,12 +806,10 @@
 
                 el.endDate.value =
                     "";
-
             }
 
 
             return;
-
         }
 
 
@@ -797,8 +837,8 @@
                     mondayOffset
                 );
 
-                break;
 
+                break;
             }
 
 
@@ -829,7 +869,6 @@
             default:
 
                 return;
-
         }
 
 
@@ -839,7 +878,6 @@
                 dateKey(
                     start
                 );
-
         }
 
 
@@ -849,45 +887,58 @@
                 dateKey(
                     end
                 );
-
         }
-
     }
 
 
     /* ==========================================
-       REFRESH
+       REFRESH REPORTS
     ========================================== */
 
     function refreshReports() {
 
-        /*
-         * Load fresh Firebase/localStorage
-         * synchronized data.
-         */
         loadData();
 
         ensureHeadOffice();
-
-
-        /*
-         * IMPORTANT FIX:
-         *
-         * populateBranchFilter()
-         * is intentionally NOT called here.
-         *
-         * Reports can refresh hundreds of times
-         * without rebuilding the Android select.
-         */
 
 
         const filters =
             getFilters();
 
 
+        /* ======================================
+           SALES
+
+           Exclude cancelled / void sales.
+        ====================================== */
+
         filteredSales =
             sales.filter(
                 function (sale) {
+
+                    const status =
+                        String(
+                            sale.status ||
+                            "completed"
+                        )
+                            .trim()
+                            .toLowerCase();
+
+
+                    if (
+                        status ===
+                            "cancelled" ||
+                        status ===
+                            "canceled" ||
+                        status ===
+                            "void" ||
+                        status ===
+                            "deleted"
+                    ) {
+
+                        return false;
+                    }
+
 
                     return recordMatchesFilters(
                         getRecordDate(
@@ -898,15 +949,47 @@
                         ),
                         filters
                     );
-
                 }
             );
 
+
+        /* ======================================
+           PURCHASES
+
+           Draft / cancelled purchases are not
+           completed financial transactions.
+        ====================================== */
 
         filteredPurchases =
             purchases.filter(
                 function (purchase) {
 
+                    const status =
+                        String(
+                            purchase.status ||
+                            "received"
+                        )
+                            .trim()
+                            .toLowerCase();
+
+
+                    if (
+                        status ===
+                            "draft" ||
+                        status ===
+                            "cancelled" ||
+                        status ===
+                            "canceled" ||
+                        status ===
+                            "void" ||
+                        status ===
+                            "deleted"
+                    ) {
+
+                        return false;
+                    }
+
+
                     return recordMatchesFilters(
                         getRecordDate(
                             purchase
@@ -916,15 +999,42 @@
                         ),
                         filters
                     );
-
                 }
             );
 
+
+        /* ======================================
+           EXPENSES
+        ====================================== */
 
         filteredExpenses =
             expenses.filter(
                 function (expense) {
 
+                    const status =
+                        String(
+                            expense.status ||
+                            "completed"
+                        )
+                            .trim()
+                            .toLowerCase();
+
+
+                    if (
+                        status ===
+                            "cancelled" ||
+                        status ===
+                            "canceled" ||
+                        status ===
+                            "void" ||
+                        status ===
+                            "deleted"
+                    ) {
+
+                        return false;
+                    }
+
+
                     return recordMatchesFilters(
                         getRecordDate(
                             expense
@@ -934,15 +1044,42 @@
                         ),
                         filters
                     );
-
                 }
             );
 
+
+        /* ======================================
+           SUPPLIER PAYMENTS
+        ====================================== */
 
         filteredPayments =
             payments.filter(
                 function (payment) {
 
+                    const status =
+                        String(
+                            payment.status ||
+                            "completed"
+                        )
+                            .trim()
+                            .toLowerCase();
+
+
+                    if (
+                        status ===
+                            "cancelled" ||
+                        status ===
+                            "canceled" ||
+                        status ===
+                            "void" ||
+                        status ===
+                            "deleted"
+                    ) {
+
+                        return false;
+                    }
+
+
                     return recordMatchesFilters(
                         getRecordDate(
                             payment
@@ -952,14 +1089,41 @@
                         ),
                         filters
                     );
-
                 }
             );
 
 
+        /* ======================================
+           TRANSFERS
+        ====================================== */
+
         filteredTransfers =
             transfers.filter(
                 function (transfer) {
+
+                    const status =
+                        String(
+                            transfer.status ||
+                            "completed"
+                        )
+                            .trim()
+                            .toLowerCase();
+
+
+                    if (
+                        status ===
+                            "cancelled" ||
+                        status ===
+                            "canceled" ||
+                        status ===
+                            "void" ||
+                        status ===
+                            "deleted"
+                    ) {
+
+                        return false;
+                    }
+
 
                     const dateMatches =
                         isDateInRange(
@@ -995,7 +1159,6 @@
                         dateMatches &&
                         branchMatches
                     );
-
                 }
             );
 
@@ -1003,6 +1166,7 @@
         updateSummaryCards(
             filters
         );
+
 
         renderSalesByProduct();
 
@@ -1015,9 +1179,12 @@
         );
 
         renderRecentTransactions();
-
     }
 
+
+    /* ==========================================
+       FILTERS
+    ========================================== */
 
     function getFilters() {
 
@@ -1037,9 +1204,7 @@
                 el.branch
                     ? el.branch.value
                     : ""
-
         };
-
     }
 
 
@@ -1068,9 +1233,7 @@
                     filters.branchId
                 )
             )
-
         );
-
     }
 
 
@@ -1083,7 +1246,6 @@
         if (!value) {
 
             return false;
-
         }
 
 
@@ -1096,7 +1258,6 @@
         if (!normalized) {
 
             return false;
-
         }
 
 
@@ -1107,7 +1268,6 @@
         ) {
 
             return false;
-
         }
 
 
@@ -1118,12 +1278,10 @@
         ) {
 
             return false;
-
         }
 
 
         return true;
-
     }
 
 
@@ -1148,7 +1306,6 @@
                             sale
                         )
                     );
-
                 },
                 0
             );
@@ -1167,7 +1324,6 @@
                             purchase
                         )
                     );
-
                 },
                 0
             );
@@ -1186,7 +1342,6 @@
                             expense.amount
                         )
                     );
-
                 },
                 0
             );
@@ -1205,11 +1360,22 @@
                             sale
                         )
                     );
-
                 },
                 0
             );
 
+
+        /*
+         * Correct accounting logic:
+         *
+         * Gross Profit =
+         * Sales Revenue - Cost of Goods Sold
+         *
+         * Net Profit =
+         * Gross Profit - Expenses
+         *
+         * Purchases are NOT subtracted again.
+         */
 
         const grossProfit =
             totalSales -
@@ -1234,7 +1400,6 @@
                             sale
                         )
                     );
-
                 },
                 0
             );
@@ -1322,9 +1487,7 @@
                 "negative-value",
                 netProfit < 0
             );
-
         }
-
     }
 
 
@@ -1344,7 +1507,6 @@
         ) {
 
             return sale.items;
-
         }
 
 
@@ -1378,9 +1540,7 @@
             costTotal:
                 sale.costTotal ??
                 sale.cogs
-
         }];
-
     }
 
 
@@ -1396,7 +1556,6 @@
             return toNumber(
                 sale.totalQuantity
             );
-
         }
 
 
@@ -1414,11 +1573,9 @@
                         item.quantity
                     )
                 );
-
             },
             0
         );
-
     }
 
 
@@ -1434,7 +1591,6 @@
             return toNumber(
                 sale.total
             );
-
         }
 
 
@@ -1446,7 +1602,6 @@
             return toNumber(
                 sale.totalAmount
             );
-
         }
 
 
@@ -1458,7 +1613,6 @@
             return toNumber(
                 sale.revenue
             );
-
         }
 
 
@@ -1476,11 +1630,9 @@
                         item
                     )
                 );
-
             },
             0
         );
-
     }
 
 
@@ -1496,7 +1648,6 @@
             return toNumber(
                 sale.cogs
             );
-
         }
 
 
@@ -1508,7 +1659,6 @@
             return toNumber(
                 sale.costTotal
             );
-
         }
 
 
@@ -1526,11 +1676,9 @@
                         item
                     )
                 );
-
             },
             0
         );
-
     }
 
 
@@ -1546,7 +1694,6 @@
             return toNumber(
                 item.total
             );
-
         }
 
 
@@ -1558,7 +1705,6 @@
             return toNumber(
                 item.revenue
             );
-
         }
 
 
@@ -1572,7 +1718,6 @@
                 item.price
             )
         );
-
     }
 
 
@@ -1588,7 +1733,6 @@
             return toNumber(
                 item.costTotal
             );
-
         }
 
 
@@ -1600,7 +1744,6 @@
             return toNumber(
                 item.cogs
             );
-
         }
 
 
@@ -1627,7 +1770,6 @@
                 product
                     ? product.costPrice
                     : 0;
-
         }
 
 
@@ -1639,7 +1781,6 @@
                 costPrice
             )
         );
-
     }
 
 
@@ -1686,9 +1827,7 @@
 
                                 cost:
                                     0
-
                             };
-
                         }
 
 
@@ -1708,10 +1847,8 @@
                             getSaleItemCost(
                                 item
                             );
-
                     }
                 );
-
             }
         );
 
@@ -1740,9 +1877,7 @@
                         grossProfit:
                             row.revenue -
                             row.cost
-
                     };
-
                 }
             )
             .sort(
@@ -1752,10 +1887,8 @@
                         b.revenue -
                         a.revenue
                     );
-
                 }
             );
-
     }
 
 
@@ -1764,7 +1897,6 @@
         if (!el.salesByProductTable) {
 
             return;
-
         }
 
 
@@ -1772,10 +1904,7 @@
             buildSalesByProductRows();
 
 
-        if (
-            rows.length ===
-            0
-        ) {
+        if (!rows.length) {
 
             el.salesByProductTable.innerHTML = `
                 <tr>
@@ -1786,7 +1915,6 @@
             `;
 
             return;
-
         }
 
 
@@ -1836,11 +1964,9 @@
 
                             </tr>
                         `;
-
                     }
                 )
                 .join("");
-
     }
 
 
@@ -1879,9 +2005,7 @@
                                 selectedBranch
                             )
                         )
-
                     );
-
                 }
             )
             .map(
@@ -1901,7 +2025,6 @@
                                         branch.id
                                     )
                                 );
-
                             }
                         );
 
@@ -1920,7 +2043,6 @@
                                         branch.id
                                     )
                                 );
-
                             }
                         );
 
@@ -1938,7 +2060,6 @@
                                         sale
                                     )
                                 );
-
                             },
                             0
                         );
@@ -1957,7 +2078,6 @@
                                         sale
                                     )
                                 );
-
                             },
                             0
                         );
@@ -1976,7 +2096,6 @@
                                         expense.amount
                                     )
                                 );
-
                             },
                             0
                         );
@@ -1995,7 +2114,6 @@
                                         sale
                                     )
                                 );
-
                             },
                             0
                         );
@@ -2021,9 +2139,7 @@
 
                         unitsSold:
                             unitsSold
-
                     };
-
                 }
             )
             .sort(
@@ -2033,10 +2149,8 @@
                         b.sales -
                         a.sales
                     );
-
                 }
             );
-
     }
 
 
@@ -2045,7 +2159,6 @@
         if (!el.branchPerformanceTable) {
 
             return;
-
         }
 
 
@@ -2053,10 +2166,7 @@
             buildBranchPerformanceRows();
 
 
-        if (
-            rows.length ===
-            0
-        ) {
+        if (!rows.length) {
 
             el.branchPerformanceTable.innerHTML = `
                 <tr>
@@ -2067,7 +2177,6 @@
             `;
 
             return;
-
         }
 
 
@@ -2117,11 +2226,9 @@
 
                             </tr>
                         `;
-
                     }
                 )
                 .join("");
-
     }
 
 
@@ -2159,9 +2266,7 @@
 
                         amount:
                             0
-
                     };
-
                 }
 
 
@@ -2173,7 +2278,6 @@
                     toNumber(
                         expense.amount
                     );
-
             }
         );
 
@@ -2189,10 +2293,8 @@
                         b.amount -
                         a.amount
                     );
-
                 }
             );
-
     }
 
 
@@ -2201,7 +2303,6 @@
         if (!el.expenseBreakdownTable) {
 
             return;
-
         }
 
 
@@ -2209,10 +2310,7 @@
             buildExpenseBreakdownRows();
 
 
-        if (
-            rows.length ===
-            0
-        ) {
+        if (!rows.length) {
 
             el.expenseBreakdownTable.innerHTML = `
                 <tr>
@@ -2223,7 +2321,6 @@
             `;
 
             return;
-
         }
 
 
@@ -2257,11 +2354,9 @@
 
                             </tr>
                         `;
-
                     }
                 )
                 .join("");
-
     }
 
 
@@ -2279,7 +2374,8 @@
                 product
             ) {
 
-                let quantity = 0;
+                let quantity =
+                    0;
 
 
                 if (branchId) {
@@ -2312,9 +2408,7 @@
                             toNumber(
                                 product.quantity
                             );
-
                     }
-
                 }
 
 
@@ -2325,11 +2419,9 @@
                         product.costPrice
                     )
                 );
-
             },
             0
         );
-
     }
 
 
@@ -2367,9 +2459,7 @@
                                 filters.branchId
                             )
                         )
-
                     );
-
                 }
             );
 
@@ -2419,14 +2509,10 @@
                                     stock <= 0
                                         ? "Out of Stock"
                                         : "Low Stock"
-
                             });
-
                         }
-
                     }
                 );
-
             }
         );
 
@@ -2438,10 +2524,8 @@
                     a.stock -
                     b.stock
                 );
-
             }
         );
-
     }
 
 
@@ -2452,7 +2536,6 @@
         if (!el.lowStockReportTable) {
 
             return;
-
         }
 
 
@@ -2462,10 +2545,7 @@
             );
 
 
-        if (
-            rows.length ===
-            0
-        ) {
+        if (!rows.length) {
 
             el.lowStockReportTable.innerHTML = `
                 <tr>
@@ -2476,7 +2556,6 @@
             `;
 
             return;
-
         }
 
 
@@ -2520,16 +2599,14 @@
 
                             </tr>
                         `;
-
                     }
                 )
                 .join("");
-
     }
 
 
     /* ==========================================
-       TRANSACTIONS
+       RECENT TRANSACTIONS
     ========================================== */
 
     function buildRecentTransactionsRows() {
@@ -2551,7 +2628,6 @@
                                     item.productName ||
                                     "Product"
                                 );
-
                             }
                         )
                         .join(", ");
@@ -2590,9 +2666,7 @@
 
                     direction:
                         "income"
-
                 });
-
             }
         );
 
@@ -2637,9 +2711,7 @@
 
                     direction:
                         "expense"
-
                 });
-
             }
         );
 
@@ -2683,9 +2755,7 @@
 
                     direction:
                         "expense"
-
                 });
-
             }
         );
 
@@ -2729,9 +2799,7 @@
 
                     direction:
                         "expense"
-
                 });
-
             }
         );
 
@@ -2785,9 +2853,7 @@
 
                     direction:
                         "neutral"
-
                 });
-
             }
         );
 
@@ -2804,14 +2870,12 @@
                             a.date
                         )
                     );
-
                 }
             )
             .slice(
                 0,
                 50
             );
-
     }
 
 
@@ -2820,7 +2884,6 @@
         if (!el.recentTransactionsTable) {
 
             return;
-
         }
 
 
@@ -2828,10 +2891,7 @@
             buildRecentTransactionsRows();
 
 
-        if (
-            rows.length ===
-            0
-        ) {
+        if (!rows.length) {
 
             el.recentTransactionsTable.innerHTML = `
                 <tr>
@@ -2842,7 +2902,6 @@
             `;
 
             return;
-
         }
 
 
@@ -2915,11 +2974,9 @@
 
                             </tr>
                         `;
-
                     }
                 )
                 .join("");
-
     }
 
 
@@ -2939,7 +2996,6 @@
             return toNumber(
                 purchase.total
             );
-
         }
 
 
@@ -2951,7 +3007,6 @@
             return toNumber(
                 purchase.totalCost
             );
-
         }
 
 
@@ -2963,7 +3018,6 @@
             return toNumber(
                 purchase.amount
             );
-
         }
 
 
@@ -2975,7 +3029,6 @@
                 purchase.costPrice
             )
         );
-
     }
 
 
@@ -2991,7 +3044,6 @@
             payment.paidAmount
 
         );
-
     }
 
 
@@ -3014,7 +3066,6 @@
             );
 
             return;
-
         }
 
 
@@ -3029,7 +3080,6 @@
 
                 format:
                     "a4"
-
             });
 
 
@@ -3043,7 +3093,6 @@
             );
 
             return;
-
         }
 
 
@@ -3083,7 +3132,6 @@
                 throw new Error(
                     "Could not prepare PDF data."
                 );
-
             }
 
 
@@ -3104,7 +3152,6 @@
                 throw new Error(
                     "Generated PDF was empty."
                 );
-
             }
 
 
@@ -3138,18 +3185,15 @@
             );
 
 
-            const verify =
-                sessionStorage.getItem(
+            if (
+                !sessionStorage.getItem(
                     PDF_STORAGE_KEY
-                );
-
-
-            if (!verify) {
+                )
+            ) {
 
                 throw new Error(
                     "PDF could not be stored for preview."
                 );
-
             }
 
 
@@ -3181,17 +3225,15 @@
                     error.message ||
                     "The PDF could not be generated."
                 );
-
             }
+
 
         } finally {
 
             setPdfButtonState(
                 false
             );
-
         }
-
     }
 
 
@@ -3202,7 +3244,6 @@
         if (!el.pdfButton) {
 
             return;
-
         }
 
 
@@ -3214,7 +3255,6 @@
             working
                 ? "Preparing PDF..."
                 : "Download PDF";
-
     }
 
 
@@ -3265,7 +3305,6 @@
                             sale
                         )
                     );
-
                 },
                 0
             );
@@ -3284,7 +3323,6 @@
                             purchase
                         )
                     );
-
                 },
                 0
             );
@@ -3303,7 +3341,6 @@
                             expense.amount
                         )
                     );
-
                 },
                 0
             );
@@ -3322,7 +3359,6 @@
                             sale
                         )
                     );
-
                 },
                 0
             );
@@ -3357,7 +3393,6 @@
                             sale
                         )
                     );
-
                 },
                 0
             );
@@ -3376,7 +3411,6 @@
                             payment
                         )
                     );
-
                 },
                 0
             );
@@ -3426,8 +3460,7 @@
         );
 
 
-        y +=
-            8;
+        y += 8;
 
 
         doc.setFontSize(
@@ -3442,8 +3475,7 @@
         );
 
 
-        y +=
-            7;
+        y += 7;
 
 
         doc.setFontSize(
@@ -3465,8 +3497,7 @@
         );
 
 
-        y +=
-            5;
+        y += 5;
 
 
         doc.text(
@@ -3477,8 +3508,7 @@
         );
 
 
-        y +=
-            5;
+        y += 5;
 
 
         doc.text(
@@ -3492,8 +3522,7 @@
         );
 
 
-        y +=
-            8;
+        y += 8;
 
 
         doc.autoTable({
@@ -3546,16 +3575,13 @@
 
                 cellPadding:
                     2.5
-
             },
 
             headStyles: {
 
                 fillColor:
                     [11, 94, 215]
-
             }
-
         });
 
 
@@ -3605,16 +3631,13 @@
 
                 cellPadding:
                     2.5
-
             },
 
             headStyles: {
 
                 fillColor:
                     [25, 135, 84]
-
             }
-
         });
 
 
@@ -3670,9 +3693,7 @@
                                 moneyPlain(
                                     row.grossProfit
                                 )
-
                             ];
-
                         }
                     )
 
@@ -3691,16 +3712,13 @@
 
                 cellPadding:
                     2
-
             },
 
             headStyles: {
 
                 fillColor:
                     [11, 94, 215]
-
             }
-
         });
 
 
@@ -3756,9 +3774,7 @@
                                 String(
                                     row.unitsSold
                                 )
-
                             ];
-
                         }
                     )
 
@@ -3777,16 +3793,13 @@
 
                 cellPadding:
                     2
-
             },
 
             headStyles: {
 
                 fillColor:
                     [111, 66, 193]
-
             }
-
         });
 
 
@@ -3830,9 +3843,7 @@
                                 moneyPlain(
                                     row.amount
                                 )
-
                             ];
-
                         }
                     )
 
@@ -3849,16 +3860,13 @@
 
                 cellPadding:
                     2
-
             },
 
             headStyles: {
 
                 fillColor:
                     [220, 53, 69]
-
             }
-
         });
 
 
@@ -3910,9 +3918,7 @@
                                 ),
 
                                 row.status
-
                             ];
-
                         }
                     )
 
@@ -3931,7 +3937,6 @@
 
                 cellPadding:
                     2
-
             },
 
             headStyles: {
@@ -3941,9 +3946,7 @@
 
                 textColor:
                     [0, 0, 0]
-
             }
-
         });
 
 
@@ -4004,9 +4007,7 @@
                                     : moneyPlain(
                                         row.amount
                                     )
-
                             ];
-
                         }
                     )
 
@@ -4026,23 +4027,19 @@
 
                 cellPadding:
                     1.7
-
             },
 
             headStyles: {
 
                 fillColor:
                     [75, 85, 99]
-
             }
-
         });
 
 
         addPdfPageNumbers(
             doc
         );
-
     }
 
 
@@ -4070,7 +4067,6 @@
 
             y =
                 16;
-
         }
 
 
@@ -4101,7 +4097,6 @@
         doc.__jufelixNextY =
             y +
             3;
-
     }
 
 
@@ -4122,9 +4117,7 @@
 
                     : 20
             )
-
         );
-
     }
 
 
@@ -4165,14 +4158,12 @@
                         "right"
                 }
             );
-
         }
-
     }
 
 
     /* ==========================================
-       CSV
+       CSV EXPORT
     ========================================== */
 
     function exportCsvReport() {
@@ -4197,7 +4188,6 @@
                 "Quantity",
                 "Amount"
             ]
-
         ];
 
 
@@ -4233,7 +4223,6 @@
                                     item.productName ||
                                     "Product"
                                 );
-
                             }
                         )
                         .join(", "),
@@ -4245,9 +4234,7 @@
                     getSaleRevenue(
                         sale
                     )
-
                 ]);
-
             }
         );
 
@@ -4276,6 +4263,7 @@
                     ),
 
                     purchase.productName ||
+                    purchase.supplierName ||
                     purchase.supplier ||
                     "Supplier purchase",
 
@@ -4286,9 +4274,7 @@
                     getPurchaseTotal(
                         purchase
                     )
-
                 ]);
-
             }
         );
 
@@ -4325,9 +4311,7 @@
                     toNumber(
                         expense.amount
                     )
-
                 ]);
-
             }
         );
 
@@ -4364,9 +4348,49 @@
                     getPaymentAmount(
                         payment
                     )
-
                 ]);
+            }
+        );
 
+
+        filteredTransfers.forEach(
+            function (transfer) {
+
+                rows.push([
+
+                    "Transfer",
+
+                    transfer.transferNumber ||
+                    transfer.id ||
+                    "",
+
+                    getRecordDate(
+                        transfer
+                    ),
+
+                    (
+                        transfer.fromBranchName ||
+                        getBranchNameById(
+                            transfer.fromBranchId
+                        )
+                    ) +
+                    " → " +
+                    (
+                        transfer.toBranchName ||
+                        getBranchNameById(
+                            transfer.toBranchId
+                        )
+                    ),
+
+                    transfer.productName ||
+                    "Product",
+
+                    toNumber(
+                        transfer.quantity
+                    ),
+
+                    ""
+                ]);
             }
         );
 
@@ -4381,7 +4405,6 @@
                                 csvEscape
                             )
                             .join(",");
-
                     }
                 )
                 .join("\n");
@@ -4441,11 +4464,9 @@
                 URL.revokeObjectURL(
                     url
                 );
-
             },
             1500
         );
-
     }
 
 
@@ -4467,7 +4488,6 @@
                 ) +
             '"'
         );
-
     }
 
 
@@ -4496,9 +4516,7 @@
             record.createdAt ||
 
             ""
-
         );
-
     }
 
 
@@ -4513,9 +4531,7 @@
             record.activeBranchId ||
 
             DEFAULT_BRANCH_ID
-
         );
-
     }
 
 
@@ -4535,12 +4551,10 @@
                             productId
                         )
                     );
-
                 }
             ) ||
             null
         );
-
     }
 
 
@@ -4560,7 +4574,6 @@
                 "Unnamed Product"
             )
             : "Unknown Product";
-
     }
 
 
@@ -4575,9 +4588,7 @@
             branch.name ||
 
             "Unnamed Branch"
-
         );
-
     }
 
 
@@ -4593,7 +4604,6 @@
         ) {
 
             return "Head Office";
-
         }
 
 
@@ -4609,7 +4619,6 @@
                             branchId
                         )
                     );
-
                 }
             );
 
@@ -4619,7 +4628,6 @@
                 branch
             )
             : "Unknown Branch";
-
     }
 
 
@@ -4643,7 +4651,6 @@
                     branchId
                 ]
             );
-
         }
 
 
@@ -4659,12 +4666,10 @@
                     ? product.quantity
                     : 0
             );
-
         }
 
 
         return 0;
-
     }
 
 
@@ -4689,11 +4694,9 @@
                             value
                         )
                     );
-
                 },
                 0
             );
-
     }
 
 
@@ -4711,7 +4714,6 @@
             return toNumber(
                 product.lowStockLevel
             );
-
         }
 
 
@@ -4725,12 +4727,10 @@
             return toNumber(
                 product.lowStock
             );
-
         }
 
 
         return 5;
-
     }
 
 
@@ -4753,7 +4753,6 @@
             if (!stored) {
 
                 return [];
-
             }
 
 
@@ -4769,6 +4768,7 @@
                 ? parsed
                 : [];
 
+
         } catch (error) {
 
             console.warn(
@@ -4777,10 +4777,9 @@
                 error
             );
 
+
             return [];
-
         }
-
     }
 
 
@@ -4816,7 +4815,6 @@
                         ) {
 
                             return;
-
                         }
 
 
@@ -4824,23 +4822,19 @@
 
                             seen[identity] =
                                 true;
-
                         }
 
 
                         all.push(
                             record
                         );
-
                     }
                 );
-
             }
         );
 
 
         return all;
-
     }
 
 
@@ -4855,7 +4849,6 @@
         if (!value) {
 
             return "";
-
         }
 
 
@@ -4873,7 +4866,6 @@
         ) {
 
             return text;
-
         }
 
 
@@ -4890,14 +4882,12 @@
         ) {
 
             return "";
-
         }
 
 
         return dateKey(
             date
         );
-
     }
 
 
@@ -4929,9 +4919,7 @@
                     2,
                     "0"
                 )
-
         );
-
     }
 
 
@@ -4948,7 +4936,6 @@
         if (!normalized) {
 
             return "—";
-
         }
 
 
@@ -4971,10 +4958,8 @@
 
                 year:
                     "numeric"
-
             }
         );
-
     }
 
 
@@ -4993,7 +4978,6 @@
         )
             ? 0
             : date.getTime();
-
     }
 
 
@@ -5036,7 +5020,6 @@
 
             miscellaneous:
                 "Miscellaneous"
-
         };
 
 
@@ -5053,7 +5036,6 @@
             category ||
             "Miscellaneous"
         );
-
     }
 
 
@@ -5073,14 +5055,12 @@
 
                 minimumFractionDigits:
                     2
-
             }
         ).format(
             toNumber(
                 value
             )
         );
-
     }
 
 
@@ -5096,7 +5076,6 @@
                 2
             )
         );
-
     }
 
 
@@ -5111,7 +5090,6 @@
                 value
             )
         );
-
     }
 
 
@@ -5129,7 +5107,6 @@
         ) {
 
             return 0;
-
         }
 
 
@@ -5158,7 +5135,6 @@
         )
             ? number
             : 0;
-
     }
 
 
@@ -5177,9 +5153,7 @@
 
             element.textContent =
                 value;
-
         }
-
     }
 
 
@@ -5194,7 +5168,6 @@
                 value
             )
         );
-
     }
 
 
@@ -5228,7 +5201,6 @@
                 /'/g,
                 "&#039;"
             );
-
     }
 
 
@@ -5241,6 +5213,7 @@
         refresh:
             refreshReports,
 
+
         refreshBranches:
             function () {
 
@@ -5251,15 +5224,15 @@
                 populateBranchFilter();
 
                 refreshReports();
-
             },
+
 
         downloadPdf:
             generatePdfPreview,
 
+
         exportCsv:
             exportCsvReport
-
     };
 
 
