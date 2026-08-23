@@ -1,6 +1,6 @@
 /* ==========================================
    JUFELIX ERP v7.0 PROFESSIONAL
-   SALES / POS MODULE v1010
+   SALES / POS MODULE v1011
 
    COMPLETE REPLACEMENT
 
@@ -12,6 +12,8 @@
    + Stock ledger
    + Realtime Firebase data
    + Product Search
+   + LIVE Product Suggestions
+   + Tap Product From Search Results
    + Search by Name / SKU / Barcode / Brand
    + Automatic Category Tabs
    + Admin Sales Search
@@ -123,11 +125,7 @@
                 CUSTOMERS_KEY
             );
 
-
         connectEvents();
-
-
-        /* PRODUCT SEARCH */
 
         buildCategoryTabs(
             true
@@ -137,13 +135,9 @@
             true
         );
 
-
-        /* CUSTOMER */
-
         loadCustomerDropdown(
             true
         );
-
 
         resetProductInformation();
 
@@ -157,11 +151,9 @@
 
         startSalesCloud();
 
-
         console.log(
-            "✅ Jufelix Sales v1010 loaded."
+            "✅ Jufelix Sales v1011 loaded."
         );
-
 
         console.log(
             "Active branch:",
@@ -187,6 +179,11 @@
         el.clearProductSearch =
             document.getElementById(
                 "clearProductSearch"
+            );
+
+        el.productSuggestions =
+            document.getElementById(
+                "saleProductSuggestions"
             );
 
         el.categoryTabs =
@@ -380,76 +377,151 @@
 
     function connectEvents() {
 
-        /* SEARCH */
+        /* ======================================
+           LIVE PRODUCT SEARCH
+        ====================================== */
 
         if (
             el.productSearch
         ) {
 
-            el.productSearch
-                .addEventListener(
-                    "input",
-                    function () {
+            el.productSearch.addEventListener(
+                "input",
+                function () {
 
-                        productSearchTerm =
-                            String(
-                                el.productSearch
-                                    .value ||
-                                ""
-                            )
-                                .trim()
-                                .toLowerCase();
+                    productSearchTerm =
+                        String(
+                            el.productSearch.value ||
+                            ""
+                        )
+                            .trim()
+                            .toLowerCase();
 
 
-                        productDropdownSignature =
-                            "";
+                    productDropdownSignature =
+                        "";
 
 
-                        loadProductDropdown(
-                            true
-                        );
+                    loadProductDropdown(
+                        true
+                    );
+
+
+                    renderProductSuggestions();
+                }
+            );
+
+
+            el.productSearch.addEventListener(
+                "focus",
+                function () {
+
+                    productSearchTerm =
+                        String(
+                            el.productSearch.value ||
+                            ""
+                        )
+                            .trim()
+                            .toLowerCase();
+
+
+                    renderProductSuggestions();
+                }
+            );
+
+
+            el.productSearch.addEventListener(
+                "keydown",
+                function (event) {
+
+                    if (
+                        event.key ===
+                        "Escape"
+                    ) {
+
+                        hideProductSuggestions();
                     }
-                );
+                }
+            );
         }
 
 
-        /* CLEAR SEARCH */
+        /* ======================================
+           CLEAR PRODUCT SEARCH
+        ====================================== */
 
         if (
             el.clearProductSearch
         ) {
 
-            el.clearProductSearch
-                .addEventListener(
-                    "click",
-                    function () {
+            el.clearProductSearch.addEventListener(
+                "click",
+                function () {
 
-                        productSearchTerm =
+                    productSearchTerm =
+                        "";
+
+
+                    if (
+                        el.productSearch
+                    ) {
+
+                        el.productSearch.value =
                             "";
 
-
-                        if (
-                            el.productSearch
-                        ) {
-
-                            el.productSearch.value =
-                                "";
-
-
-                            el.productSearch.focus();
-                        }
-
-
-                        productDropdownSignature =
-                            "";
-
-
-                        loadProductDropdown(
-                            true
-                        );
+                        el.productSearch.focus();
                     }
-                );
+
+
+                    productDropdownSignature =
+                        "";
+
+
+                    loadProductDropdown(
+                        true
+                    );
+
+
+                    hideProductSuggestions();
+                }
+            );
         }
+
+
+        /* ======================================
+           CLOSE SEARCH WHEN TAPPING ELSEWHERE
+        ====================================== */
+
+        document.addEventListener(
+            "click",
+            function (event) {
+
+                if (
+                    !el.productSuggestions ||
+                    !el.productSearch
+                ) {
+
+                    return;
+                }
+
+
+                const searchArea =
+                    el.productSearch.closest(
+                        ".product-search-area"
+                    );
+
+
+                if (
+                    searchArea &&
+                    !searchArea.contains(
+                        event.target
+                    )
+                ) {
+
+                    hideProductSuggestions();
+                }
+            }
+        );
 
 
         /* PRODUCT SELECT */
@@ -460,7 +532,12 @@
 
             el.product.addEventListener(
                 "change",
-                updateSelectedProduct
+                function () {
+
+                    updateSelectedProduct();
+
+                    hideProductSuggestions();
+                }
             );
         }
 
@@ -523,11 +600,10 @@
             el.completeSaleButton
         ) {
 
-            el.completeSaleButton
-                .addEventListener(
-                    "click",
-                    completeCartSale
-                );
+            el.completeSaleButton.addEventListener(
+                "click",
+                completeCartSale
+            );
         }
 
 
@@ -537,11 +613,10 @@
             el.clearCartButton
         ) {
 
-            el.clearCartButton
-                .addEventListener(
-                    "click",
-                    clearCart
-                );
+            el.clearCartButton.addEventListener(
+                "click",
+                clearCart
+            );
         }
 
 
@@ -549,9 +624,7 @@
 
         document.addEventListener(
             "jufelix:data-updated",
-            function (
-                event
-            ) {
+            function (event) {
 
                 if (
                     !event ||
@@ -571,9 +644,7 @@
 
         document.addEventListener(
             "jufelix:dataChanged",
-            function (
-                event
-            ) {
+            function (event) {
 
                 if (
                     !event ||
@@ -595,15 +666,395 @@
 
         window.addEventListener(
             "storage",
-            function (
-                event
-            ) {
+            function (event) {
 
                 scheduleRefresh(
                     event.key
                 );
             }
         );
+    }
+
+
+    /* ==========================================
+       LIVE PRODUCT SUGGESTIONS
+    ========================================== */
+
+    function renderProductSuggestions() {
+
+        if (
+            !el.productSuggestions
+        ) {
+
+            return;
+        }
+
+
+        const searchValue =
+            String(
+                productSearchTerm ||
+                ""
+            )
+                .trim();
+
+
+        /*
+         * Do not show a huge product list
+         * when nothing has been typed.
+         */
+
+        if (
+            !searchValue
+        ) {
+
+            hideProductSuggestions();
+
+            return;
+        }
+
+
+        products =
+            readArray(
+                PRODUCTS_KEY
+            );
+
+
+        const matches =
+            getFilteredProducts()
+                .slice(
+                    0,
+                    15
+                );
+
+
+        if (
+            matches.length === 0
+        ) {
+
+            el.productSuggestions.innerHTML = `
+                <div class="product-suggestion-empty">
+                    No matching product found.
+                </div>
+            `;
+
+
+            el.productSuggestions.classList.add(
+                "show"
+            );
+
+
+            return;
+        }
+
+
+        el.productSuggestions.innerHTML =
+            matches
+                .map(
+                    function (product) {
+
+                        const stock =
+                            getAvailableStockForCart(
+                                product
+                            );
+
+
+                        const image =
+                            product.image ||
+                            product.imageUrl ||
+                            "";
+
+
+                        const imageMarkup =
+                            image
+                                ? `
+                                    <img
+                                        src="${escapeHTML(
+                                            image
+                                        )}"
+                                        alt="${escapeHTML(
+                                            product.name ||
+                                            "Product"
+                                        )}"
+                                    >
+                                `
+                                : "📦";
+
+
+                        const metaParts =
+                            [];
+
+
+                        if (
+                            product.category
+                        ) {
+
+                            metaParts.push(
+                                product.category
+                            );
+                        }
+
+
+                        if (
+                            product.brand
+                        ) {
+
+                            metaParts.push(
+                                product.brand
+                            );
+                        }
+
+
+                        if (
+                            product.sku
+                        ) {
+
+                            metaParts.push(
+                                "SKU: " +
+                                product.sku
+                            );
+                        }
+
+
+                        if (
+                            product.barcode
+                        ) {
+
+                            metaParts.push(
+                                "Barcode: " +
+                                product.barcode
+                            );
+                        }
+
+
+                        return `
+                            <button
+                                type="button"
+                                class="product-suggestion-item"
+                                data-product-id="${escapeHTML(
+                                    product.id
+                                )}"
+                            >
+
+                                <span class="product-suggestion-image">
+                                    ${imageMarkup}
+                                </span>
+
+
+                                <span class="product-suggestion-info">
+
+                                    <span class="product-suggestion-name">
+                                        ${escapeHTML(
+                                            product.name ||
+                                            "Unnamed Product"
+                                        )}
+                                    </span>
+
+
+                                    <span class="product-suggestion-meta">
+                                        ${escapeHTML(
+                                            metaParts.join(
+                                                " • "
+                                            ) ||
+                                            "Product"
+                                        )}
+                                    </span>
+
+                                </span>
+
+
+                                <span class="product-suggestion-stock">
+
+                                    ${formatNumber(
+                                        stock
+                                    )}
+
+                                    ${escapeHTML(
+                                        product.unit ||
+                                        ""
+                                    )}
+
+                                </span>
+
+                            </button>
+                        `;
+                    }
+                )
+                .join("");
+
+
+        el.productSuggestions.classList.add(
+            "show"
+        );
+
+
+        el.productSuggestions
+            .querySelectorAll(
+                "[data-product-id]"
+            )
+            .forEach(
+                function (button) {
+
+                    button.addEventListener(
+                        "click",
+                        function () {
+
+                            selectProductFromSuggestion(
+                                button.getAttribute(
+                                    "data-product-id"
+                                )
+                            );
+                        }
+                    );
+                }
+            );
+    }
+
+
+    /* ==========================================
+       SELECT LIVE SEARCH PRODUCT
+    ========================================== */
+
+    function selectProductFromSuggestion(
+        productId
+    ) {
+
+        if (
+            !productId
+        ) {
+
+            return;
+        }
+
+
+        products =
+            readArray(
+                PRODUCTS_KEY
+            );
+
+
+        const product =
+            products.find(
+                function (item) {
+
+                    return (
+                        String(
+                            item.id
+                        ) ===
+                        String(
+                            productId
+                        )
+                    );
+                }
+            );
+
+
+        if (
+            !product
+        ) {
+
+            return;
+        }
+
+
+        /*
+         * Clear filters so the selected product
+         * remains present in the normal dropdown.
+         */
+
+        productSearchTerm =
+            "";
+
+        activeProductCategory =
+            "all";
+
+
+        if (
+            el.productSearch
+        ) {
+
+            el.productSearch.value =
+                "";
+        }
+
+
+        productDropdownSignature =
+            "";
+
+
+        updateActiveCategoryButton();
+
+
+        loadProductDropdown(
+            true
+        );
+
+
+        if (
+            el.product
+        ) {
+
+            el.product.value =
+                String(
+                    product.id
+                );
+        }
+
+
+        updateSelectedProduct();
+
+
+        hideProductSuggestions();
+
+
+        /*
+         * Move user directly to quantity.
+         */
+
+        if (
+            el.quantity
+        ) {
+
+            window.setTimeout(
+                function () {
+
+                    el.quantity.focus();
+
+                    if (
+                        typeof el.quantity.select ===
+                        "function"
+                    ) {
+
+                        el.quantity.select();
+                    }
+
+                },
+                50
+            );
+        }
+    }
+
+
+    /* ==========================================
+       HIDE PRODUCT SUGGESTIONS
+    ========================================== */
+
+    function hideProductSuggestions() {
+
+        if (
+            !el.productSuggestions
+        ) {
+
+            return;
+        }
+
+
+        el.productSuggestions.classList.remove(
+            "show"
+        );
+
+
+        el.productSuggestions.innerHTML =
+            "";
     }
 
 
@@ -629,12 +1080,6 @@
             );
 
 
-        /*
-         * Category tabs only show categories
-         * containing products available at
-         * the current branch.
-         */
-
         const categoryProducts =
             getBaseAvailableProducts();
 
@@ -643,9 +1088,7 @@
             ...new Set(
                 categoryProducts
                     .map(
-                        function (
-                            product
-                        ) {
+                        function (product) {
 
                             return String(
                                 product.category ||
@@ -657,10 +1100,7 @@
             )
         ]
             .sort(
-                function (
-                    first,
-                    second
-                ) {
+                function (first, second) {
 
                     return first.localeCompare(
                         second
@@ -671,6 +1111,7 @@
 
         const signature =
             JSON.stringify({
+
                 branch:
                     getActiveBranchId(),
 
@@ -695,18 +1136,11 @@
             signature;
 
 
-        /*
-         * If selected category no longer
-         * exists, return to All Products.
-         */
-
         if (
             activeProductCategory !==
                 "all" &&
             !categories.some(
-                function (
-                    category
-                ) {
+                function (category) {
 
                     return (
                         normalizeComparable(
@@ -729,8 +1163,6 @@
             document.createDocumentFragment();
 
 
-        /* ALL PRODUCTS */
-
         const allButton =
             createCategoryButton(
                 "all",
@@ -743,22 +1175,14 @@
         );
 
 
-        /* DYNAMIC CATEGORIES */
-
         categories.forEach(
-            function (
-                category
-            ) {
+            function (category) {
 
-                const button =
+                fragment.appendChild(
                     createCategoryButton(
                         category,
                         category
-                    );
-
-
-                fragment.appendChild(
-                    button
+                    )
                 );
             }
         );
@@ -818,6 +1242,18 @@
                 loadProductDropdown(
                     true
                 );
+
+
+                if (
+                    productSearchTerm
+                ) {
+
+                    renderProductSuggestions();
+
+                } else {
+
+                    hideProductSuggestions();
+                }
             }
         );
 
@@ -841,13 +1277,10 @@
                 ".product-category-button"
             )
             .forEach(
-                function (
-                    button
-                ) {
+                function (button) {
 
                     const category =
-                        button.dataset
-                            .category ||
+                        button.dataset.category ||
                         "all";
 
 
@@ -875,30 +1308,27 @@
 
     function getBaseAvailableProducts() {
 
-        return products
-            .filter(
-                function (
-                    product
-                ) {
+        return products.filter(
+            function (product) {
 
-                    const status =
-                        String(
-                            product.status ||
-                            "active"
-                        )
-                            .trim()
-                            .toLowerCase();
+                const status =
+                    String(
+                        product.status ||
+                        "active"
+                    )
+                        .trim()
+                        .toLowerCase();
 
 
-                    return (
-                        status ===
-                            "active" &&
-                        getAvailableStockForCart(
-                            product
-                        ) > 0
-                    );
-                }
-            );
+                return (
+                    status ===
+                        "active" &&
+                    getAvailableStockForCart(
+                        product
+                    ) > 0
+                );
+            }
+        );
     }
 
 
@@ -911,8 +1341,6 @@
         let filtered =
             getBaseAvailableProducts();
 
-
-        /* CATEGORY */
 
         if (
             activeProductCategory !==
@@ -927,9 +1355,7 @@
 
             filtered =
                 filtered.filter(
-                    function (
-                        product
-                    ) {
+                    function (product) {
 
                         return (
                             normalizeComparable(
@@ -943,17 +1369,22 @@
         }
 
 
-        /* SEARCH */
-
         if (
             productSearchTerm
         ) {
 
+            const words =
+                String(
+                    productSearchTerm
+                )
+                    .toLowerCase()
+                    .split(/\s+/)
+                    .filter(Boolean);
+
+
             filtered =
                 filtered.filter(
-                    function (
-                        product
-                    ) {
+                    function (product) {
 
                         const searchableText = [
 
@@ -973,9 +1404,7 @@
 
                         ]
                             .map(
-                                function (
-                                    value
-                                ) {
+                                function (value) {
 
                                     return String(
                                         value ||
@@ -989,8 +1418,13 @@
                             );
 
 
-                        return searchableText.includes(
-                            productSearchTerm
+                        return words.every(
+                            function (word) {
+
+                                return searchableText.includes(
+                                    word
+                                );
+                            }
                         );
                     }
                 );
@@ -998,10 +1432,7 @@
 
 
         return filtered.sort(
-            function (
-                first,
-                second
-            ) {
+            function (first, second) {
 
                 return String(
                     first.name ||
@@ -1042,8 +1473,7 @@
                 .length;
 
 
-        let message =
-            "";
+        let message;
 
 
         if (
@@ -1224,6 +1654,14 @@
 
 
             if (
+                productSearchTerm
+            ) {
+
+                renderProductSuggestions();
+            }
+
+
+            if (
                 el.product &&
                 el.product.value
             ) {
@@ -1292,6 +1730,9 @@
                 el.productSearch.value =
                     "";
             }
+
+
+            hideProductSuggestions();
 
 
             resetProductSelection();
@@ -1374,9 +1815,7 @@
 
                 products:
                     availableProducts.map(
-                        function (
-                            product
-                        ) {
+                        function (product) {
 
                             return [
 
@@ -1409,10 +1848,6 @@
                     )
             });
 
-
-        /*
-         * BLINKING PROTECTION
-         */
 
         if (
             !force &&
@@ -1454,9 +1889,7 @@
 
 
         availableProducts.forEach(
-            function (
-                product
-            ) {
+            function (product) {
 
                 const option =
                     document.createElement(
@@ -1555,9 +1988,7 @@
         const stillAvailable =
             previousValue &&
             availableProducts.some(
-                function (
-                    product
-                ) {
+                function (product) {
 
                     return (
                         String(
@@ -1623,9 +2054,7 @@
         const activeCustomers =
             customers
                 .filter(
-                    function (
-                        customer
-                    ) {
+                    function (customer) {
 
                         return (
                             String(
@@ -1662,9 +2091,7 @@
         const signature =
             JSON.stringify(
                 activeCustomers.map(
-                    function (
-                        customer
-                    ) {
+                    function (customer) {
 
                         return [
 
@@ -1728,9 +2155,7 @@
 
 
         activeCustomers.forEach(
-            function (
-                customer
-            ) {
+            function (customer) {
 
                 const option =
                     document.createElement(
@@ -1772,9 +2197,7 @@
 
         const stillExists =
             activeCustomers.some(
-                function (
-                    customer
-                ) {
+                function (customer) {
 
                     return (
                         String(
@@ -1821,9 +2244,7 @@
 
         return (
             customers.find(
-                function (
-                    customer
-                ) {
+                function (customer) {
 
                     return (
                         String(
@@ -2530,9 +2951,7 @@
 
         const index =
             cart.findIndex(
-                function (
-                    item
-                ) {
+                function (item) {
 
                     return (
                         String(
@@ -2550,9 +2969,7 @@
             index !== -1
         ) {
 
-            cart[
-                index
-            ].quantity +=
+            cart[index].quantity +=
                 quantity;
 
 
@@ -2599,6 +3016,9 @@
 
 
         resetProductSelection();
+
+
+        hideProductSuggestions();
 
 
         productDropdownSignature =
@@ -2781,9 +3201,7 @@
                 "[data-cart-index]"
             )
             .forEach(
-                function (
-                    input
-                ) {
+                function (input) {
 
                     input.addEventListener(
                         "change",
@@ -2808,9 +3226,7 @@
                 "[data-remove-index]"
             )
             .forEach(
-                function (
-                    button
-                ) {
+                function (button) {
 
                     button.addEventListener(
                         "click",
@@ -2872,18 +3288,15 @@
 
         const product =
             products.find(
-                function (
-                    item
-                ) {
+                function (item) {
 
                     return (
                         String(
                             item.id
                         ) ===
                         String(
-                            cart[
-                                index
-                            ].productId
+                            cart[index]
+                                .productId
                         )
                     );
                 }
@@ -2933,9 +3346,7 @@
         }
 
 
-        cart[
-            index
-        ].quantity =
+        cart[index].quantity =
             quantity;
 
 
@@ -3036,6 +3447,9 @@
 
 
         resetProductSelection();
+
+
+        hideProductSuggestions();
     }
 
 
@@ -3357,8 +3771,6 @@
             );
 
 
-        /* FINAL STOCK CHECK */
-
         for (
             const cartItem of
             cart
@@ -3366,9 +3778,7 @@
 
             const product =
                 products.find(
-                    function (
-                        item
-                    ) {
+                    function (item) {
 
                         return (
                             String(
@@ -3563,15 +3973,11 @@
 
 
             cart.forEach(
-                function (
-                    cartItem
-                ) {
+                function (cartItem) {
 
                     const index =
                         products.findIndex(
-                            function (
-                                product
-                            ) {
+                            function (product) {
 
                                 return (
                                     String(
@@ -3596,9 +4002,7 @@
 
 
                     const product =
-                        products[
-                            index
-                        ];
+                        products[index];
 
 
                     const branchStock = {
@@ -3883,9 +4287,7 @@
 
                 const customerIndex =
                     customers.findIndex(
-                        function (
-                            customer
-                        ) {
+                        function (customer) {
 
                             return (
                                 String(
@@ -4033,9 +4435,7 @@
 
 
             saleItems.forEach(
-                function (
-                    item
-                ) {
+                function (item) {
 
                     addSalesLedgerEntry(
                         sale,
@@ -4052,9 +4452,7 @@
                 products
             )
                 .then(
-                    function (
-                        synced
-                    ) {
+                    function (synced) {
 
                         if (
                             synced
@@ -4079,6 +4477,22 @@
 
 
             resetProductSelection();
+
+
+            hideProductSuggestions();
+
+
+            productSearchTerm =
+                "";
+
+
+            if (
+                el.productSearch
+            ) {
+
+                el.productSearch.value =
+                    "";
+            }
 
 
             productDropdownSignature =
@@ -4454,9 +4868,7 @@
         const branchSales =
             sales
                 .filter(
-                    function (
-                        sale
-                    ) {
+                    function (sale) {
 
                         return (
                             String(
@@ -4470,9 +4882,7 @@
                     }
                 )
                 .filter(
-                    function (
-                        sale
-                    ) {
+                    function (sale) {
 
                         return (
                             String(
@@ -4532,9 +4942,7 @@
         el.historyTable.innerHTML =
             branchSales
                 .map(
-                    function (
-                        sale
-                    ) {
+                    function (sale) {
 
                         const summary =
                             getSaleItemSummary(
@@ -4622,9 +5030,7 @@
                 names:
                     sale.items
                         .map(
-                            function (
-                                item
-                            ) {
+                            function (item) {
 
                                 return (
                                     item.productName ||
@@ -4696,9 +5102,7 @@
 
         const todaySales =
             sales.filter(
-                function (
-                    sale
-                ) {
+                function (sale) {
 
                     const saleDate =
                         sale.saleDate ||
@@ -4812,9 +5216,7 @@
 
         return (
             products.find(
-                function (
-                    product
-                ) {
+                function (product) {
 
                     return (
                         String(
@@ -4910,9 +5312,7 @@
 
         ]
             .filter(
-                function (
-                    value
-                ) {
+                function (value) {
 
                     return (
                         value !==
@@ -5066,9 +5466,7 @@
 
         const item =
             cart.find(
-                function (
-                    cartItem
-                ) {
+                function (cartItem) {
 
                     return (
                         String(
@@ -5151,9 +5549,7 @@
 
         return (
             branchList.find(
-                function (
-                    branch
-                ) {
+                function (branch) {
 
                     const values = [
 
@@ -5171,9 +5567,7 @@
 
 
                     return values.some(
-                        function (
-                            candidate
-                        ) {
+                        function (candidate) {
 
                             return (
                                 normalizeComparable(
@@ -5532,9 +5926,7 @@
                 window
                     .JufelixSalesCloud
                     .listen(
-                        function (
-                            type
-                        ) {
+                        function (type) {
 
                             if (
                                 type ===
@@ -5580,9 +5972,7 @@
                         sales
                     )
                     .catch(
-                        function (
-                            error
-                        ) {
+                        function (error) {
 
                             console.warn(
                                 "Initial Sales Cloud sync failed:",
@@ -5749,9 +6139,7 @@
 
                     const product =
                         updatedProducts.find(
-                            function (
-                                item
-                            ) {
+                            function (item) {
 
                                 return (
                                     String(
@@ -6422,6 +6810,14 @@
                 );
 
 
+                if (
+                    productSearchTerm
+                ) {
+
+                    renderProductSuggestions();
+                }
+
+
                 loadCustomerDropdown(
                     false
                 );
@@ -6476,6 +6872,14 @@
                 );
 
 
+                if (
+                    productSearchTerm
+                ) {
+
+                    renderProductSuggestions();
+                }
+
+
                 loadCustomerDropdown(
                     true
                 );
@@ -6520,6 +6924,9 @@
                 loadProductDropdown(
                     true
                 );
+
+
+                hideProductSuggestions();
             },
 
 
