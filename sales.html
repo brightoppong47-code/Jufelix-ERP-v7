@@ -325,6 +325,8 @@
             pointer-events: none;
 
             font-size: 18px;
+
+            z-index: 2;
         }
 
 
@@ -394,11 +396,174 @@
             font-size: 18px;
 
             cursor: pointer;
+
+            z-index: 2;
         }
 
 
         .product-search-clear:hover {
             background: #eef2f7;
+        }
+
+
+        /* ======================================
+           LIVE SEARCH SUGGESTIONS
+        ====================================== */
+
+        .product-search-suggestions {
+            display: none;
+
+            position: absolute;
+
+            left: 0;
+            right: 0;
+
+            top:
+                calc(100% + 6px);
+
+            z-index: 5000;
+
+            max-height: 320px;
+
+            overflow-y: auto;
+
+            border:
+                1px solid #dbe1e8;
+
+            border-radius: 11px;
+
+            background: #ffffff;
+
+            box-shadow:
+                0 12px 30px
+                rgba(0, 0, 0, .14);
+        }
+
+
+        .product-search-suggestions.show {
+            display: block;
+        }
+
+
+        .product-suggestion-item {
+            width: 100%;
+
+            display: grid;
+
+            grid-template-columns:
+                46px
+                minmax(0, 1fr)
+                auto;
+
+            gap: 11px;
+
+            align-items: center;
+
+            padding: 11px 12px;
+
+            border: none;
+
+            border-bottom:
+                1px solid #edf0f4;
+
+            background: #ffffff;
+
+            color: #1f2937;
+
+            text-align: left;
+
+            cursor: pointer;
+        }
+
+
+        .product-suggestion-item:last-child {
+            border-bottom: none;
+        }
+
+
+        .product-suggestion-item:hover,
+        .product-suggestion-item:focus {
+            background: #f3f7ff;
+        }
+
+
+        .product-suggestion-image {
+            width: 46px;
+            height: 46px;
+
+            display: flex;
+
+            align-items: center;
+            justify-content: center;
+
+            overflow: hidden;
+
+            border-radius: 8px;
+
+            background: #eaf2ff;
+
+            font-size: 22px;
+        }
+
+
+        .product-suggestion-image img {
+            width: 100%;
+            height: 100%;
+
+            object-fit: cover;
+        }
+
+
+        .product-suggestion-info {
+            min-width: 0;
+        }
+
+
+        .product-suggestion-name {
+            display: block;
+
+            margin-bottom: 4px;
+
+            font-size: 14px;
+            font-weight: 800;
+
+            overflow-wrap: anywhere;
+        }
+
+
+        .product-suggestion-meta {
+            display: block;
+
+            color: #6b7280;
+
+            font-size: 11px;
+
+            line-height: 1.4;
+
+            overflow-wrap: anywhere;
+        }
+
+
+        .product-suggestion-stock {
+            min-width: 70px;
+
+            color: #198754;
+
+            font-size: 12px;
+            font-weight: 800;
+
+            text-align: right;
+        }
+
+
+        .product-suggestion-empty {
+            padding: 16px;
+
+            color: #6b7280;
+
+            font-size: 13px;
+
+            text-align: center;
         }
 
 
@@ -438,7 +603,8 @@
 
             scrollbar-width: thin;
 
-            -webkit-overflow-scrolling: touch;
+            -webkit-overflow-scrolling:
+                touch;
         }
 
 
@@ -518,7 +684,9 @@
 
         .sales-form {
             width: 100%;
+
             display: grid;
+
             gap: 18px;
         }
 
@@ -684,7 +852,7 @@
 
 
         /* ======================================
-           ADD CART
+           ADD TO CART
         ====================================== */
 
         .add-cart-button {
@@ -749,7 +917,8 @@
 
 
         .cart-count {
-            padding: 6px 10px;
+            padding:
+                6px 10px;
 
             border-radius: 20px;
 
@@ -799,7 +968,8 @@
         .cart-table td,
         .sales-table th,
         .sales-table td {
-            padding: 13px 12px;
+            padding:
+                13px 12px;
 
             border-bottom:
                 1px solid #edf0f4;
@@ -860,7 +1030,8 @@
             width: 78px;
             min-height: 40px;
 
-            padding: 0 8px;
+            padding:
+                0 8px;
 
             border:
                 1px solid #d7dce5;
@@ -876,7 +1047,8 @@
         .remove-cart-button {
             min-height: 38px;
 
-            padding: 0 12px;
+            padding:
+                0 12px;
 
             border: none;
 
@@ -987,7 +1159,8 @@
 
             gap: 15px;
 
-            padding: 11px 0;
+            padding:
+                11px 0;
 
             border-bottom:
                 1px solid #edf0f4;
@@ -1062,7 +1235,8 @@
 
             gap: 12px;
 
-            padding: 5px 0;
+            padding:
+                5px 0;
 
             font-size: 12px;
         }
@@ -1107,7 +1281,8 @@
         .payment-title {
             display: block;
 
-            margin: 21px 0 10px;
+            margin:
+                21px 0 10px;
 
             color:
                 var(
@@ -1153,6 +1328,7 @@
 
         .complete-sale-button:disabled {
             cursor: not-allowed;
+
             opacity: .55;
         }
 
@@ -1202,7 +1378,7 @@
 
 
         /* ======================================
-           MOBILE / TABLET
+           RESPONSIVE
         ====================================== */
 
         @media screen and
@@ -1290,8 +1466,11 @@
         .form-row,
         .form-group,
         .table-wrapper {
-            min-width: 0 !important;
-            max-width: 100% !important;
+            min-width:
+                0 !important;
+
+            max-width:
+                100% !important;
         }
 
 
@@ -1314,6 +1493,13 @@
             width:
                 100% !important;
 
+            overflow:
+                visible;
+        }
+
+
+        .cart-panel,
+        .sales-history-panel {
             overflow:
                 hidden;
         }
@@ -1599,6 +1785,37 @@
                 overflow:
                     hidden !important;
             }
+
+
+            .product-search-suggestions {
+                max-height:
+                    280px;
+            }
+
+
+            .product-suggestion-item {
+                grid-template-columns:
+                    42px
+                    minmax(0, 1fr);
+
+                gap: 9px;
+            }
+
+
+            .product-suggestion-stock {
+                grid-column:
+                    2;
+
+                min-width: 0;
+
+                text-align: left;
+            }
+
+
+            .product-suggestion-image {
+                width: 42px;
+                height: 42px;
+            }
         }
 
 
@@ -1684,9 +1901,8 @@
             </h1>
 
             <p>
-                Search products, filter by
-                category and process branch-aware
-                multi-item sales.
+                Search products, filter by category
+                and process branch-aware multi-item sales.
             </p>
 
         </div>
@@ -1777,9 +1993,9 @@
                     </h2>
 
                     <p>
-                        Search by product name,
-                        SKU, barcode or brand,
-                        or select a category.
+                        Start typing a product name,
+                        SKU, barcode or brand and tap
+                        the matching product immediately.
                     </p>
 
                 </div>
@@ -1807,6 +2023,8 @@
                             class="product-search-input"
                             placeholder="Search product, SKU, barcode or brand..."
                             autocomplete="off"
+                            autocapitalize="none"
+                            spellcheck="false"
                         >
 
 
@@ -1818,6 +2036,14 @@
                         >
                             ✕
                         </button>
+
+
+                        <!-- LIVE PRODUCT RESULTS -->
+
+                        <div
+                            id="saleProductSuggestions"
+                            class="product-search-suggestions"
+                        ></div>
 
                     </div>
 
@@ -2391,14 +2617,12 @@
             <div class="sales-note">
 
                 All products in the cart
-                will be recorded under one
-                receipt.
+                will be recorded under one receipt.
 
                 <br><br>
 
                 Walk-in Customer can use
-                Cash, Mobile Money, Card or
-                Bank.
+                Cash, Mobile Money, Card or Bank.
 
                 <br><br>
 
@@ -2534,7 +2758,6 @@ document.addEventListener(
                     .toLocaleDateString(
                         "en-GH",
                         {
-
                             weekday:
                                 "long",
 
@@ -2546,7 +2769,6 @@ document.addEventListener(
 
                             year:
                                 "numeric"
-
                         }
                     );
         }
@@ -2638,11 +2860,11 @@ document.addEventListener(
 
 
 <!-- =========================================
-     SALES
+     SALES MODULE
 ========================================= -->
 
 <script
-    src="js/modules/sales.js?v=1010"
+    src="js/modules/sales.js?v=1011"
 ></script>
 
 
