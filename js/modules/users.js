@@ -5,15 +5,23 @@
    File:
    js/modules/users.js
 
-   Version: 512
+   Version: 513
+
+   COMPLETE REPLACEMENT
 
    + Firebase user creation
    + Firebase profile update
-   + Firebase profile deletion
+   + Safe account deactivation
+   + Account reactivation
    + Branch assignment
    + User statistics
    + LocalStorage mirror
-   + Active / inactive user counters
+   + No password storage
+   + Standard ERP roles
+   + Protect current signed-in user
+   + Protect last active administrator
+   + Email locked during editing
+   + Active / inactive counters
 ========================================== */
 
 (function () {
@@ -30,6 +38,12 @@
 
     const BRANCHES_KEY =
         "jufelix_v7_branches";
+
+    const CURRENT_USER_KEY =
+        "jufelix_v7_current_user";
+
+    const DEFAULT_BRANCH_ID =
+        "head-office";
 
 
     /* ==========================================
@@ -71,16 +85,17 @@
 
         cacheElements();
 
-        ensureAdmin();
-
         loadBranches();
 
         bindEvents();
 
+        cleanupLegacyPasswords();
+
         renderUsers();
 
+
         console.log(
-            "✅ Jufelix Users v512 loaded."
+            "✅ Jufelix Users v513 loaded."
         );
     }
 
@@ -230,7 +245,9 @@
                 );
 
 
-            if (element) {
+            if (
+                element
+            ) {
 
                 return element;
             }
@@ -325,6 +342,10 @@
                     USERS_KEY
                 ) {
 
+                    mergeCloudUserEvent(
+                        detail
+                    );
+
                     renderUsers();
                 }
 
@@ -344,7 +365,14 @@
 
         document.addEventListener(
             "jufelix:user-cloud-saved",
-            function () {
+            function (
+                event
+            ) {
+
+                mergeCloudUserEvent(
+                    event.detail ||
+                    {}
+                );
 
                 renderUsers();
             }
@@ -391,101 +419,94 @@
         event.preventDefault();
 
 
-        const branchId =
-            getValue(
-                el.branch
-            ) ||
-            "head-office";
-
-
-        const branch =
+        const users =
             readArray(
-                BRANCHES_KEY
-            )
-                .find(
+                USERS_KEY
+            );
+
+
+        const existingUser =
+            editingId
+
+                ? users.find(
                     function (
-                        item
+                        user
                     ) {
 
                         return (
                             String(
-                                item.id
+                                user.id
                             ) ===
                             String(
-                                branchId
+                                editingId
                             )
                         );
                     }
-                );
-
-
-        const data = {
-
-            fullName:
-                getValue(
-                    el.fullName
-                ),
-
-            name:
-                getValue(
-                    el.fullName
-                ),
-
-            email:
-                getValue(
-                    el.email
                 )
-                    .toLowerCase(),
 
-            phone:
-                getValue(
-                    el.phone
-                ),
+                : null;
 
-            username:
-                getValue(
-                    el.username
+
+        const branchId =
+            getValue(
+                el.branch
+            ) ||
+            DEFAULT_BRANCH_ID;
+
+
+        const branch =
+            findBranchById(
+                branchId
+            );
+
+
+        const fullName =
+            getValue(
+                el.fullName
+            );
+
+
+        const email =
+            getValue(
+                el.email
+            )
+                .toLowerCase();
+
+
+        let username =
+            getValue(
+                el.username
+            )
+                .toLowerCase();
+
+
+        const password =
+            el.password
+                ? String(
+                    el.password.value ||
+                    ""
                 )
-                    .toLowerCase(),
+                : "";
 
-            password:
-                el.password
-                    ? el.password.value
-                    : "",
 
-            role:
-                normalizeRole(
-                    getValue(
-                        el.role
-                    )
-                ),
+        const role =
+            normalizeRole(
+                getValue(
+                    el.role
+                )
+            );
 
-            branchId:
-                branchId,
 
-            branchName:
-                branch
-                    ? (
-                        branch.branchName ||
-                        branch.name ||
-                        "Branch"
-                    )
-                    : "Head Office",
-
-            status:
+        const status =
+            normalizeStatus(
                 getValue(
                     el.status
-                ) ||
-                "active"
-        };
+                )
+            );
 
-
-        /* ======================================
-           VALIDATION
-        ====================================== */
 
         if (
-            !data.fullName
+            !fullName
         ) {
 
             showMessage(
@@ -498,10 +519,10 @@
 
 
         if (
-            !data.email ||
+            !email ||
             !/^[^\s@]+@[^\s@]+\.[^\s@]+$/
                 .test(
-                    data.email
+                    email
                 )
         ) {
 
@@ -515,17 +536,17 @@
 
 
         if (
-            !data.username
+            !username
         ) {
 
-            data.username =
-                data.email
+            username =
+                email
                     .split("@")[0];
         }
 
 
         if (
-            !data.role
+            !role
         ) {
 
             showMessage(
@@ -539,7 +560,7 @@
 
         if (
             !editingId &&
-            data.password.length <
+            password.length <
                 6
         ) {
 
@@ -552,10 +573,39 @@
         }
 
 
-        let users =
-            readArray(
-                USERS_KEY
-            );
+        /*
+         * Existing Firebase login email cannot
+         * be changed from this screen.
+         */
+
+        if (
+            existingUser
+        ) {
+
+            const originalEmail =
+                String(
+                    existingUser.loginEmail ||
+                    existingUser.email ||
+                    ""
+                )
+                    .trim()
+                    .toLowerCase();
+
+
+            if (
+                originalEmail &&
+                email !==
+                originalEmail
+            ) {
+
+                showMessage(
+                    "The login email cannot be changed while editing a user.",
+                    "error"
+                );
+
+                return;
+            }
+        }
 
 
         const duplicateEmail =
@@ -569,16 +619,17 @@
                             user.email ||
                             ""
                         )
+                            .trim()
                             .toLowerCase() ===
-                            data.email &&
+                            email &&
 
                         String(
                             user.id
                         ) !==
-                            String(
-                                editingId ||
-                                ""
-                            )
+                        String(
+                            editingId ||
+                            ""
+                        )
                     );
                 }
             );
@@ -608,16 +659,17 @@
                             user.username ||
                             ""
                         )
+                            .trim()
                             .toLowerCase() ===
-                            data.username &&
+                            username &&
 
                         String(
                             user.id
                         ) !==
-                            String(
-                                editingId ||
-                                ""
-                            )
+                        String(
+                            editingId ||
+                            ""
+                        )
                     );
                 }
             );
@@ -636,6 +688,159 @@
         }
 
 
+        /*
+         * Protect current signed-in account.
+         */
+
+        if (
+            existingUser &&
+            isCurrentUser(
+                existingUser
+            )
+        ) {
+
+            if (
+                status ===
+                "inactive"
+            ) {
+
+                showMessage(
+                    "You cannot deactivate the account you are currently using.",
+                    "error"
+                );
+
+                return;
+            }
+
+
+            if (
+                normalizeRole(
+                    existingUser.role
+                ) ===
+                    "admin" &&
+                role !==
+                    "admin"
+            ) {
+
+                if (
+                    countActiveAdmins(
+                        users
+                    ) <=
+                    1
+                ) {
+
+                    showMessage(
+                        "You cannot remove administrator access from the last active administrator.",
+                        "error"
+                    );
+
+                    return;
+                }
+            }
+        }
+
+
+        /*
+         * Protect last administrator.
+         */
+
+        if (
+            existingUser &&
+            normalizeRole(
+                existingUser.role
+            ) ===
+                "admin" &&
+            normalizeStatus(
+                existingUser.status
+            ) ===
+                "active"
+        ) {
+
+            const removingAdminAccess =
+                role !==
+                "admin" ||
+                status !==
+                "active";
+
+
+            if (
+                removingAdminAccess &&
+                countActiveAdmins(
+                    users
+                ) <=
+                1
+            ) {
+
+                showMessage(
+                    "At least one active administrator must remain in the system.",
+                    "error"
+                );
+
+                return;
+            }
+        }
+
+
+        const data = {
+
+            fullName:
+                fullName,
+
+            name:
+                fullName,
+
+            email:
+                email,
+
+            loginEmail:
+                existingUser
+                    ? (
+                        existingUser.loginEmail ||
+                        existingUser.email ||
+                        email
+                    )
+                    : email,
+
+            phone:
+                getValue(
+                    el.phone
+                ),
+
+            username:
+                username,
+
+            role:
+                role,
+
+            branchId:
+                branchId,
+
+            branchName:
+                branch
+                    ? getBranchName(
+                        branch
+                    )
+                    : "Head Office",
+
+            status:
+                status
+        };
+
+
+        /*
+         * Password is ONLY supplied during
+         * Firebase account creation.
+         */
+
+        if (
+            !editingId
+        ) {
+
+            data.password =
+                password;
+        }
+
+
         setSaving(
             true
         );
@@ -643,109 +848,75 @@
 
         try {
 
-            const wasEditing =
-                Boolean(
-                    editingId
-                );
+            let savedUser;
 
 
             if (
-                !wasEditing
+                !editingId
             ) {
 
-                if (
-                    !window.JufelixUsersCloud ||
-                    typeof window
-                        .JufelixUsersCloud
-                        .createUser !==
-                        "function"
-                ) {
-
-                    throw new Error(
-                        "Users Cloud is not ready."
-                    );
-                }
+                const cloud =
+                    await waitForUsersCloud();
 
 
-                const cloudUser =
-                    await window
-                        .JufelixUsersCloud
-                        .createUser(
-                            data
-                        );
-
-
-                data.id =
-                    String(
-                        cloudUser.uid ||
-                        cloudUser.id
+                savedUser =
+                    await cloud.createUser(
+                        data
                     );
 
-
-                data.uid =
-                    data.id;
 
             } else {
 
-                const existing =
-                    users.find(
-                        function (
-                            user
-                        ) {
+                const cloud =
+                    await waitForUsersCloud();
 
-                            return (
-                                String(
-                                    user.id
-                                ) ===
-                                String(
-                                    editingId
-                                )
-                            );
-                        }
+
+                savedUser =
+                    await cloud.updateUser(
+                        existingUser.uid ||
+                        existingUser.id,
+                        data
                     );
-
-
-                data.id =
-                    String(
-                        editingId
-                    );
-
-
-                data.uid =
-                    existing
-                        ? (
-                            existing.uid ||
-                            existing.id
-                        )
-                        : editingId;
-
-
-                if (
-                    window.JufelixUsersCloud &&
-                    typeof window
-                        .JufelixUsersCloud
-                        .updateUser ===
-                        "function"
-                ) {
-
-                    await window
-                        .JufelixUsersCloud
-                        .updateUser(
-                            data.uid,
-                            data
-                        );
-                }
             }
 
 
-            users =
+            const updatedUsers =
                 readArray(
                     USERS_KEY
                 );
 
 
+            const record =
+                sanitizeUserRecord({
+
+                    ...existingUser,
+
+                    ...data,
+
+                    ...savedUser,
+
+                    id:
+                        String(
+                            savedUser.uid ||
+                            savedUser.id ||
+                            editingId
+                        ),
+
+                    uid:
+                        String(
+                            savedUser.uid ||
+                            savedUser.id ||
+                            editingId
+                        ),
+
+                    updatedAt:
+                        new Date()
+                            .toISOString()
+                });
+
+
             const index =
-                users.findIndex(
+                updatedUsers.findIndex(
                     function (
                         user
                     ) {
@@ -755,45 +926,11 @@
                                 user.id
                             ) ===
                             String(
-                                data.id
+                                record.id
                             )
                         );
                     }
                 );
-
-
-            const now =
-                new Date()
-                    .toISOString();
-
-
-            const record = {
-
-                ...(
-                    index >=
-                    0
-                        ? users[
-                            index
-                        ]
-                        : {}
-                ),
-
-                ...data,
-
-                id:
-                    String(
-                        data.id
-                    ),
-
-                uid:
-                    String(
-                        data.uid ||
-                        data.id
-                    ),
-
-                updatedAt:
-                    now
-            };
 
 
             if (
@@ -801,19 +938,7 @@
                 0
             ) {
 
-                if (
-                    !data.password
-                ) {
-
-                    record.password =
-                        users[
-                            index
-                        ].password ||
-                        "";
-                }
-
-
-                users[
+                updatedUsers[
                     index
                 ] =
                     record;
@@ -821,18 +946,26 @@
             } else {
 
                 record.createdAt =
-                    now;
+                    record.createdAt ||
+                    new Date()
+                        .toISOString();
 
 
-                users.push(
+                updatedUsers.push(
                     record
                 );
             }
 
 
             writeUsers(
-                users
+                updatedUsers
             );
+
+
+            const wasEditing =
+                Boolean(
+                    editingId
+                );
 
 
             resetForm();
@@ -841,16 +974,16 @@
 
 
             showMessage(
-
                 wasEditing
                     ? "User updated successfully."
                     : "User created successfully.",
-
                 "success"
             );
 
 
-        } catch (error) {
+        } catch (
+            error
+        ) {
 
             console.error(
                 "User save failed:",
@@ -876,7 +1009,72 @@
 
 
     /* ==========================================
-       USER STATISTICS
+       WAIT FOR USERS CLOUD
+    ========================================== */
+
+    function waitForUsersCloud(
+        timeout = 15000
+    ) {
+
+        return new Promise(
+            function (
+                resolve,
+                reject
+            ) {
+
+                const started =
+                    Date.now();
+
+
+                function check() {
+
+                    if (
+                        window.JufelixUsersCloud &&
+                        typeof window
+                            .JufelixUsersCloud
+                            .createUser ===
+                            "function"
+                    ) {
+
+                        resolve(
+                            window.JufelixUsersCloud
+                        );
+
+                        return;
+                    }
+
+
+                    if (
+                        Date.now() -
+                        started >=
+                        timeout
+                    ) {
+
+                        reject(
+                            new Error(
+                                "Users Cloud did not become ready."
+                            )
+                        );
+
+                        return;
+                    }
+
+
+                    window.setTimeout(
+                        check,
+                        100
+                    );
+                }
+
+
+                check();
+            }
+        );
+    }
+
+
+    /* ==========================================
+       STATISTICS
     ========================================== */
 
     function updateUserStatistics() {
@@ -898,12 +1096,9 @@
                 ) {
 
                     return (
-                        String(
-                            user.status ||
-                            "active"
-                        )
-                            .trim()
-                            .toLowerCase() ===
+                        normalizeStatus(
+                            user.status
+                        ) ===
                         "active"
                     );
                 }
@@ -917,63 +1112,30 @@
                 ) {
 
                     return (
-                        String(
-                            user.status ||
-                            ""
-                        )
-                            .trim()
-                            .toLowerCase() ===
+                        normalizeStatus(
+                            user.status
+                        ) ===
                         "inactive"
                     );
                 }
             ).length;
 
 
-        if (
-            el.totalUsers
-        ) {
-
-            el.totalUsers.textContent =
-                String(
-                    totalUsers
-                );
-        }
+        setText(
+            el.totalUsers,
+            totalUsers
+        );
 
 
-        if (
-            el.activeUsers
-        ) {
-
-            el.activeUsers.textContent =
-                String(
-                    activeUsers
-                );
-        }
+        setText(
+            el.activeUsers,
+            activeUsers
+        );
 
 
-        if (
-            el.inactiveUsers
-        ) {
-
-            el.inactiveUsers.textContent =
-                String(
-                    inactiveUsers
-                );
-        }
-
-
-        console.log(
-            "Users statistics:",
-            {
-                total:
-                    totalUsers,
-
-                active:
-                    activeUsers,
-
-                inactive:
-                    inactiveUsers
-            }
+        setText(
+            el.inactiveUsers,
+            inactiveUsers
         );
     }
 
@@ -1009,7 +1171,7 @@
 
 
         const roleFilter =
-            normalizeRole(
+            normalizeRoleFilter(
                 getValue(
                     el.roleFilter
                 )
@@ -1023,62 +1185,87 @@
 
 
         users =
-            users.filter(
-                function (
-                    user
-                ) {
+            users
+                .filter(
+                    function (
+                        user
+                    ) {
 
-                    const searchable =
-                        [
-                            user.fullName,
-                            user.name,
-                            user.email,
-                            user.phone,
-                            user.username,
-                            user.role,
-                            user.branchName
-                        ]
-                            .join(" ")
-                            .toLowerCase();
-
-
-                    const matchesSearch =
-                        !search ||
-                        searchable.includes(
-                            search
-                        );
-
-
-                    const matchesRole =
-                        !roleFilter ||
-                        roleFilter ===
-                            "all" ||
-                        normalizeRole(
-                            user.role
-                        ) ===
-                            roleFilter;
+                        const searchable =
+                            [
+                                user.fullName,
+                                user.name,
+                                user.email,
+                                user.phone,
+                                user.username,
+                                roleName(
+                                    user.role
+                                ),
+                                user.branchName,
+                                user.status
+                            ]
+                                .join(
+                                    " "
+                                )
+                                .toLowerCase();
 
 
-                    const matchesBranch =
-                        !branchFilter ||
-                        branchFilter ===
-                            "all" ||
-                        String(
-                            user.branchId ||
-                            "head-office"
-                        ) ===
-                            String(
-                                branchFilter
+                        const matchesSearch =
+                            !search ||
+                            searchable.includes(
+                                search
                             );
 
 
-                    return (
-                        matchesSearch &&
-                        matchesRole &&
-                        matchesBranch
-                    );
-                }
-            );
+                        const matchesRole =
+                            !roleFilter ||
+                            roleFilter ===
+                                "all" ||
+                            normalizeRole(
+                                user.role
+                            ) ===
+                                roleFilter;
+
+
+                        const matchesBranch =
+                            !branchFilter ||
+                            branchFilter ===
+                                "all" ||
+                            String(
+                                user.branchId ||
+                                DEFAULT_BRANCH_ID
+                            ) ===
+                                String(
+                                    branchFilter
+                                );
+
+
+                        return (
+                            matchesSearch &&
+                            matchesRole &&
+                            matchesBranch
+                        );
+                    }
+                )
+                .sort(
+                    function (
+                        a,
+                        b
+                    ) {
+
+                        return String(
+                            a.fullName ||
+                            a.name ||
+                            ""
+                        ).localeCompare(
+                            String(
+                                b.fullName ||
+                                b.name ||
+                                ""
+                            )
+                        );
+                    }
+                );
 
 
         if (
@@ -1088,6 +1275,7 @@
 
             el.tbody.innerHTML = `
                 <tr>
+
                     <td
                         colspan="8"
                         style="
@@ -1097,6 +1285,7 @@
                     >
                         No users found.
                     </td>
+
                 </tr>
             `;
 
@@ -1112,6 +1301,19 @@
                         user
                     ) {
 
+                        const active =
+                            normalizeStatus(
+                                user.status
+                            ) ===
+                            "active";
+
+
+                        const current =
+                            isCurrentUser(
+                                user
+                            );
+
+
                         return `
                             <tr>
 
@@ -1121,6 +1323,12 @@
                                         user.name ||
                                         "—"
                                     )}
+
+                                    ${
+                                        current
+                                            ? '<div style="font-size:11px;color:#0b5ed7;font-weight:700;">Current User</div>'
+                                            : ""
+                                    }
                                 </td>
 
                                 <td>
@@ -1154,8 +1362,9 @@
 
                                 <td>
                                     ${escapeHTML(
-                                        user.status ||
-                                        "active"
+                                        active
+                                            ? "Active"
+                                            : "Inactive"
                                     )}
                                 </td>
 
@@ -1174,14 +1383,32 @@
 
                                 <td>
 
-                                    <button
-                                        type="button"
-                                        data-delete="${escapeHTML(
-                                            user.id
-                                        )}"
-                                    >
-                                        Delete
-                                    </button>
+                                    ${
+                                        active
+
+                                            ? `
+                                                <button
+                                                    type="button"
+                                                    data-deactivate="${escapeHTML(
+                                                        user.id
+                                                    )}"
+                                                    ${current ? "disabled" : ""}
+                                                >
+                                                    Deactivate
+                                                </button>
+                                            `
+
+                                            : `
+                                                <button
+                                                    type="button"
+                                                    data-activate="${escapeHTML(
+                                                        user.id
+                                                    )}"
+                                                >
+                                                    Activate
+                                                </button>
+                                            `
+                                    }
 
                                 </td>
 
@@ -1191,6 +1418,16 @@
                 )
                 .join("");
 
+
+        connectTableButtons();
+    }
+
+
+    /* ==========================================
+       TABLE EVENTS
+    ========================================== */
+
+    function connectTableButtons() {
 
         el.tbody
             .querySelectorAll(
@@ -1217,7 +1454,7 @@
 
         el.tbody
             .querySelectorAll(
-                "[data-delete]"
+                "[data-deactivate]"
             )
             .forEach(
                 function (
@@ -1228,9 +1465,32 @@
                         "click",
                         function () {
 
-                            deleteUser(
+                            deactivateUser(
                                 button.dataset
-                                    .delete
+                                    .deactivate
+                            );
+                        }
+                    );
+                }
+            );
+
+
+        el.tbody
+            .querySelectorAll(
+                "[data-activate]"
+            )
+            .forEach(
+                function (
+                    button
+                ) {
+
+                    button.addEventListener(
+                        "click",
+                        function () {
+
+                            activateUser(
+                                button.dataset
+                                    .activate
                             );
                         }
                     );
@@ -1268,7 +1528,9 @@
                 );
 
 
-        if (!user) {
+        if (
+            !user
+        ) {
 
             showMessage(
                 "User not found.",
@@ -1292,6 +1554,7 @@
 
         setValue(
             el.email,
+            user.loginEmail ||
             user.email
         );
 
@@ -1318,16 +1581,40 @@
 
         setValue(
             el.branch,
-            user.branchId
+            user.branchId ||
+            DEFAULT_BRANCH_ID
         );
 
 
         setValue(
             el.status,
-            user.status ||
-            "active"
+            normalizeStatus(
+                user.status
+            )
         );
 
+
+        /*
+         * Firebase Authentication email is
+         * intentionally locked during edit.
+         */
+
+        if (
+            el.email
+        ) {
+
+            el.email.readOnly =
+                true;
+
+            el.email.title =
+                "Login email cannot be changed from User Management.";
+        }
+
+
+        /*
+         * Password changes are not handled
+         * through this browser profile editor.
+         */
 
         if (
             el.password
@@ -1339,8 +1626,11 @@
             el.password.required =
                 false;
 
+            el.password.disabled =
+                true;
+
             el.password.placeholder =
-                "Leave blank to keep current password";
+                "Password unchanged";
         }
 
 
@@ -1351,14 +1641,20 @@
             el.save.textContent =
                 "💾 Update User";
         }
+
+
+        showMessage(
+            "Editing user. Login email and password are protected.",
+            "success"
+        );
     }
 
 
     /* ==========================================
-       DELETE USER
+       DEACTIVATE USER
     ========================================== */
 
-    async function deleteUser(
+    async function deactivateUser(
         id
     ) {
 
@@ -1386,23 +1682,51 @@
             );
 
 
-        if (!user) {
+        if (
+            !user
+        ) {
+
+            showMessage(
+                "User not found.",
+                "error"
+            );
 
             return;
         }
 
 
         if (
-            String(
-                user.username ||
-                ""
+            isCurrentUser(
+                user
             )
-                .toLowerCase() ===
-            "admin"
         ) {
 
             showMessage(
-                "The default administrator cannot be deleted.",
+                "You cannot deactivate the account you are currently using.",
+                "error"
+            );
+
+            return;
+        }
+
+
+        if (
+            normalizeRole(
+                user.role
+            ) ===
+                "admin" &&
+            normalizeStatus(
+                user.status
+            ) ===
+                "active" &&
+            countActiveAdmins(
+                users
+            ) <=
+                1
+        ) {
+
+            showMessage(
+                "The last active administrator cannot be deactivated.",
                 "error"
             );
 
@@ -1411,18 +1735,20 @@
 
 
         const confirmed =
-            confirm(
-                "Delete " +
+            window.confirm(
+                "Deactivate " +
                 (
                     user.fullName ||
-                    user.username ||
+                    user.email ||
                     "this user"
                 ) +
-                "?"
+                "?\n\nThey will no longer be allowed to enter the ERP."
             );
 
 
-        if (!confirmed) {
+        if (
+            !confirmed
+        ) {
 
             return;
         }
@@ -1430,25 +1756,25 @@
 
         try {
 
-            if (
-                window.JufelixUsersCloud &&
-                typeof window
-                    .JufelixUsersCloud
-                    .deleteUser ===
-                    "function"
-            ) {
+            const cloud =
+                await waitForUsersCloud();
 
-                await window
-                    .JufelixUsersCloud
-                    .deleteUser(
-                        user.uid ||
-                        user.id
-                    );
-            }
+
+            const updated =
+                await cloud.deactivateUser(
+                    user.uid ||
+                    user.id
+                );
 
 
             users =
-                users.filter(
+                readArray(
+                    USERS_KEY
+                );
+
+
+            const index =
+                users.findIndex(
                     function (
                         item
                     ) {
@@ -1456,13 +1782,35 @@
                         return (
                             String(
                                 item.id
-                            ) !==
+                            ) ===
                             String(
                                 id
                             )
                         );
                     }
                 );
+
+
+            if (
+                index >=
+                0
+            ) {
+
+                users[
+                    index
+                ] =
+                    sanitizeUserRecord({
+
+                        ...users[
+                            index
+                        ],
+
+                        ...updated,
+
+                        status:
+                            "inactive"
+                    });
+            }
 
 
             writeUsers(
@@ -1474,15 +1822,175 @@
 
 
             showMessage(
-                "User removed successfully.",
+                "User deactivated successfully.",
                 "success"
             );
 
 
-        } catch (error) {
+        } catch (
+            error
+        ) {
 
             console.error(
-                "Delete user failed:",
+                "User deactivation failed:",
+                error
+            );
+
+
+            showMessage(
+                friendlyError(
+                    error
+                ),
+                "error"
+            );
+        }
+    }
+
+
+    /* ==========================================
+       ACTIVATE USER
+    ========================================== */
+
+    async function activateUser(
+        id
+    ) {
+
+        let users =
+            readArray(
+                USERS_KEY
+            );
+
+
+        const user =
+            users.find(
+                function (
+                    item
+                ) {
+
+                    return (
+                        String(
+                            item.id
+                        ) ===
+                        String(
+                            id
+                        )
+                    );
+                }
+            );
+
+
+        if (
+            !user
+        ) {
+
+            showMessage(
+                "User not found.",
+                "error"
+            );
+
+            return;
+        }
+
+
+        const confirmed =
+            window.confirm(
+                "Reactivate " +
+                (
+                    user.fullName ||
+                    user.email ||
+                    "this user"
+                ) +
+                "?"
+            );
+
+
+        if (
+            !confirmed
+        ) {
+
+            return;
+        }
+
+
+        try {
+
+            const cloud =
+                await waitForUsersCloud();
+
+
+            const updated =
+                await cloud.activateUser(
+                    user.uid ||
+                    user.id
+                );
+
+
+            users =
+                readArray(
+                    USERS_KEY
+                );
+
+
+            const index =
+                users.findIndex(
+                    function (
+                        item
+                    ) {
+
+                        return (
+                            String(
+                                item.id
+                            ) ===
+                            String(
+                                id
+                            )
+                        );
+                    }
+                );
+
+
+            if (
+                index >=
+                0
+            ) {
+
+                users[
+                    index
+                ] =
+                    sanitizeUserRecord({
+
+                        ...users[
+                            index
+                        ],
+
+                        ...updated,
+
+                        status:
+                            "active"
+                    });
+            }
+
+
+            writeUsers(
+                users
+            );
+
+
+            renderUsers();
+
+
+            showMessage(
+                "User reactivated successfully.",
+                "success"
+            );
+
+
+        } catch (
+            error
+        ) {
+
+            console.error(
+                "User activation failed:",
                 error
             );
 
@@ -1503,28 +2011,109 @@
 
     function loadBranches() {
 
-        const branches =
+        let branches =
             readArray(
                 BRANCHES_KEY
             );
 
 
-        const activeBranches =
-            branches.filter(
+        const headOfficeExists =
+            branches.some(
                 function (
                     branch
                 ) {
 
                     return (
                         String(
-                            branch.status ||
-                            "active"
-                        )
-                            .toLowerCase() ===
-                        "active"
+                            branch.id ||
+                            branch.branchId ||
+                            ""
+                        ) ===
+                        DEFAULT_BRANCH_ID
                     );
                 }
             );
+
+
+        if (
+            !headOfficeExists
+        ) {
+
+            branches.unshift({
+
+                id:
+                    DEFAULT_BRANCH_ID,
+
+                branchId:
+                    DEFAULT_BRANCH_ID,
+
+                name:
+                    "Head Office",
+
+                branchName:
+                    "Head Office",
+
+                status:
+                    "active",
+
+                isHeadOffice:
+                    true
+            });
+        }
+
+
+        const activeBranches =
+            branches
+                .filter(
+                    function (
+                        branch
+                    ) {
+
+                        return (
+                            normalizeStatus(
+                                branch.status
+                            ) ===
+                            "active"
+                        );
+                    }
+                )
+                .sort(
+                    function (
+                        a,
+                        b
+                    ) {
+
+                        if (
+                            String(
+                                a.id
+                            ) ===
+                            DEFAULT_BRANCH_ID
+                        ) {
+
+                            return -1;
+                        }
+
+
+                        if (
+                            String(
+                                b.id
+                            ) ===
+                            DEFAULT_BRANCH_ID
+                        ) {
+
+                            return 1;
+                        }
+
+
+                        return getBranchName(
+                            a
+                        ).localeCompare(
+                            getBranchName(
+                                b
+                            )
+                        );
+                    }
+                );
 
 
         if (
@@ -1550,9 +2139,9 @@
                                     )}"
                                 >
                                     ${escapeHTML(
-                                        branch.branchName ||
-                                        branch.name ||
-                                        "Branch"
+                                        getBranchName(
+                                            branch
+                                        )
                                     )}
                                 </option>
                             `;
@@ -1609,9 +2198,9 @@
                                     )}"
                                 >
                                     ${escapeHTML(
-                                        branch.branchName ||
-                                        branch.name ||
-                                        "Branch"
+                                        getBranchName(
+                                            branch
+                                        )
                                     )}
                                 </option>
                             `;
@@ -1621,13 +2210,99 @@
 
 
             if (
-                previous
+                previous &&
+                activeBranches.some(
+                    function (
+                        branch
+                    ) {
+
+                        return (
+                            String(
+                                branch.id
+                            ) ===
+                            String(
+                                previous
+                            )
+                        );
+                    }
+                )
             ) {
 
                 el.branchFilter.value =
                     previous;
             }
         }
+    }
+
+
+    function findBranchById(
+        branchId
+    ) {
+
+        if (
+            String(
+                branchId
+            ) ===
+            DEFAULT_BRANCH_ID
+        ) {
+
+            return {
+
+                id:
+                    DEFAULT_BRANCH_ID,
+
+                branchName:
+                    "Head Office",
+
+                name:
+                    "Head Office"
+            };
+        }
+
+
+        return (
+            readArray(
+                BRANCHES_KEY
+            )
+                .find(
+                    function (
+                        branch
+                    ) {
+
+                        return (
+                            String(
+                                branch.id ||
+                                branch.branchId
+                            ) ===
+                            String(
+                                branchId
+                            )
+                        );
+                    }
+                ) ||
+            null
+        );
+    }
+
+
+    function getBranchName(
+        branch
+    ) {
+
+        if (
+            !branch
+        ) {
+
+            return "Head Office";
+        }
+
+
+        return (
+            branch.branchName ||
+            branch.name ||
+            branch.code ||
+            "Branch"
+        );
     }
 
 
@@ -1650,11 +2325,29 @@
 
 
         if (
+            el.email
+        ) {
+
+            el.email.readOnly =
+                false;
+
+            el.email.title =
+                "";
+        }
+
+
+        if (
             el.password
         ) {
 
+            el.password.disabled =
+                false;
+
             el.password.required =
                 true;
+
+            el.password.value =
+                "";
 
             el.password.placeholder =
                 "Enter password";
@@ -1681,10 +2374,150 @@
 
 
     /* ==========================================
-       DEFAULT ADMIN
+       CURRENT USER
     ========================================== */
 
-    function ensureAdmin() {
+    function getCurrentUser() {
+
+        return (
+
+            readObject(
+                CURRENT_USER_KEY
+            ) ||
+
+            readObject(
+                "currentUser"
+            ) ||
+
+            null
+        );
+    }
+
+
+    function isCurrentUser(
+        user
+    ) {
+
+        const currentUser =
+            getCurrentUser();
+
+
+        if (
+            !currentUser ||
+            !user
+        ) {
+
+            return false;
+        }
+
+
+        const currentUid =
+            String(
+                currentUser.uid ||
+                currentUser.id ||
+                ""
+            );
+
+
+        const userUid =
+            String(
+                user.uid ||
+                user.id ||
+                ""
+            );
+
+
+        if (
+            currentUid &&
+            userUid &&
+            currentUid ===
+                userUid
+        ) {
+
+            return true;
+        }
+
+
+        const currentEmail =
+            String(
+                currentUser.email ||
+                ""
+            )
+                .trim()
+                .toLowerCase();
+
+
+        const userEmail =
+            String(
+                user.email ||
+                ""
+            )
+                .trim()
+                .toLowerCase();
+
+
+        return (
+            currentEmail &&
+            userEmail &&
+            currentEmail ===
+                userEmail
+        );
+    }
+
+
+    /* ==========================================
+       ADMIN PROTECTION
+    ========================================== */
+
+    function countActiveAdmins(
+        users
+    ) {
+
+        return users.filter(
+            function (
+                user
+            ) {
+
+                return (
+
+                    normalizeRole(
+                        user.role
+                    ) ===
+                        "admin" &&
+
+                    normalizeStatus(
+                        user.status
+                    ) ===
+                        "active"
+                );
+            }
+        ).length;
+    }
+
+
+    /* ==========================================
+       CLOUD USER MERGE
+    ========================================== */
+
+    function mergeCloudUserEvent(
+        detail
+    ) {
+
+        const cloudUser =
+            detail.user;
+
+
+        if (
+            !cloudUser ||
+            !(
+                cloudUser.id ||
+                cloudUser.uid
+            )
+        ) {
+
+            return;
+        }
+
 
         let users =
             readArray(
@@ -1692,70 +2525,210 @@
             );
 
 
-        const exists =
-            users.some(
+        const id =
+            String(
+                cloudUser.uid ||
+                cloudUser.id
+            );
+
+
+        const index =
+            users.findIndex(
                 function (
                     user
                 ) {
 
                     return (
                         String(
-                            user.username ||
-                            ""
-                        )
-                            .toLowerCase() ===
-                        "admin"
+                            user.uid ||
+                            user.id
+                        ) ===
+                        id
+                    );
+                }
+            );
+
+
+        const record =
+            sanitizeUserRecord({
+
+                ...(
+                    index >=
+                    0
+                        ? users[
+                            index
+                        ]
+                        : {}
+                ),
+
+                ...cloudUser,
+
+                id:
+                    id,
+
+                uid:
+                    id
+            });
+
+
+        if (
+            index >=
+            0
+        ) {
+
+            users[
+                index
+            ] =
+                record;
+
+        } else {
+
+            users.push(
+                record
+            );
+        }
+
+
+        saveUsersSilently(
+            users
+        );
+    }
+
+
+    /* ==========================================
+       LEGACY PASSWORD CLEANUP
+    ========================================== */
+
+    function cleanupLegacyPasswords() {
+
+        const users =
+            readArray(
+                USERS_KEY
+            );
+
+
+        let changed =
+            false;
+
+
+        const cleaned =
+            users.map(
+                function (
+                    user
+                ) {
+
+                    if (
+                        Object.prototype
+                            .hasOwnProperty.call(
+                                user,
+                                "password"
+                            )
+                    ) {
+
+                        changed =
+                            true;
+                    }
+
+
+                    return sanitizeUserRecord(
+                        user
                     );
                 }
             );
 
 
         if (
-            exists
+            changed
         ) {
 
-            return;
+            saveUsersSilently(
+                cleaned
+            );
+
+
+            console.log(
+                "✅ Legacy locally stored user passwords removed."
+            );
+        }
+    }
+
+
+    function sanitizeUserRecord(
+        user
+    ) {
+
+        const record = {
+
+            ...(
+                user ||
+                {}
+            )
+        };
+
+
+        delete record.password;
+
+
+        record.role =
+            normalizeRole(
+                record.role
+            );
+
+
+        record.status =
+            normalizeStatus(
+                record.status
+            );
+
+
+        if (
+            record.uid &&
+            !record.id
+        ) {
+
+            record.id =
+                String(
+                    record.uid
+                );
         }
 
 
-        users.push({
+        if (
+            record.id &&
+            !record.uid
+        ) {
 
-            id:
-                "user-admin",
-
-            fullName:
-                "System Administrator",
-
-            name:
-                "System Administrator",
-
-            username:
-                "admin",
-
-            password:
-                "admin123",
-
-            role:
-                "admin",
-
-            branchId:
-                "head-office",
-
-            branchName:
-                "Head Office",
-
-            status:
-                "active",
-
-            createdAt:
-                new Date()
-                    .toISOString()
-        });
+            record.uid =
+                String(
+                    record.id
+                );
+        }
 
 
-        writeUsers(
-            users
-        );
+        if (
+            record.email
+        ) {
+
+            record.email =
+                String(
+                    record.email
+                )
+                    .trim()
+                    .toLowerCase();
+        }
+
+
+        if (
+            !record.loginEmail &&
+            record.email
+        ) {
+
+            record.loginEmail =
+                record.email;
+        }
+
+
+        return record;
     }
 
 
@@ -1790,7 +2763,9 @@
                 : [];
 
 
-        } catch (error) {
+        } catch (
+            error
+        ) {
 
             console.error(
                 "Unable to read:",
@@ -1804,16 +2779,69 @@
     }
 
 
+    function readObject(
+        key
+    ) {
+
+        try {
+
+            const stored =
+                localStorage.getItem(
+                    key
+                );
+
+
+            if (
+                !stored
+            ) {
+
+                return null;
+            }
+
+
+            const parsed =
+                JSON.parse(
+                    stored
+                );
+
+
+            return (
+                parsed &&
+                typeof parsed ===
+                    "object" &&
+                !Array.isArray(
+                    parsed
+                )
+            )
+                ? parsed
+                : null;
+
+
+        } catch (
+            error
+        ) {
+
+            return null;
+        }
+    }
+
+
     function writeUsers(
         users
     ) {
+
+        const cleanUsers =
+            users.map(
+                sanitizeUserRecord
+            );
+
 
         try {
 
             localStorage.setItem(
                 USERS_KEY,
                 JSON.stringify(
-                    users
+                    cleanUsers
                 )
             );
 
@@ -1829,9 +2857,47 @@
                                 USERS_KEY,
 
                             value:
-                                users
+                                cleanUsers,
+
+                            source:
+                                "users-module"
                         }
                     }
+                )
+
+            );
+
+
+            return true;
+
+
+        } catch (
+            error
+        ) {
+
+            console.error(
+                "Unable to save users:",
+                error
+            );
+
+
+            return false;
+        }
+    }
+
+
+    function saveUsersSilently(
+        users
+    ) {
+
+        try {
+
+            localStorage.setItem(
+                USERS_KEY,
+                JSON.stringify(
+                    users.map(
+                        sanitizeUserRecord
+                    )
                 )
             );
 
@@ -1839,7 +2905,9 @@
             return true;
 
 
-        } catch (error) {
+        } catch (
+            error
+        ) {
 
             console.error(
                 "Unable to save users:",
@@ -1860,51 +2928,79 @@
         value
     ) {
 
-        let role =
+        const role =
             String(
                 value ||
                 ""
             )
                 .trim()
-                .toLowerCase();
+                .toLowerCase()
+                .replace(
+                    /_/g,
+                    "-"
+                )
+                .replace(
+                    /\s+/g,
+                    "-"
+                );
 
 
         const aliases = {
 
+            admin:
+                "admin",
+
             administrator:
                 "admin",
 
-            admin:
+            "system-administrator":
                 "admin",
+
 
             manager:
                 "manager",
 
-            sales:
-                "sales",
+            "branch-manager":
+                "manager",
 
-            "sales officer":
-                "sales",
+
+            sales:
+                "sales-officer",
+
+            salesperson:
+                "sales-officer",
+
+            "sales-person":
+                "sales-officer",
+
+            "sales-personnel":
+                "sales-officer",
 
             "sales-officer":
-                "sales",
+                "sales-officer",
 
-            "sales personnel":
-                "sales",
 
             cashier:
                 "cashier",
 
+
             stockkeeper:
-                "stockkeeper",
+                "store-keeper",
 
-            "stock keeper":
-                "stockkeeper",
+            "stock-keeper":
+                "store-keeper",
 
-            "store keeper":
-                "stockkeeper",
+            storekeeper:
+                "store-keeper",
+
+            "store-keeper":
+                "store-keeper",
+
 
             accountant:
+                "accountant",
+
+            accounts:
                 "accountant"
         };
 
@@ -1914,6 +3010,35 @@
                 role
             ] ||
             role
+        );
+    }
+
+
+    function normalizeRoleFilter(
+        value
+    ) {
+
+        const raw =
+            String(
+                value ||
+                ""
+            )
+                .trim()
+                .toLowerCase();
+
+
+        if (
+            !raw ||
+            raw ===
+            "all"
+        ) {
+
+            return raw;
+        }
+
+
+        return normalizeRole(
+            raw
         );
     }
 
@@ -1936,14 +3061,14 @@
             manager:
                 "Manager",
 
-            sales:
+            "sales-officer":
                 "Sales Officer",
 
             cashier:
                 "Cashier",
 
-            stockkeeper:
-                "Stock Keeper",
+            "store-keeper":
+                "Store Keeper",
 
             accountant:
                 "Accountant"
@@ -1957,6 +3082,28 @@
             role ||
             "—"
         );
+    }
+
+
+    /* ==========================================
+       STATUS
+    ========================================== */
+
+    function normalizeStatus(
+        value
+    ) {
+
+        return String(
+            value ||
+            "active"
+        )
+            .trim()
+            .toLowerCase() ===
+            "inactive"
+
+            ? "inactive"
+
+            : "active";
     }
 
 
@@ -1997,6 +3144,23 @@
     }
 
 
+    function setText(
+        element,
+        value
+    ) {
+
+        if (
+            element
+        ) {
+
+            element.textContent =
+                String(
+                    value
+                );
+        }
+    }
+
+
     function setSaving(
         state
     ) {
@@ -2027,6 +3191,22 @@
     function friendlyError(
         error
     ) {
+
+        if (
+            window.JufelixUsersCloud &&
+            typeof window
+                .JufelixUsersCloud
+                .friendlyError ===
+                "function"
+        ) {
+
+            return window
+                .JufelixUsersCloud
+                .friendlyError(
+                    error
+                );
+        }
+
 
         const code =
             String(
@@ -2070,7 +3250,7 @@
             error &&
             error.message
                 ? error.message
-                : "The user could not be saved."
+                : "The user operation could not be completed."
         );
     }
 
@@ -2093,6 +3273,28 @@
 
             el.message.style.display =
                 "block";
+
+
+            window.clearTimeout(
+                showMessage.timer
+            );
+
+
+            showMessage.timer =
+                window.setTimeout(
+                    function () {
+
+                        if (
+                            el.message
+                        ) {
+
+                            el.message.style.display =
+                                "none";
+                        }
+                    },
+                    4500
+                );
+
 
         } else {
 
@@ -2150,14 +3352,27 @@
         editUser:
             editUser,
 
-        deleteUser:
-            deleteUser,
+        deactivateUser:
+            deactivateUser,
+
+        activateUser:
+            activateUser,
 
         resetForm:
             resetForm,
 
         updateStats:
-            updateUserStatistics
+            updateUserStatistics,
+
+        countActiveAdmins:
+            function () {
+
+                return countActiveAdmins(
+                    readArray(
+                        USERS_KEY
+                    )
+                );
+            }
     };
 
 
