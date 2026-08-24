@@ -5,14 +5,19 @@
    File:
    js/cloud/users-cloud.js
 
+   Version: 513
+
    COMPLETE REPLACEMENT
 
-   + Does not depend only on firebase.js timing
-   + Creates users in Firebase Authentication
-   + Saves user profiles to Firestore
-   + Keeps administrator logged in
-   + Update Firestore users
-   + Delete Firestore user profiles
+   + Firebase Authentication user creation
+   + Secondary Firebase app keeps Admin logged in
+   + Firestore user profiles
+   + Safe profile updates
+   + Account deactivation
+   + No password stored in Firestore
+   + Standard ERP roles
+   + Permanent Firebase UID
+   + Firebase/local synchronization events
 ========================================== */
 
 import {
@@ -34,7 +39,7 @@ import {
     doc,
     setDoc,
     updateDoc,
-    deleteDoc,
+    getDoc,
     serverTimestamp,
     getFirestore
 } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js";
@@ -67,6 +72,30 @@ const FALLBACK_FIREBASE_CONFIG = {
 
 
 /* ==========================================
+   CONSTANTS
+========================================== */
+
+const DEFAULT_BRANCH_ID =
+    "head-office";
+
+
+const DEFAULT_BRANCH_NAME =
+    "Head Office";
+
+
+const ALLOWED_ROLES = [
+
+    "admin",
+    "manager",
+    "sales-officer",
+    "cashier",
+    "store-keeper",
+    "accountant"
+
+];
+
+
+/* ==========================================
    GET CONFIG
 ========================================== */
 
@@ -93,8 +122,8 @@ function getFirebaseConfig() {
 async function getMainFirebase() {
 
     /*
-     * FIRST:
-     * Use the normal Jufelix Firebase connection.
+     * First use the normal Jufelix Firebase
+     * connection when it is already available.
      */
 
     if (
@@ -107,8 +136,7 @@ async function getMainFirebase() {
 
 
     /*
-     * Give firebase.js a short chance
-     * to initialize normally.
+     * Give firebase.js time to initialize.
      */
 
     const started =
@@ -118,7 +146,7 @@ async function getMainFirebase() {
     while (
         Date.now() -
         started <
-        3000
+        5000
     ) {
 
         if (
@@ -130,24 +158,14 @@ async function getMainFirebase() {
         }
 
 
-        await new Promise(
-            function (resolve) {
-
-                setTimeout(
-                    resolve,
-                    100
-                );
-            }
+        await wait(
+            100
         );
     }
 
 
     /*
-     * FALLBACK:
-     *
-     * If firebase.js did not create the
-     * connection, access the default Firebase
-     * app directly.
+     * Fallback connection.
      */
 
     console.warn(
@@ -179,24 +197,22 @@ async function getMainFirebase() {
         );
 
 
-    /*
-     * Restore/update shared global object
-     * so other Jufelix modules can use it.
-     */
-
     if (
         !window.JufelixFirebase
     ) {
 
-        window.JufelixFirebase = {};
+        window.JufelixFirebase =
+            {};
     }
 
 
     window.JufelixFirebase.app =
         app;
 
+
     window.JufelixFirebase.db =
         db;
+
 
     window.JufelixFirebase.auth =
         auth;
@@ -217,6 +233,26 @@ async function getMainFirebase() {
             auth.currentUser ||
             null
     };
+}
+
+
+/* ==========================================
+   WAIT
+========================================== */
+
+function wait(
+    milliseconds
+) {
+
+    return new Promise(
+        function (resolve) {
+
+            setTimeout(
+                resolve,
+                milliseconds
+            );
+        }
+    );
 }
 
 
@@ -258,7 +294,8 @@ function cleanValue(
     }
 
 
-    const result = {};
+    const result =
+        {};
 
 
     Object.keys(
@@ -285,6 +322,128 @@ function cleanValue(
 
 
 /* ==========================================
+   NORMALIZE EMAIL
+========================================== */
+
+function normalizeEmail(
+    value
+) {
+
+    return String(
+        value ||
+        ""
+    )
+        .trim()
+        .toLowerCase();
+}
+
+
+/* ==========================================
+   NORMALIZE ROLE
+========================================== */
+
+function normalizeRole(
+    value
+) {
+
+    const role =
+        String(
+            value ||
+            ""
+        )
+            .trim()
+            .toLowerCase();
+
+
+    const aliases = {
+
+        administrator:
+            "admin",
+
+        admin:
+            "admin",
+
+        manager:
+            "manager",
+
+        sales:
+            "sales-officer",
+
+        "sales officer":
+            "sales-officer",
+
+        "sales-officer":
+            "sales-officer",
+
+        "sales personnel":
+            "sales-officer",
+
+        cashier:
+            "cashier",
+
+        stockkeeper:
+            "store-keeper",
+
+        "stock keeper":
+            "store-keeper",
+
+        "store keeper":
+            "store-keeper",
+
+        "store-keeper":
+            "store-keeper",
+
+        accountant:
+            "accountant"
+    };
+
+
+    const normalized =
+        aliases[
+            role
+        ] ||
+        role;
+
+
+    if (
+        ALLOWED_ROLES.includes(
+            normalized
+        )
+    ) {
+
+        return normalized;
+    }
+
+
+    return "sales-officer";
+}
+
+
+/* ==========================================
+   NORMALIZE STATUS
+========================================== */
+
+function normalizeStatus(
+    value
+) {
+
+    const status =
+        String(
+            value ||
+            "active"
+        )
+            .trim()
+            .toLowerCase();
+
+
+    return status ===
+        "inactive"
+            ? "inactive"
+            : "active";
+}
+
+
+/* ==========================================
    CREATE USER
 ========================================== */
 
@@ -302,8 +461,21 @@ async function createUser(
     }
 
 
+    const email =
+        normalizeEmail(
+            userData.email
+        );
+
+
+    const password =
+        String(
+            userData.password ||
+            ""
+        );
+
+
     if (
-        !userData.email
+        !email
     ) {
 
         throw new Error(
@@ -313,10 +485,20 @@ async function createUser(
 
 
     if (
-        !userData.password ||
-        String(
-            userData.password
-        ).length <
+        !/^[^\s@]+@[^\s@]+\.[^\s@]+$/
+            .test(
+                email
+            )
+    ) {
+
+        throw new Error(
+            "Enter a valid email address."
+        );
+    }
+
+
+    if (
+        password.length <
         6
     ) {
 
@@ -325,10 +507,6 @@ async function createUser(
         );
     }
 
-
-    /*
-     * Get main Firestore connection.
-     */
 
     const firebase =
         await getMainFirebase();
@@ -346,14 +524,11 @@ async function createUser(
 
 
     /*
-     * IMPORTANT:
-     *
-     * Create the employee with a SECONDARY
+     * Create the employee using a secondary
      * Firebase application.
      *
-     * This prevents the administrator's
-     * current login from being replaced by
-     * the newly created user's login.
+     * This keeps the current administrator
+     * signed into the main Firebase app.
      */
 
     const secondaryAppName =
@@ -361,7 +536,9 @@ async function createUser(
         Date.now() +
         "-" +
         Math.random()
-            .toString(36)
+            .toString(
+                36
+            )
             .slice(
                 2,
                 8
@@ -381,25 +558,79 @@ async function createUser(
         );
 
 
+    let createdUid =
+        null;
+
+
     try {
 
         const credential =
             await createUserWithEmailAndPassword(
                 secondaryAuth,
-                String(
-                    userData.email
-                )
-                    .trim()
-                    .toLowerCase(),
-                String(
-                    userData.password
-                )
+                email,
+                password
             );
 
 
-        const uid =
+        createdUid =
             credential.user.uid;
 
+
+        const uid =
+            String(
+                createdUid
+            );
+
+
+        const fullName =
+            String(
+                userData.fullName ||
+                userData.name ||
+                ""
+            ).trim();
+
+
+        const username =
+            String(
+                userData.username ||
+                email.split("@")[0]
+            )
+                .trim()
+                .toLowerCase();
+
+
+        const role =
+            normalizeRole(
+                userData.role
+            );
+
+
+        const status =
+            normalizeStatus(
+                userData.status
+            );
+
+
+        const branchId =
+            String(
+                userData.branchId ||
+                DEFAULT_BRANCH_ID
+            );
+
+
+        const branchName =
+            String(
+                userData.branchName ||
+                DEFAULT_BRANCH_NAME
+            );
+
+
+        /*
+         * IMPORTANT:
+         *
+         * Password is deliberately NOT placed
+         * inside this profile.
+         */
 
         const profile = {
 
@@ -410,47 +641,40 @@ async function createUser(
                 uid,
 
             fullName:
-                userData.fullName ||
-                userData.name ||
-                "",
+                fullName,
 
             name:
-                userData.fullName ||
-                userData.name ||
-                "",
+                fullName,
 
             email:
-                String(
-                    userData.email ||
-                    ""
-                )
-                    .trim()
-                    .toLowerCase(),
+                email,
+
+            loginEmail:
+                email,
 
             phone:
-                userData.phone ||
-                "",
+                String(
+                    userData.phone ||
+                    ""
+                ).trim(),
 
             username:
-                userData.username ||
-                userData.email ||
-                "",
+                username,
 
             role:
-                userData.role ||
-                "sales",
+                role,
 
             branchId:
-                userData.branchId ||
-                "head-office",
+                branchId,
 
             branchName:
-                userData.branchName ||
-                "Head Office",
+                branchName,
 
             status:
-                userData.status ||
-                "active",
+                status,
+
+            authProvider:
+                "password",
 
             createdAt:
                 serverTimestamp(),
@@ -464,8 +688,8 @@ async function createUser(
 
 
         /*
-         * Save the employee profile using the
-         * administrator's MAIN Firestore session.
+         * Save profile through the main
+         * administrator Firestore connection.
          */
 
         await setDoc(
@@ -488,7 +712,7 @@ async function createUser(
 
 
         /*
-         * Sign out secondary user only.
+         * Sign out ONLY the secondary user.
          */
 
         try {
@@ -498,14 +722,19 @@ async function createUser(
             );
 
         } catch (
-            error
+            signOutError
         ) {
 
             console.warn(
                 "Secondary user sign-out warning:",
-                error
+                signOutError
             );
         }
+
+
+        const now =
+            new Date()
+                .toISOString();
 
 
         const localUser = {
@@ -517,61 +746,56 @@ async function createUser(
                 uid,
 
             fullName:
-                profile.fullName,
+                fullName,
 
             name:
-                profile.name,
+                fullName,
 
             email:
-                profile.email,
+                email,
+
+            loginEmail:
+                email,
 
             phone:
                 profile.phone,
 
             username:
-                profile.username,
+                username,
 
             role:
-                profile.role,
+                role,
 
             branchId:
-                profile.branchId,
+                branchId,
 
             branchName:
-                profile.branchName,
+                branchName,
 
             status:
-                profile.status,
+                status,
+
+            authProvider:
+                "password",
 
             createdAt:
-                new Date()
-                    .toISOString(),
+                now,
 
             updatedAt:
-                new Date()
-                    .toISOString()
+                now
         };
 
 
-        document.dispatchEvent(
-
-            new CustomEvent(
-                "jufelix:user-cloud-saved",
-                {
-                    detail: {
-
-                        user:
-                            localUser
-                    }
-                }
-            )
-
+        dispatchUserSaved(
+            localUser,
+            "created"
         );
 
 
         console.log(
             "✅ Firebase user created:",
             localUser.email,
+            localUser.role,
             localUser.branchName
         );
 
@@ -587,6 +811,28 @@ async function createUser(
             "❌ Firebase user creation failed:",
             error
         );
+
+
+        /*
+         * Important:
+         *
+         * If Authentication succeeded but
+         * Firestore failed, the Auth account
+         * may already exist.
+         *
+         * We report this clearly rather than
+         * pretending everything succeeded.
+         */
+
+        if (
+            createdUid
+        ) {
+
+            console.error(
+                "⚠️ Authentication account was created but the profile operation may have failed. UID:",
+                createdUid
+            );
+        }
 
 
         throw error;
@@ -605,15 +851,71 @@ async function createUser(
             );
 
         } catch (
-            error
+            cleanupError
         ) {
 
             console.warn(
                 "Secondary Firebase app cleanup warning:",
-                error
+                cleanupError
             );
         }
     }
+}
+
+
+/* ==========================================
+   GET USER PROFILE
+========================================== */
+
+async function getUserProfile(
+    userId
+) {
+
+    if (
+        !userId
+    ) {
+
+        throw new Error(
+            "User ID is required."
+        );
+    }
+
+
+    const firebase =
+        await getMainFirebase();
+
+
+    const reference =
+        doc(
+            firebase.db,
+            "users",
+            String(
+                userId
+            )
+        );
+
+
+    const snapshot =
+        await getDoc(
+            reference
+        );
+
+
+    if (
+        !snapshot.exists()
+    ) {
+
+        return null;
+    }
+
+
+    return {
+
+        id:
+            snapshot.id,
+
+        ...snapshot.data()
+    };
 }
 
 
@@ -626,10 +928,22 @@ async function updateUser(
     userData
 ) {
 
-    if (!userId) {
+    if (
+        !userId
+    ) {
 
         throw new Error(
             "User ID is required."
+        );
+    }
+
+
+    if (
+        !userData
+    ) {
+
+        throw new Error(
+            "User information is missing."
         );
     }
 
@@ -638,46 +952,164 @@ async function updateUser(
         await getMainFirebase();
 
 
+    const uid =
+        String(
+            userId
+        );
+
+
+    /*
+     * Read the current Firestore profile first.
+     *
+     * The existing login email is preserved.
+     * Editing a profile must not pretend that
+     * Firebase Authentication email changed.
+     */
+
+    const existing =
+        await getUserProfile(
+            uid
+        );
+
+
+    if (
+        !existing
+    ) {
+
+        throw new Error(
+            "The Firebase user profile was not found."
+        );
+    }
+
+
+    const existingEmail =
+        normalizeEmail(
+            existing.loginEmail ||
+            existing.email
+        );
+
+
+    const requestedEmail =
+        normalizeEmail(
+            userData.email ||
+            existingEmail
+        );
+
+
+    /*
+     * Firebase Authentication email cannot be
+     * safely changed here for another user.
+     *
+     * users.js v513 will lock email while
+     * editing, but this protects the cloud
+     * bridge too.
+     */
+
+    if (
+        requestedEmail &&
+        existingEmail &&
+        requestedEmail !==
+        existingEmail
+    ) {
+
+        throw new Error(
+            "The login email cannot be changed from User Management. Create a new account if a different login email is required."
+        );
+    }
+
+
+    const fullName =
+        String(
+            userData.fullName ||
+            userData.name ||
+            existing.fullName ||
+            existing.name ||
+            ""
+        ).trim();
+
+
+    const username =
+        String(
+            userData.username ||
+            existing.username ||
+            existingEmail.split("@")[0] ||
+            ""
+        )
+            .trim()
+            .toLowerCase();
+
+
+    const role =
+        normalizeRole(
+            userData.role ||
+            existing.role
+        );
+
+
+    const status =
+        normalizeStatus(
+            userData.status ||
+            existing.status
+        );
+
+
+    const branchId =
+        String(
+            userData.branchId ||
+            existing.branchId ||
+            DEFAULT_BRANCH_ID
+        );
+
+
+    const branchName =
+        String(
+            userData.branchName ||
+            existing.branchName ||
+            DEFAULT_BRANCH_NAME
+        );
+
+
     const profile = {
 
+        uid:
+            uid,
+
+        id:
+            uid,
+
         fullName:
-            userData.fullName ||
-            userData.name ||
-            "",
+            fullName,
 
         name:
-            userData.fullName ||
-            userData.name ||
-            "",
+            fullName,
 
         email:
-            userData.email ||
-            "",
+            existingEmail,
+
+        loginEmail:
+            existingEmail,
 
         phone:
-            userData.phone ||
-            "",
+            String(
+                userData.phone ??
+                existing.phone ??
+                ""
+            ).trim(),
 
         username:
-            userData.username ||
-            userData.email ||
-            "",
+            username,
 
         role:
-            userData.role ||
-            "sales",
+            role,
 
         branchId:
-            userData.branchId ||
-            "head-office",
+            branchId,
 
         branchName:
-            userData.branchName ||
-            "Head Office",
+            branchName,
 
         status:
-            userData.status ||
-            "active",
+            status,
 
         updatedAt:
             serverTimestamp()
@@ -689,9 +1121,7 @@ async function updateUser(
         doc(
             firebase.db,
             "users",
-            String(
-                userId
-            )
+            uid
         ),
 
         cleanValue(
@@ -702,42 +1132,43 @@ async function updateUser(
 
     const localUser = {
 
+        ...existing,
+
         id:
-            String(
-                userId
-            ),
+            uid,
 
         uid:
-            String(
-                userId
-            ),
+            uid,
 
         fullName:
-            profile.fullName,
+            fullName,
 
         name:
-            profile.name,
+            fullName,
 
         email:
-            profile.email,
+            existingEmail,
+
+        loginEmail:
+            existingEmail,
 
         phone:
             profile.phone,
 
         username:
-            profile.username,
+            username,
 
         role:
-            profile.role,
+            role,
 
         branchId:
-            profile.branchId,
+            branchId,
 
         branchName:
-            profile.branchName,
+            branchName,
 
         status:
-            profile.status,
+            status,
 
         updatedAt:
             new Date()
@@ -745,25 +1176,23 @@ async function updateUser(
     };
 
 
-    document.dispatchEvent(
+    /*
+     * Never expose an old locally stored
+     * password through the returned object.
+     */
 
-        new CustomEvent(
-            "jufelix:user-cloud-saved",
-            {
-                detail: {
+    delete localUser.password;
 
-                    user:
-                        localUser
-                }
-            }
-        )
 
+    dispatchUserSaved(
+        localUser,
+        "updated"
     );
 
 
     console.log(
         "✅ Firebase user profile updated:",
-        userId
+        uid
     );
 
 
@@ -772,10 +1201,10 @@ async function updateUser(
 
 
 /* ==========================================
-   DELETE USER PROFILE
+   DEACTIVATE USER
 ========================================== */
 
-async function deleteUser(
+async function deactivateUser(
     user
 ) {
 
@@ -795,7 +1224,9 @@ async function deleteUser(
             : user;
 
 
-    if (!userId) {
+    if (
+        !userId
+    ) {
 
         throw new Error(
             "User ID is required."
@@ -803,26 +1234,352 @@ async function deleteUser(
     }
 
 
-    await deleteDoc(
+    const uid =
+        String(
+            userId
+        );
+
+
+    const existing =
+        await getUserProfile(
+            uid
+        );
+
+
+    if (
+        !existing
+    ) {
+
+        throw new Error(
+            "The Firebase user profile was not found."
+        );
+    }
+
+
+    await updateDoc(
 
         doc(
             firebase.db,
             "users",
-            String(
-                userId
+            uid
+        ),
+
+        {
+            status:
+                "inactive",
+
+            updatedAt:
+                serverTimestamp()
+        }
+    );
+
+
+    const localUser = {
+
+        ...existing,
+
+        id:
+            uid,
+
+        uid:
+            uid,
+
+        status:
+            "inactive",
+
+        updatedAt:
+            new Date()
+                .toISOString()
+    };
+
+
+    delete localUser.password;
+
+
+    dispatchUserSaved(
+        localUser,
+        "deactivated"
+    );
+
+
+    console.log(
+        "✅ Firebase user deactivated:",
+        uid
+    );
+
+
+    return localUser;
+}
+
+
+/* ==========================================
+   REACTIVATE USER
+========================================== */
+
+async function activateUser(
+    user
+) {
+
+    const firebase =
+        await getMainFirebase();
+
+
+    const userId =
+        typeof user ===
+        "object"
+
+            ? (
+                user.uid ||
+                user.id
             )
+
+            : user;
+
+
+    if (
+        !userId
+    ) {
+
+        throw new Error(
+            "User ID is required."
+        );
+    }
+
+
+    const uid =
+        String(
+            userId
+        );
+
+
+    const existing =
+        await getUserProfile(
+            uid
+        );
+
+
+    if (
+        !existing
+    ) {
+
+        throw new Error(
+            "The Firebase user profile was not found."
+        );
+    }
+
+
+    await updateDoc(
+
+        doc(
+            firebase.db,
+            "users",
+            uid
+        ),
+
+        {
+            status:
+                "active",
+
+            updatedAt:
+                serverTimestamp()
+        }
+    );
+
+
+    const localUser = {
+
+        ...existing,
+
+        id:
+            uid,
+
+        uid:
+            uid,
+
+        status:
+            "active",
+
+        updatedAt:
+            new Date()
+                .toISOString()
+    };
+
+
+    delete localUser.password;
+
+
+    dispatchUserSaved(
+        localUser,
+        "activated"
+    );
+
+
+    console.log(
+        "✅ Firebase user activated:",
+        uid
+    );
+
+
+    return localUser;
+}
+
+
+/* ==========================================
+   DELETE USER COMPATIBILITY
+========================================== */
+
+/*
+ * IMPORTANT:
+ *
+ * Browser Firebase cannot securely delete
+ * another employee's Firebase Authentication
+ * account.
+ *
+ * Therefore the old deleteUser() API now
+ * safely DEACTIVATES the account profile.
+ *
+ * This keeps older users.js code from
+ * performing a dangerous partial deletion.
+ */
+
+async function deleteUser(
+    user
+) {
+
+    console.warn(
+        "Users Cloud: deleteUser() now performs safe deactivation."
+    );
+
+
+    return deactivateUser(
+        user
+    );
+}
+
+
+/* ==========================================
+   DISPATCH USER SAVED EVENT
+========================================== */
+
+function dispatchUserSaved(
+    user,
+    action
+) {
+
+    document.dispatchEvent(
+
+        new CustomEvent(
+            "jufelix:user-cloud-saved",
+            {
+                detail: {
+
+                    user:
+                        user,
+
+                    action:
+                        action
+                }
+            }
         )
 
     );
 
 
-    console.log(
-        "✅ Firestore user profile deleted:",
-        userId
+    document.dispatchEvent(
+
+        new CustomEvent(
+            "jufelix:data-updated",
+            {
+                detail: {
+
+                    key:
+                        "jufelix_v7_users",
+
+                    action:
+                        action,
+
+                    user:
+                        user
+                }
+            }
+        )
+
     );
+}
 
 
-    return true;
+/* ==========================================
+   FRIENDLY FIREBASE ERROR
+========================================== */
+
+function friendlyFirebaseError(
+    error
+) {
+
+    const code =
+        String(
+            error &&
+            error.code ||
+            ""
+        );
+
+
+    if (
+        code.includes(
+            "email-already-in-use"
+        )
+    ) {
+
+        return "This email is already registered in Firebase Authentication.";
+    }
+
+
+    if (
+        code.includes(
+            "weak-password"
+        )
+    ) {
+
+        return "Password must contain at least 6 characters.";
+    }
+
+
+    if (
+        code.includes(
+            "invalid-email"
+        )
+    ) {
+
+        return "Enter a valid email address.";
+    }
+
+
+    if (
+        code.includes(
+            "permission-denied"
+        )
+    ) {
+
+        return "Firestore denied this operation. Check the administrator account and Firestore security rules.";
+    }
+
+
+    if (
+        code.includes(
+            "network-request-failed"
+        )
+    ) {
+
+        return "Firebase could not be reached. Check your internet connection.";
+    }
+
+
+    return (
+        error &&
+        error.message
+            ? error.message
+            : "Firebase user operation failed."
+    );
 }
 
 
@@ -838,11 +1595,32 @@ window.JufelixUsersCloud = {
     updateUser:
         updateUser,
 
+    getUserProfile:
+        getUserProfile,
+
+    deactivateUser:
+        deactivateUser,
+
+    activateUser:
+        activateUser,
+
+    /*
+     * Compatibility with users.js v512.
+     * This now deactivates instead of
+     * deleting the Firestore profile.
+     */
+
     deleteUser:
         deleteUser,
 
     getFirebase:
-        getMainFirebase
+        getMainFirebase,
+
+    normalizeRole:
+        normalizeRole,
+
+    friendlyError:
+        friendlyFirebaseError
 };
 
 
@@ -851,14 +1629,21 @@ window.JufelixUsersCloud = {
 ========================================== */
 
 console.log(
-    "✅ Jufelix Users Cloud loaded."
+    "✅ Jufelix Users Cloud v513 loaded."
 );
 
 
 document.dispatchEvent(
 
     new CustomEvent(
-        "jufelix:users-cloud-ready"
+        "jufelix:users-cloud-ready",
+        {
+            detail: {
+
+                version:
+                    513
+            }
+        }
     )
 
 );
