@@ -2,6 +2,7 @@
   "name": "Jufelix ERP v7.0 Professional",
   "short_name": "Jufelix ERP",
   "description": "Professional business management and ERP system for Jufelix Services.",
+  "id": "./",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
@@ -9,6 +10,11 @@
   "background_color": "#0f0718",
   "theme_color": "#2E0B57",
   "lang": "en",
+  "categories": [
+    "business",
+    "productivity",
+    "finance"
+  ],
   "icons": [
     {
       "src": "assets/icons/icon-192.png",
