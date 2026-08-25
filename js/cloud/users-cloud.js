@@ -5,7 +5,7 @@
    File:
    js/cloud/users-cloud.js
 
-   Version: 513
+   Version: 514
 
    COMPLETE REPLACEMENT
 
@@ -13,7 +13,8 @@
    + Secondary Firebase app keeps Admin logged in
    + Firestore user profiles
    + Safe profile updates
-   + Account deactivation
+   + Safe user deactivation
+   + Reliable user reactivation
    + No password stored in Firestore
    + Standard ERP roles
    + Permanent Firebase UID
@@ -78,7 +79,6 @@ const FALLBACK_FIREBASE_CONFIG = {
 const DEFAULT_BRANCH_ID =
     "head-office";
 
-
 const DEFAULT_BRANCH_NAME =
     "Head Office";
 
@@ -116,6 +116,26 @@ function getFirebaseConfig() {
 
 
 /* ==========================================
+   WAIT
+========================================== */
+
+function wait(
+    milliseconds
+) {
+
+    return new Promise(
+        function (resolve) {
+
+            setTimeout(
+                resolve,
+                milliseconds
+            );
+        }
+    );
+}
+
+
+/* ==========================================
    GET MAIN FIREBASE
 ========================================== */
 
@@ -123,7 +143,7 @@ async function getMainFirebase() {
 
     /*
      * First use the normal Jufelix Firebase
-     * connection when it is already available.
+     * connection when available.
      */
 
     if (
@@ -209,10 +229,8 @@ async function getMainFirebase() {
     window.JufelixFirebase.app =
         app;
 
-
     window.JufelixFirebase.db =
         db;
-
 
     window.JufelixFirebase.auth =
         auth;
@@ -237,26 +255,6 @@ async function getMainFirebase() {
 
 
 /* ==========================================
-   WAIT
-========================================== */
-
-function wait(
-    milliseconds
-) {
-
-    return new Promise(
-        function (resolve) {
-
-            setTimeout(
-                resolve,
-                milliseconds
-            );
-        }
-    );
-}
-
-
-/* ==========================================
    CLEAN VALUE
 ========================================== */
 
@@ -265,7 +263,8 @@ function cleanValue(
 ) {
 
     if (
-        value === undefined
+        value ===
+        undefined
     ) {
 
         return null;
@@ -273,7 +272,8 @@ function cleanValue(
 
 
     if (
-        value === null ||
+        value ===
+        null ||
         typeof value !==
         "object"
     ) {
@@ -352,48 +352,73 @@ function normalizeRole(
             ""
         )
             .trim()
-            .toLowerCase();
+            .toLowerCase()
+            .replace(
+                /_/g,
+                "-"
+            )
+            .replace(
+                /\s+/g,
+                "-"
+            );
 
 
     const aliases = {
 
+        admin:
+            "admin",
+
         administrator:
             "admin",
 
-        admin:
+        "system-administrator":
             "admin",
+
 
         manager:
             "manager",
 
+        "branch-manager":
+            "manager",
+
+
         sales:
             "sales-officer",
 
-        "sales officer":
+        salesperson:
+            "sales-officer",
+
+        "sales-person":
+            "sales-officer",
+
+        "sales-personnel":
             "sales-officer",
 
         "sales-officer":
             "sales-officer",
 
-        "sales personnel":
-            "sales-officer",
 
         cashier:
             "cashier",
 
+
         stockkeeper:
             "store-keeper",
 
-        "stock keeper":
+        "stock-keeper":
             "store-keeper",
 
-        "store keeper":
+        storekeeper:
             "store-keeper",
 
         "store-keeper":
             "store-keeper",
 
+
         accountant:
+            "accountant",
+
+        accounts:
             "accountant"
     };
 
@@ -524,11 +549,11 @@ async function createUser(
 
 
     /*
-     * Create the employee using a secondary
-     * Firebase application.
+     * Use a secondary Firebase application.
      *
-     * This keeps the current administrator
-     * signed into the main Firebase app.
+     * This prevents the newly-created employee
+     * from replacing the current administrator
+     * login on the main Firebase app.
      */
 
     const secondaryAppName =
@@ -626,10 +651,8 @@ async function createUser(
 
 
         /*
-         * IMPORTANT:
-         *
-         * Password is deliberately NOT placed
-         * inside this profile.
+         * Password is deliberately NOT
+         * stored in Firestore.
          */
 
         const profile = {
@@ -687,11 +710,6 @@ async function createUser(
         };
 
 
-        /*
-         * Save profile through the main
-         * administrator Firestore connection.
-         */
-
         await setDoc(
 
             doc(
@@ -712,7 +730,8 @@ async function createUser(
 
 
         /*
-         * Sign out ONLY the secondary user.
+         * Sign out ONLY the temporary
+         * secondary account.
          */
 
         try {
@@ -813,23 +832,12 @@ async function createUser(
         );
 
 
-        /*
-         * Important:
-         *
-         * If Authentication succeeded but
-         * Firestore failed, the Auth account
-         * may already exist.
-         *
-         * We report this clearly rather than
-         * pretending everything succeeded.
-         */
-
         if (
             createdUid
         ) {
 
             console.error(
-                "⚠️ Authentication account was created but the profile operation may have failed. UID:",
+                "⚠️ Authentication account may already exist. UID:",
                 createdUid
             );
         }
@@ -839,10 +847,6 @@ async function createUser(
 
 
     } finally {
-
-        /*
-         * Remove temporary Firebase app.
-         */
 
         try {
 
@@ -958,14 +962,6 @@ async function updateUser(
         );
 
 
-    /*
-     * Read the current Firestore profile first.
-     *
-     * The existing login email is preserved.
-     * Editing a profile must not pretend that
-     * Firebase Authentication email changed.
-     */
-
     const existing =
         await getUserProfile(
             uid
@@ -997,12 +993,8 @@ async function updateUser(
 
 
     /*
-     * Firebase Authentication email cannot be
-     * safely changed here for another user.
-     *
-     * users.js v513 will lock email while
-     * editing, but this protects the cloud
-     * bridge too.
+     * Do not pretend that Authentication
+     * email changed when it did not.
      */
 
     if (
@@ -1013,7 +1005,7 @@ async function updateUser(
     ) {
 
         throw new Error(
-            "The login email cannot be changed from User Management. Create a new account if a different login email is required."
+            "The login email cannot be changed from User Management."
         );
     }
 
@@ -1116,7 +1108,13 @@ async function updateUser(
     };
 
 
-    await updateDoc(
+    /*
+     * setDoc + merge is safer than updateDoc
+     * for older profiles that may be missing
+     * some fields.
+     */
+
+    await setDoc(
 
         doc(
             firebase.db,
@@ -1126,7 +1124,12 @@ async function updateUser(
 
         cleanValue(
             profile
-        )
+        ),
+
+        {
+            merge:
+                true
+        }
     );
 
 
@@ -1176,11 +1179,6 @@ async function updateUser(
     };
 
 
-    /*
-     * Never expose an old locally stored
-     * password through the returned object.
-     */
-
     delete localUser.password;
 
 
@@ -1212,6 +1210,17 @@ async function deactivateUser(
         await getMainFirebase();
 
 
+    if (
+        !firebase ||
+        !firebase.db
+    ) {
+
+        throw new Error(
+            "Firestore connection is unavailable."
+        );
+    }
+
+
     const userId =
         typeof user ===
         "object"
@@ -1240,14 +1249,28 @@ async function deactivateUser(
         );
 
 
-    const existing =
-        await getUserProfile(
+    console.log(
+        "☁️ Deactivating Firebase user:",
+        uid
+    );
+
+
+    const userReference =
+        doc(
+            firebase.db,
+            "users",
             uid
         );
 
 
+    const snapshot =
+        await getDoc(
+            userReference
+        );
+
+
     if (
-        !existing
+        !snapshot.exists()
     ) {
 
         throw new Error(
@@ -1256,13 +1279,14 @@ async function deactivateUser(
     }
 
 
-    await updateDoc(
+    const existing =
+        snapshot.data() ||
+        {};
 
-        doc(
-            firebase.db,
-            "users",
-            uid
-        ),
+
+    await setDoc(
+
+        userReference,
 
         {
             status:
@@ -1270,6 +1294,11 @@ async function deactivateUser(
 
             updatedAt:
                 serverTimestamp()
+        },
+
+        {
+            merge:
+                true
         }
     );
 
@@ -1313,7 +1342,7 @@ async function deactivateUser(
 
 
 /* ==========================================
-   REACTIVATE USER
+   ACTIVATE USER
 ========================================== */
 
 async function activateUser(
@@ -1322,6 +1351,17 @@ async function activateUser(
 
     const firebase =
         await getMainFirebase();
+
+
+    if (
+        !firebase ||
+        !firebase.db
+    ) {
+
+        throw new Error(
+            "Firestore connection is unavailable."
+        );
+    }
 
 
     const userId =
@@ -1352,75 +1392,116 @@ async function activateUser(
         );
 
 
-    const existing =
-        await getUserProfile(
-            uid
-        );
-
-
-    if (
-        !existing
-    ) {
-
-        throw new Error(
-            "The Firebase user profile was not found."
-        );
-    }
-
-
-    await updateDoc(
-
-        doc(
-            firebase.db,
-            "users",
-            uid
-        ),
-
-        {
-            status:
-                "active",
-
-            updatedAt:
-                serverTimestamp()
-        }
-    );
-
-
-    const localUser = {
-
-        ...existing,
-
-        id:
-            uid,
-
-        uid:
-            uid,
-
-        status:
-            "active",
-
-        updatedAt:
-            new Date()
-                .toISOString()
-    };
-
-
-    delete localUser.password;
-
-
-    dispatchUserSaved(
-        localUser,
-        "activated"
-    );
-
-
     console.log(
-        "✅ Firebase user activated:",
+        "☁️ Reactivating Firebase user:",
         uid
     );
 
 
-    return localUser;
+    try {
+
+        const userReference =
+            doc(
+                firebase.db,
+                "users",
+                uid
+            );
+
+
+        const snapshot =
+            await getDoc(
+                userReference
+            );
+
+
+        if (
+            !snapshot.exists()
+        ) {
+
+            throw new Error(
+                "The Firebase user profile was not found."
+            );
+        }
+
+
+        const existing =
+            snapshot.data() ||
+            {};
+
+
+        /*
+         * Use setDoc + merge so even older
+         * profiles reactivate reliably.
+         */
+
+        await setDoc(
+
+            userReference,
+
+            {
+                status:
+                    "active",
+
+                updatedAt:
+                    serverTimestamp()
+            },
+
+            {
+                merge:
+                    true
+            }
+        );
+
+
+        const localUser = {
+
+            ...existing,
+
+            id:
+                uid,
+
+            uid:
+                uid,
+
+            status:
+                "active",
+
+            updatedAt:
+                new Date()
+                    .toISOString()
+        };
+
+
+        delete localUser.password;
+
+
+        dispatchUserSaved(
+            localUser,
+            "activated"
+        );
+
+
+        console.log(
+            "✅ Firebase user reactivated:",
+            uid
+        );
+
+
+        return localUser;
+
+
+    } catch (
+        error
+    ) {
+
+        console.error(
+            "❌ Firebase user activation failed:",
+            error
+        );
+
+
+        throw error;
+    }
 }
 
 
@@ -1429,17 +1510,11 @@ async function activateUser(
 ========================================== */
 
 /*
- * IMPORTANT:
+ * Browser Firebase cannot safely delete
+ * another employee's Authentication account.
  *
- * Browser Firebase cannot securely delete
- * another employee's Firebase Authentication
- * account.
- *
- * Therefore the old deleteUser() API now
- * safely DEACTIVATES the account profile.
- *
- * This keeps older users.js code from
- * performing a dangerous partial deletion.
+ * Therefore the old deleteUser API performs
+ * safe deactivation instead.
  */
 
 async function deleteUser(
@@ -1447,7 +1522,7 @@ async function deleteUser(
 ) {
 
     console.warn(
-        "Users Cloud: deleteUser() now performs safe deactivation."
+        "Users Cloud: deleteUser() performs safe deactivation."
     );
 
 
@@ -1458,7 +1533,7 @@ async function deleteUser(
 
 
 /* ==========================================
-   DISPATCH USER SAVED EVENT
+   DISPATCH USER SAVED
 ========================================== */
 
 function dispatchUserSaved(
@@ -1495,11 +1570,39 @@ function dispatchUserSaved(
                     key:
                         "jufelix_v7_users",
 
+                    user:
+                        user,
+
                     action:
                         action,
 
+                    source:
+                        "users-cloud"
+                }
+            }
+        )
+
+    );
+
+
+    document.dispatchEvent(
+
+        new CustomEvent(
+            "jufelix:dataChanged",
+            {
+                detail: {
+
+                    key:
+                        "jufelix_v7_users",
+
                     user:
-                        user
+                        user,
+
+                    action:
+                        action,
+
+                    source:
+                        "users-cloud"
                 }
             }
         )
@@ -1509,7 +1612,7 @@ function dispatchUserSaved(
 
 
 /* ==========================================
-   FRIENDLY FIREBASE ERROR
+   FRIENDLY ERROR
 ========================================== */
 
 function friendlyFirebaseError(
@@ -1520,6 +1623,14 @@ function friendlyFirebaseError(
         String(
             error &&
             error.code ||
+            ""
+        );
+
+
+    const message =
+        String(
+            error &&
+            error.message ||
             ""
         );
 
@@ -1557,10 +1668,25 @@ function friendlyFirebaseError(
     if (
         code.includes(
             "permission-denied"
-        )
+        ) ||
+        message
+            .toLowerCase()
+            .includes(
+                "insufficient permissions"
+            )
     ) {
 
         return "Firestore denied this operation. Check the administrator account and Firestore security rules.";
+    }
+
+
+    if (
+        code.includes(
+            "unauthenticated"
+        )
+    ) {
+
+        return "Firebase Authentication is not signed in.";
     }
 
 
@@ -1571,6 +1697,16 @@ function friendlyFirebaseError(
     ) {
 
         return "Firebase could not be reached. Check your internet connection.";
+    }
+
+
+    if (
+        code.includes(
+            "unavailable"
+        )
+    ) {
+
+        return "Firebase is temporarily unavailable. Check your internet connection and try again.";
     }
 
 
@@ -1604,12 +1740,6 @@ window.JufelixUsersCloud = {
     activateUser:
         activateUser,
 
-    /*
-     * Compatibility with users.js v512.
-     * This now deactivates instead of
-     * deleting the Firestore profile.
-     */
-
     deleteUser:
         deleteUser,
 
@@ -1629,7 +1759,7 @@ window.JufelixUsersCloud = {
 ========================================== */
 
 console.log(
-    "✅ Jufelix Users Cloud v513 loaded."
+    "✅ Jufelix Users Cloud v514 loaded."
 );
 
 
@@ -1641,7 +1771,7 @@ document.dispatchEvent(
             detail: {
 
                 version:
-                    513
+                    514
             }
         }
     )
