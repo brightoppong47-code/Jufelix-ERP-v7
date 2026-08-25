@@ -1,13 +1,17 @@
 /* ==========================================
    JUFELIX ERP v7.0 PROFESSIONAL
-   FIREBASE LOGIN MODULE v523
+   FIREBASE LOGIN MODULE v524
 
    File:
    js/modules/login.js
 
+   COMPLETE REPLACEMENT
+
    + Firebase Authentication
    + Firestore User Profile
    + Remember Me
+   + Safe Offline Session Resume
+   + NO local password storage
    + Session Storage
    + Active Branch Setup
    + Friendly Login Errors
@@ -38,6 +42,22 @@ import {
 
 const DEFAULT_BRANCH =
     "head-office";
+
+
+const CURRENT_USER_KEY =
+    "jufelix_v7_current_user";
+
+
+const ACTIVE_BRANCH_KEY =
+    "jufelix_v7_active_branch";
+
+
+const OFFLINE_ACCESS_KEY =
+    "jufelix_v7_offline_access";
+
+
+const LAST_AUTH_KEY =
+    "jufelix_v7_last_authenticated";
 
 
 /* ==========================================
@@ -75,7 +95,7 @@ if (
 
 
 /* ==========================================
-   INITIALIZE LOGIN
+   INITIALIZE
 ========================================== */
 
 async function initializeLogin() {
@@ -90,17 +110,68 @@ async function initializeLogin() {
         true;
 
 
+    /*
+     * IMPORTANT:
+     *
+     * Setup the form immediately.
+     * Do not make the whole login page depend
+     * on Firebase being online.
+     */
+
+    setupPasswordToggle();
+
+    setupLoginForm();
+
+    setupConnectionEvents();
+
+
+    /*
+     * OFFLINE STARTUP
+     */
+
+    if (!navigator.onLine) {
+
+        const resumed =
+            resumeOfflineSession();
+
+
+        if (resumed) {
+
+            return;
+        }
+
+
+        showMessage(
+            "You are offline. Connect to the internet and sign in once with Remember me enabled before using offline mode.",
+            "error"
+        );
+
+
+        console.log(
+            "Jufelix Login: offline with no remembered ERP session."
+        );
+
+
+        return;
+    }
+
+
+    /*
+     * ONLINE FIREBASE STARTUP
+     */
+
     try {
 
-        await waitForFirebase();
+        const firebase =
+            await waitForFirebase();
 
 
         auth =
-            window.JufelixFirebase.auth;
+            firebase.auth;
 
 
         db =
-            window.JufelixFirebase.db;
+            firebase.db;
 
 
         if (
@@ -114,14 +185,19 @@ async function initializeLogin() {
         }
 
 
-        setupPasswordToggle();
-
-        setupLoginForm();
-
-
         console.log(
-            "✅ Jufelix Login module v523 ready."
+            "✅ Jufelix Login module v524 ready."
         );
+
+
+        /*
+         * If Firebase already restored a
+         * remembered authenticated session
+         * and the ERP local session is valid,
+         * we can reopen the dashboard.
+         */
+
+        tryResumeOnlineSession();
 
 
     } catch (error) {
@@ -132,9 +208,25 @@ async function initializeLogin() {
         );
 
 
+        /*
+         * If Firebase failed because the
+         * connection disappeared while loading,
+         * try the remembered offline session.
+         */
+
+        if (
+            !navigator.onLine &&
+            resumeOfflineSession()
+        ) {
+
+            return;
+        }
+
+
         showMessage(
-            error.message ||
-            "Firebase could not initialize.",
+            getLoginErrorMessage(
+                error
+            ),
             "error"
         );
     }
@@ -191,6 +283,20 @@ function waitForFirebase() {
 
 
                 if (
+                    !navigator.onLine
+                ) {
+
+                    reject(
+                        new Error(
+                            "Network connection is unavailable."
+                        )
+                    );
+
+                    return;
+                }
+
+
+                if (
                     Date.now() -
                     startedAt >
                     20000
@@ -201,6 +307,7 @@ function waitForFirebase() {
                             "Firebase initialization timed out."
                         )
                     );
+
 
                     return;
                 }
@@ -296,6 +403,55 @@ function setupLoginForm() {
 
 
 /* ==========================================
+   CONNECTION EVENTS
+========================================== */
+
+function setupConnectionEvents() {
+
+    window.addEventListener(
+        "online",
+        function () {
+
+            hideMessage();
+
+
+            console.log(
+                "Jufelix Login: internet connection restored."
+            );
+
+
+            /*
+             * Reload once so firebase.js and
+             * its external Firebase modules can
+             * establish a clean connection.
+             */
+
+            window.setTimeout(
+                function () {
+
+                    window.location.reload();
+
+                },
+                300
+            );
+        }
+    );
+
+
+    window.addEventListener(
+        "offline",
+        function () {
+
+            showMessage(
+                "Internet connection lost. A previously remembered ERP session can still be used offline.",
+                "error"
+            );
+        }
+    );
+}
+
+
+/* ==========================================
    HANDLE LOGIN
 ========================================== */
 
@@ -343,6 +499,7 @@ async function handleLogin(
             "error"
         );
 
+
         return;
     }
 
@@ -367,6 +524,43 @@ async function handleLogin(
             "error"
         );
 
+
+        return;
+    }
+
+
+    /*
+     * ==========================================
+     * OFFLINE LOGIN ATTEMPT
+     * ==========================================
+     *
+     * We DO NOT verify passwords locally.
+     *
+     * Offline access is allowed only through
+     * a previously authenticated remembered
+     * ERP session.
+     */
+
+    if (!navigator.onLine) {
+
+        const resumed =
+            resumeOfflineSession(
+                email
+            );
+
+
+        if (resumed) {
+
+            return;
+        }
+
+
+        showMessage(
+            "You are offline. For security, passwords cannot be verified without Firebase. Connect to the internet and sign in once with Remember me enabled.",
+            "error"
+        );
+
+
         return;
     }
 
@@ -384,14 +578,55 @@ async function handleLogin(
 
     try {
 
+        /*
+         * Firebase may not have finished loading
+         * when the user taps Sign In.
+         */
+
+        if (
+            !auth ||
+            !db
+        ) {
+
+            const firebase =
+                await waitForFirebase();
+
+
+            auth =
+                firebase.auth;
+
+
+            db =
+                firebase.db;
+        }
+
+
+        if (
+            !auth ||
+            !db
+        ) {
+
+            throw new Error(
+                "Firebase Authentication is not ready."
+            );
+        }
+
+
+        const remember =
+            Boolean(
+                rememberMe &&
+                rememberMe.checked
+            );
+
+
         /* ======================================
            FIREBASE PERSISTENCE
         ====================================== */
 
         await setPersistence(
             auth,
-            rememberMe &&
-            rememberMe.checked
+
+            remember
 
                 ? browserLocalPersistence
 
@@ -400,7 +635,10 @@ async function handleLogin(
 
 
         console.log(
-            "Firebase persistence configured."
+            "Firebase persistence configured:",
+            remember
+                ? "LOCAL"
+                : "SESSION"
         );
 
 
@@ -446,7 +684,8 @@ async function handleLogin(
 
         await loadUserProfile(
             credential.user.uid,
-            email
+            email,
+            remember
         );
 
 
@@ -482,12 +721,11 @@ async function handleLogin(
 
 async function loadUserProfile(
     uid,
-    email
+    email,
+    remember
 ) {
 
-    if (
-        !uid
-    ) {
+    if (!uid) {
 
         throw new Error(
             "Firebase user ID is missing."
@@ -532,6 +770,9 @@ async function loadUserProfile(
         );
 
 
+        clearLocalErpSession();
+
+
         throw new Error(
             "Your Firebase login exists, but the ERP user profile was not found."
         );
@@ -541,12 +782,6 @@ async function loadUserProfile(
     const profile =
         profileSnapshot.data() ||
         {};
-
-
-    console.log(
-        "ERP PROFILE LOADED:",
-        profile
-    );
 
 
     /* ======================================
@@ -570,6 +805,9 @@ async function loadUserProfile(
         await signOut(
             auth
         );
+
+
+        clearLocalErpSession();
 
 
         throw new Error(
@@ -599,6 +837,11 @@ async function loadUserProfile(
 
                 : "Assigned Branch"
         );
+
+
+    const now =
+        new Date()
+            .toISOString();
 
 
     /* ======================================
@@ -654,11 +897,18 @@ async function loadUserProfile(
             "active",
 
         loginTime:
-            new Date()
-                .toISOString(),
+            now,
+
+        lastOnlineAuthentication:
+            now,
 
         firebaseAuthenticated:
-            true
+            true,
+
+        offlineAccess:
+            Boolean(
+                remember
+            )
     };
 
 
@@ -694,7 +944,7 @@ async function loadUserProfile(
     ====================================== */
 
     localStorage.setItem(
-        "jufelix_v7_current_user",
+        CURRENT_USER_KEY,
         JSON.stringify(
             currentUser
         )
@@ -710,7 +960,7 @@ async function loadUserProfile(
 
 
     localStorage.setItem(
-        "jufelix_v7_active_branch",
+        ACTIVE_BRANCH_KEY,
         JSON.stringify(
             activeBranch
         )
@@ -723,6 +973,32 @@ async function loadUserProfile(
     );
 
 
+    localStorage.setItem(
+        LAST_AUTH_KEY,
+        now
+    );
+
+
+    /*
+     * Offline access is only enabled when
+     * Remember me was explicitly selected.
+     */
+
+    if (remember) {
+
+        localStorage.setItem(
+            OFFLINE_ACCESS_KEY,
+            "true"
+        );
+
+    } else {
+
+        localStorage.removeItem(
+            OFFLINE_ACCESS_KEY
+        );
+    }
+
+
     sessionStorage.setItem(
         "jufelixSessionActive",
         "true"
@@ -733,17 +1009,19 @@ async function loadUserProfile(
         "✅ ERP local session saved:",
         currentUser.email,
         currentUser.role,
-        currentUser.branchName
+        currentUser.branchName,
+        "Offline:",
+        remember
     );
 
 
     /* ======================================
-       VERIFY SESSION BEFORE REDIRECT
+       VERIFY SESSION
     ====================================== */
 
     const savedUser =
         readStoredObject(
-            "jufelix_v7_current_user"
+            CURRENT_USER_KEY
         );
 
 
@@ -792,32 +1070,336 @@ async function loadUserProfile(
     ====================================== */
 
     showMessage(
-        "Login successful. Opening dashboard...",
+        remember
+
+            ? "Login successful. Offline access enabled."
+
+            : "Login successful. Opening dashboard...",
+
         "success"
     );
 
 
-    console.log(
-        "✅ Login complete. Opening dashboard..."
-    );
+    openDashboard();
+}
+
+
+/* ==========================================
+   SAFE OFFLINE SESSION RESUME
+========================================== */
+
+function resumeOfflineSession(
+    requestedEmail
+) {
+
+    if (
+        navigator.onLine
+    ) {
+
+        return false;
+    }
+
+
+    const offlineAllowed =
+        localStorage.getItem(
+            OFFLINE_ACCESS_KEY
+        ) ===
+        "true";
+
+
+    if (!offlineAllowed) {
+
+        return false;
+    }
+
+
+    const currentUser =
+        readStoredObject(
+            CURRENT_USER_KEY
+        ) ||
+        readStoredObject(
+            "currentUser"
+        );
+
+
+    if (!currentUser) {
+
+        return false;
+    }
 
 
     /*
-     * Give storage and Firebase a short
-     * moment before changing pages.
+     * It must originate from a previous
+     * successful Firebase authentication.
      */
+
+    if (
+        currentUser.firebaseAuthenticated !==
+        true
+    ) {
+
+        return false;
+    }
+
+
+    if (
+        !currentUser.uid ||
+        !currentUser.email
+    ) {
+
+        return false;
+    }
+
+
+    const status =
+        String(
+            currentUser.status ||
+            ""
+        )
+            .trim()
+            .toLowerCase();
+
+
+    if (
+        status !==
+        "active"
+    ) {
+
+        return false;
+    }
+
+
+    /*
+     * If the user typed an email on the
+     * offline login page, it must match the
+     * remembered authenticated account.
+     */
+
+    if (
+        requestedEmail &&
+        String(
+            currentUser.email
+        )
+            .trim()
+            .toLowerCase() !==
+        String(
+            requestedEmail
+        )
+            .trim()
+            .toLowerCase()
+    ) {
+
+        showMessage(
+            "The offline session belongs to a different user. Connect to the internet to change accounts.",
+            "error"
+        );
+
+
+        return false;
+    }
+
+
+    const activeBranch =
+        readStoredObject(
+            ACTIVE_BRANCH_KEY
+        );
+
+
+    /*
+     * Restore active branch if required.
+     */
+
+    if (!activeBranch) {
+
+        localStorage.setItem(
+            ACTIVE_BRANCH_KEY,
+            JSON.stringify({
+
+                id:
+                    currentUser.branchId ||
+                    DEFAULT_BRANCH,
+
+                branchId:
+                    currentUser.branchId ||
+                    DEFAULT_BRANCH,
+
+                branchName:
+                    currentUser.branchName ||
+                    "Head Office",
+
+                name:
+                    currentUser.branchName ||
+                    "Head Office",
+
+                status:
+                    "active",
+
+                isHeadOffice:
+                    String(
+                        currentUser.branchId ||
+                        DEFAULT_BRANCH
+                    ) ===
+                    DEFAULT_BRANCH
+            })
+        );
+    }
+
+
+    localStorage.setItem(
+        "loggedIn",
+        "true"
+    );
+
+
+    sessionStorage.setItem(
+        "jufelixSessionActive",
+        "true"
+    );
+
+
+    console.log(
+        "✅ OFFLINE ERP SESSION RESTORED:",
+        currentUser.email,
+        currentUser.role,
+        currentUser.branchName
+    );
+
+
+    showMessage(
+        "Offline session restored. Opening dashboard...",
+        "success"
+    );
+
+
+    window.setTimeout(
+        function () {
+
+            window.location.replace(
+                "dashboard.html"
+            );
+
+        },
+        300
+    );
+
+
+    return true;
+}
+
+
+/* ==========================================
+   ONLINE SESSION RESUME
+========================================== */
+
+function tryResumeOnlineSession() {
+
+    if (
+        !navigator.onLine ||
+        !auth ||
+        !auth.currentUser
+    ) {
+
+        return false;
+    }
+
+
+    const currentUser =
+        readStoredObject(
+            CURRENT_USER_KEY
+        );
+
+
+    if (
+        !currentUser ||
+        !currentUser.uid
+    ) {
+
+        return false;
+    }
+
+
+    if (
+        String(
+            currentUser.uid
+        ) !==
+        String(
+            auth.currentUser.uid
+        )
+    ) {
+
+        return false;
+    }
+
+
+    const status =
+        String(
+            currentUser.status ||
+            "active"
+        )
+            .trim()
+            .toLowerCase();
+
+
+    if (
+        status !==
+        "active"
+    ) {
+
+        return false;
+    }
+
+
+    localStorage.setItem(
+        "loggedIn",
+        "true"
+    );
+
+
+    sessionStorage.setItem(
+        "jufelixSessionActive",
+        "true"
+    );
+
+
+    console.log(
+        "✅ Existing Firebase session restored."
+    );
+
+
+    window.setTimeout(
+        function () {
+
+            window.location.replace(
+                "dashboard.html"
+            );
+
+        },
+        200
+    );
+
+
+    return true;
+}
+
+
+/* ==========================================
+   OPEN DASHBOARD
+========================================== */
+
+function openDashboard() {
 
     window.setTimeout(
         function () {
 
             const finalUser =
                 readStoredObject(
-                    "jufelix_v7_current_user"
+                    CURRENT_USER_KEY
                 );
 
 
             if (
-                !finalUser
+                !finalUser ||
+                !finalUser.uid
             ) {
 
                 showMessage(
@@ -826,21 +1408,7 @@ async function loadUserProfile(
                 );
 
 
-                const loginButton =
-                    document.getElementById(
-                        "loginButton"
-                    );
-
-
-                if (loginButton) {
-
-                    loginButton.disabled =
-                        false;
-
-
-                    loginButton.textContent =
-                        "Sign In";
-                }
+                resetLoginButton();
 
 
                 return;
@@ -852,7 +1420,49 @@ async function loadUserProfile(
             );
 
         },
-        700
+        500
+    );
+}
+
+
+/* ==========================================
+   CLEAR ERP SESSION
+========================================== */
+
+function clearLocalErpSession() {
+
+    localStorage.removeItem(
+        CURRENT_USER_KEY
+    );
+
+
+    localStorage.removeItem(
+        "currentUser"
+    );
+
+
+    localStorage.removeItem(
+        "loggedIn"
+    );
+
+
+    localStorage.removeItem(
+        ACTIVE_BRANCH_KEY
+    );
+
+
+    localStorage.removeItem(
+        OFFLINE_ACCESS_KEY
+    );
+
+
+    localStorage.removeItem(
+        LAST_AUTH_KEY
+    );
+
+
+    sessionStorage.removeItem(
+        "jufelixSessionActive"
     );
 }
 
@@ -916,6 +1526,33 @@ function readStoredObject(
 
 
 /* ==========================================
+   LOGIN BUTTON
+========================================== */
+
+function resetLoginButton() {
+
+    const loginButton =
+        document.getElementById(
+            "loginButton"
+        );
+
+
+    if (!loginButton) {
+
+        return;
+    }
+
+
+    loginButton.disabled =
+        false;
+
+
+    loginButton.textContent =
+        "Sign In";
+}
+
+
+/* ==========================================
    SHOW MESSAGE
 ========================================== */
 
@@ -935,6 +1572,7 @@ function showMessage(
         window.alert(
             message
         );
+
 
         return;
     }
@@ -1012,6 +1650,10 @@ function getLoginErrorMessage(
         );
 
 
+    const lowerMessage =
+        rawMessage.toLowerCase();
+
+
     const messages = {
 
         "auth/invalid-credential":
@@ -1057,15 +1699,25 @@ function getLoginErrorMessage(
         code.includes(
             "permission-denied"
         ) ||
-        rawMessage
-            .toLowerCase()
-            .includes(
-                "missing or insufficient permissions"
-            )
+        lowerMessage.includes(
+            "missing or insufficient permissions"
+        )
     ) {
 
         return (
             "Firebase signed you in, but Firestore blocked access to your ERP user profile."
+        );
+    }
+
+
+    if (
+        lowerMessage.includes(
+            "network"
+        )
+    ) {
+
+        return (
+            "Network error. Check your internet connection."
         );
     }
 
@@ -1075,3 +1727,28 @@ function getLoginErrorMessage(
         "Login failed."
     );
 }
+
+
+/* ==========================================
+   PUBLIC API
+========================================== */
+
+window.JufelixLogin = {
+
+    resumeOffline:
+        resumeOfflineSession,
+
+    clearSession:
+        clearLocalErpSession,
+
+    isOfflineAccessEnabled:
+        function () {
+
+            return (
+                localStorage.getItem(
+                    OFFLINE_ACCESS_KEY
+                ) ===
+                "true"
+            );
+        }
+};
