@@ -5,14 +5,21 @@
    File:
    service-worker.js
 
-   Version: 3
+   ERP Build: 1204
+   Service Worker: v4
+
+   COMPLETE REPLACEMENT
 
    + Production cache versioning
-   + Removes old caches automatically
+   + Removes previous Jufelix caches
+   + Pre-caches ERP pages
+   + Pre-caches major local modules
    + Network-first HTML
-   + Cache-first static assets
-   + Offline fallback
-   + Safer updates for installed phones
+   + Network-first JS / CSS / JSON
+   + Cache-first images/icons
+   + Handles ?v= cache-busting safely
+   + Offline page fallback
+   + Safer installed-app updates
 ========================================== */
 
 
@@ -21,19 +28,31 @@
 ========================================== */
 
 const CACHE_VERSION =
-    "v3";
+    "v4";
+
+
+const ERP_BUILD =
+    "1204";
+
+
+const CACHE_PREFIX =
+    "jufelix-erp-v7-production-";
 
 
 const CACHE_NAME =
-    "jufelix-erp-v7-production-" +
+    CACHE_PREFIX +
     CACHE_VERSION;
 
 
 /* ==========================================
-   CORE FILES
+   CORE APPLICATION FILES
 ========================================== */
 
 const CORE_FILES = [
+
+    /* ======================================
+       ROOT / PAGES
+    ====================================== */
 
     "./",
 
@@ -72,7 +91,9 @@ const CORE_FILES = [
     "./manifest.json",
 
 
-    /* CSS */
+    /* ======================================
+       CSS
+    ====================================== */
 
     "./assets/css/variables.css",
 
@@ -83,7 +104,9 @@ const CORE_FILES = [
     "./assets/css/style.css",
 
 
-    /* ICONS */
+    /* ======================================
+       ICONS
+    ====================================== */
 
     "./assets/icons/icon-192.png",
 
@@ -92,14 +115,18 @@ const CORE_FILES = [
     "./assets/icons/icon-maskable-512.png",
 
 
-    /* CONFIG */
+    /* ======================================
+       CONFIG
+    ====================================== */
 
     "./config/app-config.js",
 
     "./config/firebase-config.js",
 
 
-    /* CORE */
+    /* ======================================
+       CORE JAVASCRIPT
+    ====================================== */
 
     "./js/core/storage.js",
 
@@ -116,16 +143,88 @@ const CORE_FILES = [
     "./js/core/pwa-install.js",
 
 
-    /* COMPONENTS */
+    /* ======================================
+       COMPONENTS
+    ====================================== */
 
     "./js/components/sidebar.js",
 
     "./js/components/topbar.js",
 
 
-    /* APPLICATION */
+    /* ======================================
+       MAIN APPLICATION
+    ====================================== */
 
-    "./js/app.js"
+    "./js/app.js",
+
+
+    /* ======================================
+       MODULES
+    ====================================== */
+
+    "./js/modules/login.js",
+
+    "./js/modules/dashboard.js",
+
+    "./js/modules/inventory.js",
+
+    "./js/modules/inventory-branch-viewer.js",
+
+    "./js/modules/sales.js",
+
+    "./js/modules/receipt.js",
+
+    "./js/modules/customers.js",
+
+    "./js/modules/suppliers.js",
+
+    "./js/modules/purchases.js",
+
+    "./js/modules/expenses.js",
+
+    "./js/modules/reports.js",
+
+    "./js/modules/payments.js",
+
+    "./js/modules/transfers.js",
+
+    "./js/modules/branches.js",
+
+    "./js/modules/users.js",
+
+    "./js/modules/settings.js",
+
+
+    /* ======================================
+       CLOUD BRIDGES
+
+       Missing optional files will simply be
+       skipped during installation.
+    ====================================== */
+
+    "./js/cloud/inventory-cloud.js",
+
+    "./js/cloud/sales-cloud.js",
+
+    "./js/cloud/purchases-cloud.js",
+
+    "./js/cloud/customers-cloud.js",
+
+    "./js/cloud/suppliers-cloud.js",
+
+    "./js/cloud/expenses-cloud.js",
+
+    "./js/cloud/reports-cloud.js",
+
+    "./js/cloud/payments-cloud.js",
+
+    "./js/cloud/transfers-cloud.js",
+
+    "./js/cloud/branches-cloud.js",
+
+    "./js/cloud/users-cloud.js"
+
 ];
 
 
@@ -138,72 +237,140 @@ self.addEventListener(
     function (event) {
 
         console.log(
-            "Jufelix ERP Service Worker installing:",
-            CACHE_NAME
+            "Jufelix ERP SW installing:",
+            CACHE_NAME,
+            "Build:",
+            ERP_BUILD
         );
 
 
         event.waitUntil(
 
-            caches
-                .open(
-                    CACHE_NAME
-                )
-                .then(
-                    async function (
-                        cache
-                    ) {
+            installApplicationCache()
 
-                        /*
-                         * Cache files one by one.
-                         *
-                         * One missing optional file
-                         * must not break the whole
-                         * installation.
-                         */
-
-                        for (
-                            const file of
-                            CORE_FILES
-                        ) {
-
-                            try {
-
-                                await cache.add(
-                                    file
-                                );
-
-
-                            } catch (
-                                error
-                            ) {
-
-                                console.warn(
-                                    "PWA precache skipped:",
-                                    file,
-                                    error
-                                );
-                            }
-                        }
-
-
-                        /*
-                         * Activate this service worker
-                         * without waiting for older
-                         * versions to close.
-                         */
-
-                        await self.skipWaiting();
-
-
-                        console.log(
-                            "✅ Jufelix ERP core files cached."
-                        );
-                    }
-                )
         );
     }
 );
+
+
+/* ==========================================
+   INSTALL APPLICATION CACHE
+========================================== */
+
+async function installApplicationCache() {
+
+    const cache =
+        await caches.open(
+            CACHE_NAME
+        );
+
+
+    let cachedCount =
+        0;
+
+
+    let skippedCount =
+        0;
+
+
+    /*
+     * Cache individually so one optional
+     * missing file cannot abort installation.
+     */
+
+    for (
+        const file of
+        CORE_FILES
+    ) {
+
+        try {
+
+            const request =
+                new Request(
+                    file,
+                    {
+                        cache:
+                            "reload"
+                    }
+                );
+
+
+            const response =
+                await fetch(
+                    request
+                );
+
+
+            if (
+                !isCacheableResponse(
+                    response
+                )
+            ) {
+
+                skippedCount++;
+
+
+                console.warn(
+                    "PWA precache skipped:",
+                    file,
+                    "Status:",
+                    response.status
+                );
+
+
+                continue;
+            }
+
+
+            await cache.put(
+                request,
+                response.clone()
+            );
+
+
+            cachedCount++;
+
+
+        } catch (
+            error
+        ) {
+
+            skippedCount++;
+
+
+            console.warn(
+                "PWA precache skipped:",
+                file,
+                error
+            );
+        }
+    }
+
+
+    console.log(
+        "✅ Jufelix ERP precache complete.",
+        {
+            cached:
+                cachedCount,
+
+            skipped:
+                skippedCount,
+
+            cache:
+                CACHE_NAME,
+
+            build:
+                ERP_BUILD
+        }
+    );
+
+
+    /*
+     * Activate immediately.
+     */
+
+    await self.skipWaiting();
+}
 
 
 /* ==========================================
@@ -215,67 +382,83 @@ self.addEventListener(
     function (event) {
 
         console.log(
-            "Jufelix ERP Service Worker activating:",
+            "Jufelix ERP SW activating:",
             CACHE_NAME
         );
 
 
         event.waitUntil(
 
-            caches
-                .keys()
-                .then(
-                    function (
-                        cacheNames
-                    ) {
+            activateServiceWorker()
 
-                        return Promise.all(
-
-                            cacheNames
-                                .filter(
-                                    function (
-                                        cacheName
-                                    ) {
-
-                                        return (
-                                            cacheName !==
-                                            CACHE_NAME
-                                        );
-                                    }
-                                )
-                                .map(
-                                    function (
-                                        oldCacheName
-                                    ) {
-
-                                        console.log(
-                                            "Removing old Jufelix cache:",
-                                            oldCacheName
-                                        );
-
-
-                                        return caches.delete(
-                                            oldCacheName
-                                        );
-                                    }
-                                )
-                        );
-                    }
-                )
-                .then(
-                    function () {
-
-                        /*
-                         * Immediately control open
-                         * Jufelix ERP pages.
-                         */
-
-                        return self.clients.claim();
-                    }
-                )
         );
     }
 );
+
+
+/* ==========================================
+   ACTIVATE SERVICE WORKER
+========================================== */
+
+async function activateServiceWorker() {
+
+    const cacheNames =
+        await caches.keys();
+
+
+    await Promise.all(
+
+        cacheNames
+            .filter(
+                function (
+                    cacheName
+                ) {
+
+                    /*
+                     * Only remove old Jufelix ERP
+                     * production caches.
+                     *
+                     * Do not delete unrelated
+                     * caches belonging to another
+                     * application.
+                     */
+
+                    return (
+                        cacheName.startsWith(
+                            CACHE_PREFIX
+                        ) &&
+                        cacheName !==
+                            CACHE_NAME
+                    );
+                }
+            )
+            .map(
+                function (
+                    oldCacheName
+                ) {
+
+                    console.log(
+                        "Removing old Jufelix cache:",
+                        oldCacheName
+                    );
+
+
+                    return caches.delete(
+                        oldCacheName
+                    );
+                }
+            )
+    );
+
+
+    await self.clients.claim();
+
+
+    console.log(
+        "✅ Jufelix ERP SW active:",
+        CACHE_NAME
+    );
+}
 
 
 /* ==========================================
@@ -291,7 +474,7 @@ self.addEventListener(
 
 
         /*
-         * Only handle GET requests.
+         * Never interfere with writes.
          */
 
         if (
@@ -310,8 +493,10 @@ self.addEventListener(
 
 
         /*
-         * Do not interfere with Firebase,
-         * CDNs or other external services.
+         * Firebase APIs, Google CDN modules,
+         * jsDelivr/CDNJS and other external
+         * resources remain under normal
+         * browser/network handling.
          */
 
         if (
@@ -323,30 +508,20 @@ self.addEventListener(
         }
 
 
-        /*
-         * HTML/navigation requests:
-         *
-         * NETWORK FIRST
-         *
-         * This ensures newly deployed ERP
-         * pages are received quickly.
-         */
+        /* ======================================
+           PAGE NAVIGATION
+        ====================================== */
 
         if (
-            request.mode ===
-                "navigate" ||
-            request.headers
-                .get(
-                    "accept"
-                )
-                ?.includes(
-                    "text/html"
-                )
+            isNavigationRequest(
+                request
+            )
         ) {
 
             event.respondWith(
                 networkFirst(
-                    request
+                    request,
+                    true
                 )
             );
 
@@ -355,11 +530,37 @@ self.addEventListener(
         }
 
 
-        /*
-         * Static files:
-         *
-         * CACHE FIRST, then network.
-         */
+        /* ======================================
+           JS / CSS / JSON
+
+           Network-first ensures that when
+           GitHub Pages has a newer production
+           file, the user receives it promptly.
+
+           Cached copy remains available offline.
+        ====================================== */
+
+        if (
+            isUpdateSensitiveAsset(
+                requestUrl
+            )
+        ) {
+
+            event.respondWith(
+                networkFirst(
+                    request,
+                    false
+                )
+            );
+
+
+            return;
+        }
+
+
+        /* ======================================
+           IMAGES / ICONS / OTHER STATIC FILES
+        ====================================== */
 
         event.respondWith(
             cacheFirst(
@@ -371,18 +572,99 @@ self.addEventListener(
 
 
 /* ==========================================
+   NAVIGATION DETECTION
+========================================== */
+
+function isNavigationRequest(
+    request
+) {
+
+    if (
+        request.mode ===
+        "navigate"
+    ) {
+
+        return true;
+    }
+
+
+    const accept =
+        request.headers.get(
+            "accept"
+        ) ||
+        "";
+
+
+    return accept.includes(
+        "text/html"
+    );
+}
+
+
+/* ==========================================
+   UPDATE-SENSITIVE ASSETS
+========================================== */
+
+function isUpdateSensitiveAsset(
+    url
+) {
+
+    const pathname =
+        String(
+            url.pathname ||
+            ""
+        )
+            .toLowerCase();
+
+
+    return (
+
+        pathname.endsWith(
+            ".js"
+        ) ||
+
+        pathname.endsWith(
+            ".css"
+        ) ||
+
+        pathname.endsWith(
+            ".json"
+        )
+
+    );
+}
+
+
+/* ==========================================
    NETWORK FIRST
 ========================================== */
 
 async function networkFirst(
-    request
+    request,
+    navigationRequest
 ) {
 
     try {
 
+        /*
+         * Force browser to revalidate while
+         * online instead of relying on an old
+         * HTTP cache entry.
+         */
+
+        const networkRequest =
+            new Request(
+                request,
+                {
+                    cache:
+                        "no-cache"
+                }
+            );
+
+
         const response =
             await fetch(
-                request
+                networkRequest
             );
 
 
@@ -392,15 +674,9 @@ async function networkFirst(
             )
         ) {
 
-            const cache =
-                await caches.open(
-                    CACHE_NAME
-                );
-
-
-            await cache.put(
+            await saveResponse(
                 request,
-                response.clone()
+                response
             );
         }
 
@@ -412,13 +688,17 @@ async function networkFirst(
         error
     ) {
 
-        console.warn(
-            "Network unavailable, checking cache:",
+        console.log(
+            "Network unavailable. Using Jufelix cache:",
             request.url
         );
 
 
-        const cachedResponse =
+        /*
+         * Exact request first.
+         */
+
+        let cachedResponse =
             await caches.match(
                 request
             );
@@ -433,21 +713,51 @@ async function networkFirst(
 
 
         /*
-         * Try index.html as a last HTML
-         * fallback.
+         * Then ignore ?v=xxxx.
+         *
+         * This allows:
+         *
+         * sales.js?v=1010
+         *
+         * to use the precached:
+         *
+         * sales.js
+         *
+         * while completely offline.
          */
 
-        const indexPage =
+        cachedResponse =
             await caches.match(
-                "./index.html"
+                request,
+                {
+                    ignoreSearch:
+                        true
+                }
             );
 
 
         if (
-            indexPage
+            cachedResponse
         ) {
 
-            return indexPage;
+            return cachedResponse;
+        }
+
+
+        if (
+            navigationRequest
+        ) {
+
+            const offlinePage =
+                await getCachedNavigationFallback();
+
+
+            if (
+                offlinePage
+            ) {
+
+                return offlinePage;
+            }
         }
 
 
@@ -464,10 +774,33 @@ async function cacheFirst(
     request
 ) {
 
-    const cachedResponse =
+    /*
+     * Exact cache match.
+     */
+
+    let cachedResponse =
         await caches.match(
             request
         );
+
+
+    /*
+     * Also support cache-busting query strings.
+     */
+
+    if (
+        !cachedResponse
+    ) {
+
+        cachedResponse =
+            await caches.match(
+                request,
+                {
+                    ignoreSearch:
+                        true
+                }
+            );
+    }
 
 
     if (
@@ -475,13 +808,19 @@ async function cacheFirst(
     ) {
 
         /*
-         * Refresh cached asset quietly
-         * in the background.
+         * Quietly update while online.
          */
 
-        refreshCache(
-            request
-        );
+        if (
+            self.navigator ?
+                self.navigator.onLine :
+                true
+        ) {
+
+            refreshCache(
+                request
+            );
+        }
 
 
         return cachedResponse;
@@ -490,7 +829,7 @@ async function cacheFirst(
 
     try {
 
-        const networkResponse =
+        const response =
             await fetch(
                 request
             );
@@ -498,24 +837,18 @@ async function cacheFirst(
 
         if (
             isCacheableResponse(
-                networkResponse
+                response
             )
         ) {
 
-            const cache =
-                await caches.open(
-                    CACHE_NAME
-                );
-
-
-            await cache.put(
+            await saveResponse(
                 request,
-                networkResponse.clone()
+                response
             );
         }
 
 
-        return networkResponse;
+        return response;
 
 
     } catch (
@@ -528,7 +861,39 @@ async function cacheFirst(
 
 
 /* ==========================================
-   BACKGROUND CACHE REFRESH
+   SAVE RESPONSE
+========================================== */
+
+async function saveResponse(
+    request,
+    response
+) {
+
+    if (
+        !isCacheableResponse(
+            response
+        )
+    ) {
+
+        return;
+    }
+
+
+    const cache =
+        await caches.open(
+            CACHE_NAME
+        );
+
+
+    await cache.put(
+        request,
+        response.clone()
+    );
+}
+
+
+/* ==========================================
+   BACKGROUND REFRESH
 ========================================== */
 
 async function refreshCache(
@@ -539,7 +904,13 @@ async function refreshCache(
 
         const response =
             await fetch(
-                request
+                new Request(
+                    request,
+                    {
+                        cache:
+                            "no-cache"
+                    }
+                )
             );
 
 
@@ -553,15 +924,9 @@ async function refreshCache(
         }
 
 
-        const cache =
-            await caches.open(
-                CACHE_NAME
-            );
-
-
-        await cache.put(
+        await saveResponse(
             request,
-            response.clone()
+            response
         );
 
 
@@ -570,10 +935,72 @@ async function refreshCache(
     ) {
 
         /*
-         * Ignore background refresh errors.
-         * Cached version remains usable.
+         * Cached version remains valid.
          */
     }
+}
+
+
+/* ==========================================
+   NAVIGATION FALLBACK
+========================================== */
+
+async function getCachedNavigationFallback() {
+
+    /*
+     * Prefer the login page because the login
+     * module can now restore a remembered
+     * offline ERP session.
+     */
+
+    let response =
+        await caches.match(
+            "./login.html",
+            {
+                ignoreSearch:
+                    true
+            }
+        );
+
+
+    if (
+        response
+    ) {
+
+        return response;
+    }
+
+
+    response =
+        await caches.match(
+            "./index.html",
+            {
+                ignoreSearch:
+                    true
+            }
+        );
+
+
+    if (
+        response
+    ) {
+
+        return response;
+    }
+
+
+    response =
+        await caches.match(
+            "./",
+            {
+                ignoreSearch:
+                    true
+            }
+        );
+
+
+    return response ||
+        null;
 }
 
 
@@ -630,75 +1057,123 @@ function createOfflineResponse() {
                 Jufelix ERP Offline
             </title>
 
+
             <style>
 
                 * {
-                    box-sizing: border-box;
+                    box-sizing:
+                        border-box;
                 }
+
 
                 body {
                     margin: 0;
-                    min-height: 100vh;
 
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
+                    min-height:
+                        100vh;
 
-                    padding: 24px;
+                    display:
+                        flex;
 
-                    background: #f5f7fb;
+                    align-items:
+                        center;
+
+                    justify-content:
+                        center;
+
+                    padding:
+                        24px;
+
+                    background:
+                        #f5f7fb;
 
                     font-family:
                         Arial,
                         Helvetica,
                         sans-serif;
 
-                    color: #1f2937;
+                    color:
+                        #1f2937;
                 }
 
+
                 .offline-card {
-                    width: 100%;
-                    max-width: 460px;
+                    width:
+                        100%;
 
-                    padding: 32px;
+                    max-width:
+                        460px;
 
-                    border-radius: 16px;
+                    padding:
+                        32px;
 
-                    background: #ffffff;
+                    border-radius:
+                        16px;
+
+                    background:
+                        #ffffff;
 
                     box-shadow:
                         0 8px 28px
-                        rgba(0,0,0,.10);
+                        rgba(
+                            0,
+                            0,
+                            0,
+                            .10
+                        );
 
-                    text-align: center;
+                    text-align:
+                        center;
                 }
+
 
                 .offline-icon {
-                    font-size: 52px;
+                    font-size:
+                        52px;
 
-                    margin-bottom: 16px;
+                    margin-bottom:
+                        16px;
                 }
+
 
                 h1 {
                     margin:
                         0 0 12px;
 
-                    color: #2E0B57;
+                    color:
+                        #2E0B57;
 
-                    font-size: 27px;
+                    font-size:
+                        27px;
                 }
+
 
                 p {
                     margin: 0;
 
-                    color: #6b7280;
+                    color:
+                        #6b7280;
 
-                    line-height: 1.7;
+                    line-height:
+                        1.7;
+                }
+
+
+                .build {
+                    margin-top:
+                        18px;
+
+                    color:
+                        #9ca3af;
+
+                    font-size:
+                        12px;
                 }
 
             </style>
 
         </head>
+
 
         <body>
 
@@ -708,16 +1183,23 @@ function createOfflineResponse() {
                     📡
                 </div>
 
+
                 <h1>
                     Jufelix ERP is Offline
                 </h1>
 
+
                 <p>
-                    This page has not yet been cached
-                    on this device. Connect to the
-                    internet and open it once, then it
-                    can be available offline.
+                    This resource is not yet stored
+                    on this device. Reconnect to the
+                    internet and open the page once,
+                    then try again.
                 </p>
+
+
+                <div class="build">
+                    Jufelix ERP v7.0 · Build ${ERP_BUILD}
+                </div>
 
             </main>
 
@@ -736,7 +1218,10 @@ function createOfflineResponse() {
             headers: {
 
                 "Content-Type":
-                    "text/html; charset=utf-8"
+                    "text/html; charset=utf-8",
+
+                "Cache-Control":
+                    "no-store"
             }
         }
     );
@@ -759,10 +1244,9 @@ self.addEventListener(
         }
 
 
-        /*
-         * Allows the application to manually
-         * activate an updated service worker.
-         */
+        /* ======================================
+           ACTIVATE NEW WORKER
+        ====================================== */
 
         if (
             event.data.type ===
@@ -770,35 +1254,79 @@ self.addEventListener(
         ) {
 
             self.skipWaiting();
+
+
+            return;
         }
 
 
-        /*
-         * Useful for debugging/version checks.
-         */
+        /* ======================================
+           VERSION INFORMATION
+        ====================================== */
 
         if (
             event.data.type ===
             "GET_VERSION"
         ) {
 
-            event.source?.postMessage({
+            if (
+                event.source
+            ) {
 
-                type:
-                    "JUFELIX_SW_VERSION",
+                event.source.postMessage({
 
-                cacheName:
-                    CACHE_NAME,
+                    type:
+                        "JUFELIX_SW_VERSION",
 
-                version:
-                    CACHE_VERSION
-            });
+                    cacheName:
+                        CACHE_NAME,
+
+                    version:
+                        CACHE_VERSION,
+
+                    build:
+                        ERP_BUILD
+                });
+            }
+
+
+            return;
+        }
+
+
+        /* ======================================
+           MANUAL CACHE REFRESH
+        ====================================== */
+
+        if (
+            event.data.type ===
+            "REFRESH_APP_CACHE"
+        ) {
+
+            event.waitUntil(
+
+                installApplicationCache()
+
+            );
         }
     }
 );
 
 
+/* ==========================================
+   START MESSAGE
+========================================== */
+
 console.log(
     "✅ Jufelix ERP Production Service Worker loaded:",
-    CACHE_NAME
+    {
+        cache:
+            CACHE_NAME,
+
+        serviceWorker:
+            CACHE_VERSION,
+
+        build:
+            ERP_BUILD
+    }
 );
