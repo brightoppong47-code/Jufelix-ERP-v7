@@ -811,16 +811,9 @@ async function cacheFirst(
          * Quietly update while online.
          */
 
-        if (
-            self.navigator ?
-                self.navigator.onLine :
-                true
-        ) {
-
-            refreshCache(
-                request
-            );
-        }
+refreshCache(
+    request
+);
 
 
         return cachedResponse;
