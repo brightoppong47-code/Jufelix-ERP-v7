@@ -45,23 +45,69 @@
     >
 
 
-    <!-- =========================================
-         INVENTORY PAGE STYLES
-    ========================================== -->
-
     <style>
 
         * {
             box-sizing: border-box;
         }
 
+        html,
         body {
+            width: 100%;
+            max-width: 100%;
             margin: 0;
+            overflow-x: hidden;
         }
+
+        body {
+            background:
+                var(
+                    --background,
+                    #f5f7fb
+                );
+
+            color:
+                var(
+                    --text-color,
+                    #1f2937
+                );
+        }
+
+
+        /* =========================================
+           MAIN CONTENT
+        ========================================== */
+
+        .main-content {
+            min-height: 100vh;
+
+            margin-left: 270px;
+
+            background:
+                var(
+                    --background,
+                    #f5f7fb
+                );
+
+            overflow-x: hidden;
+        }
+
+
+        .page-content {
+            width: 100%;
+            padding: 24px;
+        }
+
 
         .inventory-page {
             width: 100%;
+            min-width: 0;
         }
+
+
+        /* =========================================
+           HEADER
+        ========================================== */
 
         .inventory-header {
             margin-bottom: 20px;
@@ -69,11 +115,26 @@
 
         .inventory-header h1 {
             margin: 0 0 6px;
+
+            font-size: 32px;
+
+            color:
+                var(
+                    --text-color,
+                    #1f2937
+                );
         }
 
         .inventory-header p {
             margin: 0;
-            color: #6c757d;
+
+            color:
+                var(
+                    --muted,
+                    #6c757d
+                );
+
+            line-height: 1.6;
         }
 
 
@@ -83,38 +144,79 @@
 
         .inventory-summary-grid {
             display: grid;
+
             grid-template-columns:
                 repeat(
                     4,
                     minmax(0, 1fr)
                 );
+
             gap: 15px;
+
             margin-bottom: 22px;
         }
 
+
         .inventory-summary-card {
-            background: #ffffff;
+            min-width: 0;
+
+            background:
+                var(
+                    --surface,
+                    #ffffff
+                );
+
             border-radius: 14px;
+
             padding: 18px;
+
             box-shadow:
                 0 4px 18px
-                rgba(0, 0, 0, 0.06);
+                rgba(
+                    0,
+                    0,
+                    0,
+                    0.06
+                );
+
             border:
                 1px solid
-                rgba(0, 0, 0, 0.05);
+                rgba(
+                    0,
+                    0,
+                    0,
+                    0.05
+                );
         }
+
 
         .inventory-summary-card small {
             display: block;
-            color: #6c757d;
+
+            color:
+                var(
+                    --muted,
+                    #6c757d
+                );
+
             margin-bottom: 8px;
+
             font-weight: 600;
         }
 
+
         .inventory-summary-card strong {
             display: block;
+
             font-size: 24px;
-            color: #172033;
+
+            color:
+                var(
+                    --text-color,
+                    #172033
+                );
+
+            overflow-wrap: anywhere;
         }
 
 
@@ -123,29 +225,57 @@
         ========================================== */
 
         .inventory-panel {
-            background: #ffffff;
+            min-width: 0;
+
+            background:
+                var(
+                    --surface,
+                    #ffffff
+                );
+
             border-radius: 14px;
+
             padding: 20px;
+
             margin-bottom: 22px;
+
             box-shadow:
                 0 4px 18px
-                rgba(0, 0, 0, 0.06);
+                rgba(
+                    0,
+                    0,
+                    0,
+                    0.06
+                );
+
             border:
                 1px solid
-                rgba(0, 0, 0, 0.05);
+                rgba(
+                    0,
+                    0,
+                    0,
+                    0.05
+                );
         }
+
 
         .inventory-panel-header {
             display: flex;
+
             align-items: center;
+
             justify-content:
                 space-between;
+
             gap: 12px;
+
             margin-bottom: 18px;
         }
 
+
         .inventory-panel-header h2 {
             margin: 0;
+
             font-size: 20px;
         }
 
@@ -156,60 +286,107 @@
 
         .inventory-form-grid {
             display: grid;
+
             grid-template-columns:
                 repeat(
                     2,
                     minmax(0, 1fr)
                 );
+
             gap: 15px;
         }
 
+
         .inventory-field {
+            min-width: 0;
+
             display: flex;
+
             flex-direction: column;
+
             gap: 7px;
         }
+
 
         .inventory-field.full-width {
             grid-column:
                 1 / -1;
         }
 
+
         .inventory-field label {
             font-size: 14px;
+
             font-weight: 700;
-            color: #344054;
+
+            color:
+                var(
+                    --text-color,
+                    #344054
+                );
         }
+
 
         .inventory-field input,
         .inventory-field select,
         .inventory-field textarea {
             width: 100%;
+
+            min-width: 0;
+
             min-height: 44px;
+
             border:
                 1px solid
                 #d0d5dd;
+
             border-radius: 9px;
+
             padding:
                 10px 12px;
+
             font-size: 14px;
-            background: #ffffff;
-            color: #101828;
+
+            background:
+                var(
+                    --surface,
+                    #ffffff
+                );
+
+            color:
+                var(
+                    --text-color,
+                    #101828
+                );
+
             outline: none;
         }
 
+
         .inventory-field textarea {
             min-height: 90px;
+
             resize: vertical;
         }
+
 
         .inventory-field input:focus,
         .inventory-field select:focus,
         .inventory-field textarea:focus {
-            border-color: #0b5ed7;
+            border-color:
+                var(
+                    --primary,
+                    #0b5ed7
+                );
+
             box-shadow:
                 0 0 0 3px
-                rgba(11, 94, 215, 0.10);
+                rgba(
+                    11,
+                    94,
+                    215,
+                    0.10
+                );
         }
 
 
@@ -219,22 +396,36 @@
 
         .product-image-box {
             display: flex;
+
             align-items: center;
+
             gap: 15px;
+
             flex-wrap: wrap;
+
+            min-width: 0;
         }
+
 
         #productImagePreview {
             width: 100px;
+
             height: 100px;
+
             object-fit: cover;
+
             border-radius: 12px;
+
             border:
                 1px solid
                 #e2e8f0;
-            background: #f8fafc;
+
+            background:
+                #f8fafc;
+
             display: none;
         }
+
 
         #removeProductImage {
             display: none;
@@ -248,42 +439,74 @@
         .inventory-form-actions {
             grid-column:
                 1 / -1;
+
             display: flex;
+
             justify-content:
                 flex-end;
+
             gap: 10px;
+
             flex-wrap: wrap;
+
             margin-top: 5px;
         }
 
+
         .inventory-button {
             min-height: 44px;
+
             border: none;
+
             border-radius: 9px;
+
             padding:
                 10px 18px;
+
             font-size: 14px;
+
             font-weight: 700;
+
             cursor: pointer;
         }
 
+
         .inventory-button-primary {
-            background: #0b5ed7;
-            color: #ffffff;
+            background:
+                var(
+                    --primary,
+                    #0b5ed7
+                );
+
+            color:
+                #ffffff;
         }
+
 
         .inventory-button-primary:hover {
-            background: #084298;
+            background:
+                var(
+                    --primary-dark,
+                    #084298
+                );
         }
+
 
         .inventory-button-secondary {
-            background: #e9ecef;
-            color: #212529;
+            background:
+                #e9ecef;
+
+            color:
+                #212529;
         }
 
+
         .inventory-button-danger {
-            background: #dc3545;
-            color: #ffffff;
+            background:
+                #dc3545;
+
+            color:
+                #ffffff;
         }
 
 
@@ -293,23 +516,49 @@
 
         .inventory-toolbar {
             display: grid;
+
             grid-template-columns:
-                2fr 1fr 1fr 1fr;
+                2fr
+                1fr
+                1fr
+                1fr;
+
             gap: 10px;
+
             margin-bottom: 16px;
+
+            min-width: 0;
         }
+
 
         .inventory-toolbar input,
         .inventory-toolbar select {
-            min-height: 44px;
             width: 100%;
+
+            min-width: 0;
+
+            min-height: 44px;
+
             border:
                 1px solid
                 #d0d5dd;
+
             border-radius: 9px;
+
             padding:
                 10px 12px;
-            background: #ffffff;
+
+            background:
+                var(
+                    --surface,
+                    #ffffff
+                );
+
+            color:
+                var(
+                    --text-color,
+                    #1f2937
+                );
         }
 
 
@@ -319,44 +568,75 @@
 
         .inventory-table-wrapper {
             width: 100%;
+
+            max-width: 100%;
+
             overflow-x: auto;
+
+            -webkit-overflow-scrolling:
+                touch;
         }
+
 
         .inventory-table {
             width: 100%;
-            border-collapse: collapse;
+
             min-width: 950px;
+
+            border-collapse: collapse;
         }
+
 
         .inventory-table th,
         .inventory-table td {
             padding:
                 12px 10px;
+
             text-align: left;
+
             border-bottom:
                 1px solid
                 #eaecf0;
+
             vertical-align: middle;
         }
 
+
         .inventory-table th {
-            background: #f8fafc;
+            background:
+                #f8fafc;
+
             font-size: 13px;
-            color: #475467;
+
+            color:
+                #475467;
+
             white-space: nowrap;
         }
 
+
         .inventory-table td {
             font-size: 14px;
-            color: #344054;
+
+            color:
+                var(
+                    --text-color,
+                    #344054
+                );
         }
+
 
         .inventory-product-image {
             width: 45px;
+
             height: 45px;
+
             border-radius: 8px;
+
             object-fit: cover;
-            background: #f2f4f7;
+
+            background:
+                #f2f4f7;
         }
 
 
@@ -366,30 +646,48 @@
 
         .branch-summary {
             display: grid;
+
             grid-template-columns:
                 repeat(
                     3,
                     minmax(0, 1fr)
                 );
+
             gap: 12px;
+
             margin-bottom: 15px;
         }
 
+
         .branch-summary-item {
-            background: #f8fafc;
+            min-width: 0;
+
+            background:
+                #f8fafc;
+
             border-radius: 10px;
+
             padding: 14px;
         }
 
+
         .branch-summary-item small {
             display: block;
-            color: #667085;
+
+            color:
+                #667085;
+
             margin-bottom: 6px;
         }
 
+
         .branch-summary-item strong {
             font-size: 18px;
-            color: #101828;
+
+            color:
+                #101828;
+
+            overflow-wrap: anywhere;
         }
 
 
@@ -399,8 +697,37 @@
 
         .inventory-empty {
             text-align: center;
+
             padding: 25px;
-            color: #667085;
+
+            color:
+                #667085;
+        }
+
+
+        /* =========================================
+           TABLET
+        ========================================== */
+
+        @media screen and
+        (max-width: 1000px) {
+
+            .inventory-summary-grid {
+                grid-template-columns:
+                    repeat(
+                        2,
+                        minmax(0, 1fr)
+                    );
+            }
+
+
+            .inventory-toolbar {
+                grid-template-columns:
+                    repeat(
+                        2,
+                        minmax(0, 1fr)
+                    );
+            }
         }
 
 
@@ -408,41 +735,57 @@
            MOBILE
         ========================================== */
 
-        @media (
-            max-width: 1000px
-        ) {
+        @media screen and
+        (max-width: 900px) {
 
-            .inventory-summary-grid {
-                grid-template-columns:
-                    repeat(
-                        2,
-                        minmax(0, 1fr)
-                    );
+            .main-content {
+                width:
+                    100% !important;
+
+                max-width:
+                    100vw !important;
+
+                margin-left:
+                    0 !important;
+
+                overflow-x:
+                    hidden !important;
             }
 
-            .inventory-toolbar {
-                grid-template-columns:
-                    repeat(
-                        2,
-                        minmax(0, 1fr)
-                    );
+
+            .page-content {
+                width:
+                    100% !important;
+
+                max-width:
+                    100vw !important;
+
+                padding:
+                    16px !important;
             }
         }
 
 
-        @media (
-            max-width: 700px
-        ) {
+        @media screen and
+        (max-width: 700px) {
+
+            .inventory-header h1 {
+                font-size:
+                    29px;
+            }
+
 
             .inventory-summary-grid {
                 grid-template-columns:
                     1fr;
             }
+
 
             .inventory-form-grid {
                 grid-template-columns:
                     1fr;
             }
+
 
             .inventory-field.full-width,
             .inventory-form-actions {
@@ -450,34 +793,63 @@
                     1;
             }
 
+
             .inventory-toolbar {
                 grid-template-columns:
                     1fr;
             }
+
 
             .branch-summary {
                 grid-template-columns:
                     1fr;
             }
 
+
             .inventory-panel {
                 padding: 15px;
             }
 
+
             .inventory-panel-header {
                 align-items:
                     flex-start;
+
                 flex-direction:
                     column;
             }
+
 
             .inventory-form-actions {
                 justify-content:
                     stretch;
             }
 
+
             .inventory-form-actions button {
                 width: 100%;
+            }
+        }
+
+
+        @media screen and
+        (max-width: 480px) {
+
+            .page-content {
+                padding:
+                    12px !important;
+            }
+
+
+            .inventory-header h1 {
+                font-size:
+                    27px;
+            }
+
+
+            .inventory-panel {
+                padding:
+                    13px;
             }
         }
 
@@ -493,28 +865,35 @@
          SIDEBAR
     ========================================== -->
 
-    <div id="sidebarContainer"></div>
+    <aside
+        id="sidebar"
+        class="sidebar"
+    ></aside>
 
 
     <!-- =========================================
          MAIN APP
     ========================================== -->
 
-    <div class="main-content">
+    <main class="main-content">
 
 
         <!-- =========================================
              TOPBAR
         ========================================== -->
 
-        <div id="topbarContainer"></div>
+        <header
+            id="topbar"
+            class="topbar"
+        ></header>
 
 
         <!-- =========================================
              PAGE CONTENT
         ========================================== -->
 
-        <main class="page-content">
+        <div class="page-content">
+
 
             <div class="inventory-page">
 
@@ -523,7 +902,7 @@
                      PAGE HEADER
                 ================================== -->
 
-                <div class="inventory-header">
+                <section class="inventory-header">
 
                     <h1>
                         Inventory
@@ -533,7 +912,7 @@
                         Manage products and branch stock.
                     </p>
 
-                </div>
+                </section>
 
 
                 <!-- =================================
@@ -544,7 +923,8 @@
                     class="inventory-summary-grid"
                 >
 
-                    <div
+
+                    <article
                         class="inventory-summary-card"
                     >
 
@@ -558,10 +938,10 @@
                             0
                         </strong>
 
-                    </div>
+                    </article>
 
 
-                    <div
+                    <article
                         class="inventory-summary-card"
                     >
 
@@ -575,10 +955,10 @@
                             0
                         </strong>
 
-                    </div>
+                    </article>
 
 
-                    <div
+                    <article
                         class="inventory-summary-card"
                     >
 
@@ -592,10 +972,10 @@
                             GHS 0.00
                         </strong>
 
-                    </div>
+                    </article>
 
 
-                    <div
+                    <article
                         class="inventory-summary-card"
                     >
 
@@ -609,7 +989,8 @@
                             0
                         </strong>
 
-                    </div>
+                    </article>
+
 
                 </section>
 
@@ -621,6 +1002,7 @@
                 <section
                     class="inventory-panel"
                 >
+
 
                     <div
                         class="inventory-panel-header"
@@ -637,6 +1019,7 @@
                         id="productForm"
                         autocomplete="off"
                     >
+
 
                         <input
                             type="hidden"
@@ -1085,6 +1468,7 @@
                     class="inventory-panel"
                 >
 
+
                     <div
                         class="inventory-panel-header"
                     >
@@ -1096,11 +1480,10 @@
                     </div>
 
 
-                    <!-- TOOLBAR -->
-
                     <div
                         class="inventory-toolbar"
                     >
+
 
                         <input
                             type="search"
@@ -1155,10 +1538,9 @@
 
                         </select>
 
+
                     </div>
 
-
-                    <!-- TABLE -->
 
                     <div
                         class="inventory-table-wrapper"
@@ -1167,6 +1549,7 @@
                         <table
                             class="inventory-table"
                         >
+
 
                             <thead>
 
@@ -1230,9 +1613,11 @@
 
                             </tbody>
 
+
                         </table>
 
                     </div>
+
 
                 </section>
 
@@ -1244,6 +1629,7 @@
                 <section
                     class="inventory-panel"
                 >
+
 
                     <div
                         class="inventory-panel-header"
@@ -1259,6 +1645,7 @@
                     <div
                         class="branch-summary"
                     >
+
 
                         <div
                             class="branch-summary-item"
@@ -1310,6 +1697,7 @@
 
                         </div>
 
+
                     </div>
 
 
@@ -1320,6 +1708,7 @@
                         <table
                             class="inventory-table"
                         >
+
 
                             <thead>
 
@@ -1371,18 +1760,22 @@
 
                             </tbody>
 
+
                         </table>
 
                     </div>
+
 
                 </section>
 
 
             </div>
 
-        </main>
 
-    </div>
+        </div>
+
+
+    </main>
 
 
     <!-- =========================================
