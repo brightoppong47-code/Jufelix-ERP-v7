@@ -5,7 +5,7 @@
    File:
    js/cloud/sales-cloud.js
 
-   Version: 707
+   Version: 708
 
    + Firebase Authentication aware
    + Realtime sales across devices
@@ -17,7 +17,10 @@
    + Prevent duplicate stock deduction
    + Product deletion awareness
    + Preserves local Base64 images
-   + Offline-sale retry support
+   + Offline-sale automatic recovery
+   + Firebase Auth restoration retry
+   + Startup retry
+   + Internet reconnection retry
    + Cloud-source loop protection
 ========================================== */
 
@@ -73,6 +76,20 @@ const listeners =
 
 
 /* ==========================================
+   OFFLINE RECOVERY STATE
+========================================== */
+
+let recoveryRunning =
+    false;
+
+let recoveryTimer =
+    null;
+
+let lastRecoveryAt =
+    0;
+
+
+/* ==========================================
    FIREBASE
 ========================================== */
 
@@ -120,9 +137,16 @@ async function getFirebase() {
                     window.JufelixFirebase;
 
 
+                /*
+                 * Only treat this as fatal when
+                 * Firebase core itself is missing.
+                 */
+
                 if (
                     firebase &&
-                    firebase.error
+                    firebase.error &&
+                    !firebase.db &&
+                    !firebase.auth
                 ) {
 
                     reject(
@@ -136,31 +160,44 @@ async function getFirebase() {
                 if (
                     firebase &&
                     firebase.db &&
-                    firebase.auth &&
-                    firebase.auth.currentUser
+                    firebase.auth
                 ) {
 
-                    database =
-                        firebase.db;
+                    const user =
+
+                        firebase.user ||
+
+                        firebase.auth.currentUser;
 
 
-                    resolve(
-                        firebase
-                    );
+                    if (user) {
 
-                    return;
+                        firebase.user =
+                            user;
+
+
+                        database =
+                            firebase.db;
+
+
+                        resolve(
+                            firebase
+                        );
+
+                        return;
+                    }
                 }
 
 
                 if (
                     Date.now() -
-                    startedAt >
+                    startedAt >=
                     20000
                 ) {
 
                     reject(
                         new Error(
-                            "Firebase Authentication is not ready."
+                            "Firebase user is not authenticated."
                         )
                     );
 
@@ -478,11 +515,12 @@ function sumBranchStock(
     branchStock
 ) {
 
-    return Object.values(
-        normalizeBranchStock(
-            branchStock
+    return Object
+        .values(
+            normalizeBranchStock(
+                branchStock
+            )
         )
-    )
         .reduce(
             function (
                 total,
@@ -552,15 +590,6 @@ function prepareProductForCloud(
 
 /* ==========================================
    TRANSACTION-SAFE SALE
-
-   This is the main protection.
-
-   Firebase checks the newest stock before
-   committing the sale.
-
-   If two phones sell at the same time,
-   Firestore retries the transaction using
-   the latest stock.
 ========================================== */
 
 async function commitSale(
@@ -583,7 +612,7 @@ async function commitSale(
             sale.items
         ) ||
         sale.items.length ===
-        0
+            0
     ) {
 
         throw new Error(
@@ -633,10 +662,10 @@ async function commitSale(
                 ) {
 
                     /*
-                     * First check whether this sale
-                     * already exists.
+                     * IDEMPOTENT PROTECTION:
                      *
-                     * This makes offline retries safe.
+                     * If this sale already exists,
+                     * do not touch stock again.
                      */
 
                     const existingSale =
@@ -667,8 +696,8 @@ async function commitSale(
 
 
                     /*
-                     * FIRESTORE TRANSACTIONS REQUIRE
-                     * ALL READS BEFORE WRITES.
+                     * Firestore transactions require
+                     * reads before writes.
                      */
 
                     const productRecords =
@@ -743,10 +772,6 @@ async function commitSale(
                     }
 
 
-                    /*
-                     * Now validate every product.
-                     */
-
                     const updates =
                         [];
 
@@ -783,8 +808,8 @@ async function commitSale(
 
 
                         /*
-                         * Compatibility with older
-                         * Head Office inventory.
+                         * Older Head Office product
+                         * compatibility.
                          */
 
                         if (
@@ -858,9 +883,7 @@ async function commitSale(
 
 
                     /*
-                     * All stock validations passed.
-                     *
-                     * Now perform writes.
+                     * All validation passed.
                      */
 
                     for (
@@ -952,18 +975,11 @@ async function commitSale(
 
 /* ==========================================
    SAVE SALE COMPATIBILITY
-
-   Existing modules may still call saveSale().
 ========================================== */
 
 async function saveSale(
     sale
 ) {
-
-    /*
-     * Completed POS sales with items should
-     * use the transaction-safe path.
-     */
 
     if (
         sale &&
@@ -971,7 +987,7 @@ async function saveSale(
             sale.items
         ) &&
         sale.items.length >
-        0
+            0
     ) {
 
         return commitSale(
@@ -979,10 +995,6 @@ async function saveSale(
         );
     }
 
-
-    /*
-     * Legacy sale compatibility.
-     */
 
     const firebase =
         await getFirebase();
@@ -1036,11 +1048,6 @@ async function saveSale(
 
 /* ==========================================
    SAVE PRODUCT COMPATIBILITY
-
-   Kept for older Jufelix modules.
-
-   New completed sales should NOT depend
-   on this function for stock deduction.
 ========================================== */
 
 async function saveProduct(
@@ -1170,16 +1177,15 @@ async function saveProduct(
 
 
 /* ==========================================
-   OFFLINE / LOCAL SALES SYNC
+   LOCAL / OFFLINE SALES SYNC
 
-   Safe because commitSale() first checks
-   whether the sale already exists.
+   commitSale() is idempotent.
 
-   Existing Firebase sale:
-      no stock is deducted again.
+   Existing cloud sale:
+       no second stock deduction.
 
-   Missing Firebase sale:
-      transaction performs stock deduction.
+   Missing cloud sale:
+       sale + stock committed atomically.
 ========================================== */
 
 async function syncLocal(
@@ -1218,6 +1224,31 @@ async function syncLocal(
         }
 
 
+        /*
+         * Cancelled/void local sales should
+         * not be uploaded as completed sales.
+         */
+
+        const status =
+            String(
+                sale.status ||
+                "completed"
+            )
+                .trim()
+                .toLowerCase();
+
+
+        if (
+            status === "cancelled" ||
+            status === "canceled" ||
+            status === "void" ||
+            status === "deleted"
+        ) {
+
+            continue;
+        }
+
+
         try {
 
             await saveSale(
@@ -1235,6 +1266,7 @@ async function syncLocal(
 
             console.warn(
                 "Sale retry failed:",
+                sale.receiptNumber ||
                 sale.id,
                 error
             );
@@ -1340,7 +1372,6 @@ async function startRealtimeListeners() {
 
                         new CustomEvent(
                             "jufelix:cloud-products-updated",
-
                             {
                                 detail: {
 
@@ -1419,8 +1450,8 @@ async function startRealtimeListeners() {
 
 
                     /*
-                     * Keep local/offline sales that
-                     * have not reached Firebase yet.
+                     * Keep unsynchronized local
+                     * sales until Firebase has them.
                      */
 
                     const merged =
@@ -1451,7 +1482,6 @@ async function startRealtimeListeners() {
 
                         new CustomEvent(
                             "jufelix:cloud-sales-updated",
-
                             {
                                 detail: {
 
@@ -1510,10 +1540,18 @@ function listen(
 
     startRealtimeListeners()
         .catch(
-            function (error) {
+            function (
+                error
+            ) {
 
-                console.error(
-                    "Unable to start Sales realtime:",
+                /*
+                 * Do not treat an offline/auth
+                 * startup delay as a fatal app
+                 * failure.
+                 */
+
+                console.warn(
+                    "Sales realtime waiting:",
                     error
                 );
             }
@@ -1541,7 +1579,9 @@ function notifyListeners(
 ) {
 
     listeners.forEach(
-        function (callback) {
+        function (
+            callback
+        ) {
 
             try {
 
@@ -1564,15 +1604,6 @@ function notifyListeners(
 
 /* ==========================================
    PRODUCT CLOUD → LOCAL MERGE
-
-   Firebase products define which products
-   currently exist.
-
-   Therefore a product deleted by Admin from
-   Firebase disappears from Sales devices too.
-
-   A localOnly product is retained until its
-   first successful inventory upload.
 ========================================== */
 
 function mergeProductsSafely(
@@ -1719,12 +1750,16 @@ function mergeProductsSafely(
             };
 
 
-            if (cloudImage) {
+            if (
+                cloudImage
+            ) {
 
                 merged.image =
                     cloudImage;
 
-            } else if (localImage) {
+            } else if (
+                localImage
+            ) {
 
                 merged.image =
                     localImage;
@@ -1737,11 +1772,6 @@ function mergeProductsSafely(
         }
     );
 
-
-    /*
-     * Retain genuinely unsynced Inventory
-     * products only.
-     */
 
     localMap.forEach(
         function (
@@ -1778,11 +1808,6 @@ function mergeProductsSafely(
 
 /* ==========================================
    SALES MERGE
-
-   Unlike products, sales are audit records.
-
-   Local records must remain until they have
-   successfully reached Firebase.
 ========================================== */
 
 function mergeSalesSafely(
@@ -1931,7 +1956,6 @@ function dispatchDataUpdated(
 
         new CustomEvent(
             "jufelix:data-updated",
-
             {
                 detail:
                     detail
@@ -1944,7 +1968,6 @@ function dispatchDataUpdated(
 
         new CustomEvent(
             "jufelix:dataChanged",
-
             {
                 detail:
                     detail
@@ -1974,7 +1997,11 @@ function checkFirebaseUser() {
 
 
     return (
+
+        firebase.user ||
+
         firebase.auth.currentUser ||
+
         null
     );
 }
@@ -2048,15 +2075,17 @@ function createFriendlyError(
         );
 
 
+    const lowerMessage =
+        message.toLowerCase();
+
+
     if (
         code.includes(
             "permission-denied"
         ) ||
-        message
-            .toLowerCase()
-            .includes(
-                "insufficient permissions"
-            )
+        lowerMessage.includes(
+            "insufficient permissions"
+        )
     ) {
 
         return new Error(
@@ -2068,11 +2097,14 @@ function createFriendlyError(
     if (
         code.includes(
             "unauthenticated"
+        ) ||
+        lowerMessage.includes(
+            "not authenticated"
         )
     ) {
 
         return new Error(
-            "Firebase Authentication is not signed in."
+            "Firebase Authentication is not signed in yet."
         );
     }
 
@@ -2080,6 +2112,9 @@ function createFriendlyError(
     if (
         code.includes(
             "unavailable"
+        ) ||
+        lowerMessage.includes(
+            "network"
         )
     ) {
 
@@ -2089,7 +2124,8 @@ function createFriendlyError(
     }
 
 
-    return error instanceof Error
+    return error instanceof
+        Error
         ? error
         : new Error(
             message ||
@@ -2099,29 +2135,351 @@ function createFriendlyError(
 
 
 /* ==========================================
-   ONLINE AGAIN
+   OFFLINE SALES RECOVERY
+========================================== */
+
+async function recoverOfflineSales(
+    reason
+) {
+
+    if (
+        recoveryRunning
+    ) {
+
+        return false;
+    }
+
+
+    if (
+        !navigator.onLine
+    ) {
+
+        console.log(
+            "ℹ️ Sales recovery waiting for internet."
+        );
+
+
+        return false;
+    }
+
+
+    const currentTime =
+        Date.now();
+
+
+    if (
+        currentTime -
+        lastRecoveryAt <
+        1500
+    ) {
+
+        return false;
+    }
+
+
+    recoveryRunning =
+        true;
+
+
+    lastRecoveryAt =
+        currentTime;
+
+
+    console.log(
+        "🔄 Checking local/offline sales:",
+        reason ||
+        "recovery"
+    );
+
+
+    try {
+
+        /*
+         * Wait until Firebase Auth has actually
+         * restored the signed-in administrator/
+         * employee.
+         */
+
+        const firebase =
+            await getFirebase();
+
+
+        const authenticatedUser =
+
+            firebase.user ||
+
+            (
+                firebase.auth
+                    ? firebase.auth
+                        .currentUser
+                    : null
+            );
+
+
+        if (
+            !firebase.db ||
+            !authenticatedUser
+        ) {
+
+            throw new Error(
+                "Firebase Authentication has not restored yet."
+            );
+        }
+
+
+        const localSales =
+            readArray(
+                SALES_KEY
+            );
+
+
+        if (
+            localSales.length ===
+            0
+        ) {
+
+            console.log(
+                "ℹ️ No local sales to synchronize."
+            );
+
+
+            await startRealtimeListeners();
+
+
+            return true;
+        }
+
+
+        console.log(
+            "☁️ Checking",
+            localSales.length,
+            "local sale(s) against Firebase..."
+        );
+
+
+        const result =
+            await syncLocal(
+                null,
+                localSales
+            );
+
+
+        console.log(
+            "✅ Sales recovery result:",
+            result
+        );
+
+
+        await startRealtimeListeners();
+
+
+        document.dispatchEvent(
+
+            new CustomEvent(
+                "jufelix:sales-recovery-complete",
+                {
+                    detail: {
+
+                        reason:
+                            reason ||
+                            "recovery",
+
+                        successful:
+                            result.successful,
+
+                        failed:
+                            result.failed
+                    }
+                }
+            )
+        );
+
+
+        /*
+         * If one or more sales failed because
+         * Firebase was temporarily unavailable,
+         * try again later.
+         */
+
+        if (
+            result.failed >
+            0
+        ) {
+
+            scheduleSalesRecovery(
+                "failed-sales-retry",
+                10000
+            );
+        }
+
+
+        return (
+            result.failed ===
+            0
+        );
+
+
+    } catch (error) {
+
+        console.warn(
+            "Sales recovery not ready:",
+            error
+        );
+
+
+        scheduleSalesRecovery(
+            "retry-after-error",
+            5000
+        );
+
+
+        return false;
+
+
+    } finally {
+
+        recoveryRunning =
+            false;
+    }
+}
+
+
+/* ==========================================
+   SCHEDULE RECOVERY
+========================================== */
+
+function scheduleSalesRecovery(
+    reason,
+    delay
+) {
+
+    if (
+        !navigator.onLine
+    ) {
+
+        return;
+    }
+
+
+    if (
+        recoveryTimer
+    ) {
+
+        window.clearTimeout(
+            recoveryTimer
+        );
+    }
+
+
+    recoveryTimer =
+        window.setTimeout(
+
+            function () {
+
+                recoveryTimer =
+                    null;
+
+
+                recoverOfflineSales(
+                    reason
+                );
+
+            },
+
+            Number(
+                delay ||
+                1500
+            )
+        );
+}
+
+
+/* ==========================================
+   INTERNET RESTORED
 ========================================== */
 
 window.addEventListener(
     "online",
     function () {
 
-        startRealtimeListeners()
-            .then(
-                function () {
+        console.log(
+            "🌐 Internet restored. Waiting for Firebase Authentication..."
+        );
 
-                    return syncLocal();
-                }
-            )
-            .catch(
-                function (error) {
 
-                    console.warn(
-                        "Sales reconnect failed:",
-                        error
-                    );
-                }
-            );
+        scheduleSalesRecovery(
+            "browser-online",
+            2000
+        );
+    }
+);
+
+
+/* ==========================================
+   FIREBASE AUTH RESTORED
+========================================== */
+
+document.addEventListener(
+    "jufelix:auth-ready",
+    function (
+        event
+    ) {
+
+        const detail =
+            event.detail ||
+            {};
+
+
+        if (
+            detail.authenticated !==
+            true
+        ) {
+
+            return;
+        }
+
+
+        console.log(
+            "🔐 Firebase Authentication restored. Checking offline sales..."
+        );
+
+
+        scheduleSalesRecovery(
+            "firebase-auth-ready",
+            500
+        );
+    }
+);
+
+
+/* ==========================================
+   FIREBASE READY
+========================================== */
+
+document.addEventListener(
+    "jufelix:firebase-ready",
+    function (
+        event
+    ) {
+
+        const detail =
+            event.detail ||
+            {};
+
+
+        if (
+            detail.authenticated !==
+            true
+        ) {
+
+            return;
+        }
+
+
+        scheduleSalesRecovery(
+            "firebase-ready",
+            800
+        );
     }
 );
 
@@ -2132,16 +2490,8 @@ window.addEventListener(
 
 window.JufelixSalesCloud = {
 
-    /*
-     * Preferred API for completed POS sales.
-     */
-
     commitSale:
         commitSale,
-
-    /*
-     * Compatibility APIs.
-     */
 
     saveSale:
         saveSale,
@@ -2159,7 +2509,10 @@ window.JufelixSalesCloud = {
         startRealtimeListeners,
 
     checkFirebaseUser:
-        checkFirebaseUser
+        checkFirebaseUser,
+
+    recoverOfflineSales:
+        recoverOfflineSales
 };
 
 
@@ -2169,7 +2522,9 @@ window.JufelixSalesCloud = {
 
 async function startSalesCloud() {
 
-    if (started) {
+    if (
+        started
+    ) {
 
         return;
     }
@@ -2199,8 +2554,25 @@ async function startSalesCloud() {
         await startRealtimeListeners();
 
 
+        /*
+         * IMPORTANT:
+         *
+         * Check the local sales database every
+         * time the Sales Cloud bridge starts.
+         *
+         * This catches transactions that were
+         * created during a previous offline
+         * session.
+         */
+
+        scheduleSalesRecovery(
+            "sales-cloud-startup",
+            1000
+        );
+
+
         console.log(
-            "✅ Jufelix Transaction-Safe Sales Cloud v707 ready."
+            "✅ Jufelix Transaction-Safe Sales Cloud v708 ready."
         );
 
 
@@ -2220,17 +2592,22 @@ async function startSalesCloud() {
             );
 
 
-        console.error(
-            "❌ Sales Cloud startup failed:",
-            error
+        console.warn(
+            "Sales Cloud startup waiting:",
+            friendly.message
         );
 
+
+        /*
+         * We still announce that the bridge
+         * loaded so sales.js can continue its
+         * local/offline operation.
+         */
 
         document.dispatchEvent(
 
             new CustomEvent(
                 "jufelix:sales-cloud-ready",
-
                 {
                     detail: {
 
@@ -2243,6 +2620,23 @@ async function startSalesCloud() {
                 }
             )
         );
+
+
+        /*
+         * If the browser already reports online,
+         * try again shortly because Firebase Auth
+         * may simply still be restoring.
+         */
+
+        if (
+            navigator.onLine
+        ) {
+
+            scheduleSalesRecovery(
+                "startup-auth-retry",
+                5000
+            );
+        }
     }
 }
 
