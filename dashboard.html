@@ -1144,7 +1144,44 @@
 <script
     src="config/firebase-config.js?v=1205"
 ></script>
+<script>
+    console.log(
+        "FIREBASE CONFIG CHECK:",
+        {
+            enabled:
+                window.JUFELIX_FIREBASE_ENABLED,
 
+            hasConfig:
+                Boolean(
+                    window.JUFELIX_FIREBASE_CONFIG
+                ),
+
+            projectId:
+                window.JUFELIX_FIREBASE_CONFIG
+                    ? window.JUFELIX_FIREBASE_CONFIG.projectId
+                    : null
+        }
+    );
+
+    alert(
+        "Firebase enabled: " +
+        String(
+            window.JUFELIX_FIREBASE_ENABLED
+        ) +
+        "\nConfig loaded: " +
+        String(
+            Boolean(
+                window.JUFELIX_FIREBASE_CONFIG
+            )
+        ) +
+        "\nProject: " +
+        String(
+            window.JUFELIX_FIREBASE_CONFIG
+                ? window.JUFELIX_FIREBASE_CONFIG.projectId
+                : "missing"
+        )
+    );
+</script>
 
 <!-- =========================================
      FIREBASE CONNECTION
