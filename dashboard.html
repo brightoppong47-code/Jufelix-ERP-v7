@@ -1141,47 +1141,8 @@
      FIREBASE CONFIGURATION
 ========================================= -->
 
-<script
-    src="config/firebase-config.js?v=1205"
-></script>
-<script>
-    console.log(
-        "FIREBASE CONFIG CHECK:",
-        {
-            enabled:
-                window.JUFELIX_FIREBASE_ENABLED,
+<script src="./config/firebase-config.js?v=1300"></script>
 
-            hasConfig:
-                Boolean(
-                    window.JUFELIX_FIREBASE_CONFIG
-                ),
-
-            projectId:
-                window.JUFELIX_FIREBASE_CONFIG
-                    ? window.JUFELIX_FIREBASE_CONFIG.projectId
-                    : null
-        }
-    );
-
-    alert(
-        "Firebase enabled: " +
-        String(
-            window.JUFELIX_FIREBASE_ENABLED
-        ) +
-        "\nConfig loaded: " +
-        String(
-            Boolean(
-                window.JUFELIX_FIREBASE_CONFIG
-            )
-        ) +
-        "\nProject: " +
-        String(
-            window.JUFELIX_FIREBASE_CONFIG
-                ? window.JUFELIX_FIREBASE_CONFIG.projectId
-                : "missing"
-        )
-    );
-</script>
 
 <!-- =========================================
      FIREBASE CONNECTION
@@ -1189,7 +1150,7 @@
 
 <script
     type="module"
-    src="js/core/firebase.js?v=1205"
+    src="./js/core/firebase.js?v=1300"
 ></script>
 
 
@@ -1197,34 +1158,22 @@
      CORE
 ========================================= -->
 
-<script
-    src="js/core/storage.js?v=501"
-></script>
+<script src="./js/core/storage.js?v=501"></script>
 
-<script
-    src="js/core/permissions.js?v=501"
-></script>
+<script src="./js/core/permissions.js?v=501"></script>
 
-<script
-    src="js/core/auth-guard.js?v=650"
-></script>
+<script src="./js/core/auth-guard.js?v=650"></script>
 
-<script
-    src="js/core/theme.js?v=580"
-></script>
+<script src="./js/core/theme.js?v=580"></script>
 
 
 <!-- =========================================
      COMPONENTS
 ========================================= -->
 
-<script
-    src="js/components/sidebar.js?v=610"
-></script>
+<script src="./js/components/sidebar.js?v=610"></script>
 
-<script
-    src="js/components/topbar.js?v=620"
-></script>
+<script src="./js/components/topbar.js?v=620"></script>
 
 
 <!-- =========================================
@@ -1233,7 +1182,7 @@
 
 <script
     type="module"
-    src="js/cloud/inventory-cloud.js?v=706"
+    src="./js/cloud/inventory-cloud.js?v=706"
 ></script>
 
 
@@ -1241,9 +1190,95 @@
      DASHBOARD MODULE
 ========================================= -->
 
-<script
-    src="js/modules/dashboard.js?v=642"
-></script>
+<script src="./js/modules/dashboard.js?v=642"></script>
+
+
+<!-- =========================================
+     FIREBASE FINAL DIAGNOSTIC
+========================================= -->
+
+<script>
+
+window.addEventListener(
+    "load",
+    function () {
+
+        setTimeout(
+            function () {
+
+                const enabled =
+                    window.JUFELIX_FIREBASE_ENABLED;
+
+                const config =
+                    window.JUFELIX_FIREBASE_CONFIG;
+
+                const firebase =
+                    window.JufelixFirebase;
+
+
+                console.log(
+                    "🔥 FINAL FIREBASE TEST",
+                    {
+                        enabled: enabled,
+
+                        config: config,
+
+                        firebase: firebase
+                    }
+                );
+
+
+                alert(
+                    "FINAL FIREBASE TEST\n\n" +
+
+                    "Enabled: " +
+                    String(enabled) +
+
+                    "\nConfig: " +
+                    (
+                        config
+                            ? "YES"
+                            : "NO"
+                    ) +
+
+                    "\nProject: " +
+                    (
+                        config &&
+                        config.projectId
+                            ? config.projectId
+                            : "MISSING"
+                    ) +
+
+                    "\nFirebase Core: " +
+                    (
+                        firebase &&
+                        firebase.db
+                            ? "READY"
+                            : "NOT READY"
+                    ) +
+
+                    "\nAuthenticated: " +
+                    (
+                        firebase &&
+                        (
+                            firebase.user ||
+                            (
+                                firebase.auth &&
+                                firebase.auth.currentUser
+                            )
+                        )
+                            ? "YES"
+                            : "NO"
+                    )
+                );
+
+            },
+            2500
+        );
+    }
+);
+
+</script>
 
 </body>
 
