@@ -1,22 +1,52 @@
 /* =========================================================
    JUFELIX ERP v7.0 PROFESSIONAL
-   Shared Branded + Theme-Aware Topbar Component
+   SHARED BRANDED + THEME-AWARE TOPBAR COMPONENT
 
    File:
    js/components/topbar.js
+
+   Version: 621
+
+   + Mobile menu
+   + Company branding
+   + Theme aware
+   + Current user details
+   + Branch display
+   + Live date/time
+   + Firebase logout
+   + Local ERP session logout
+   + Offline-safe logout fallback
 ========================================================= */
 
 (function () {
+
     "use strict";
 
-    document.addEventListener(
-        "DOMContentLoaded",
-        initializeTopbar
-    );
+
+    /* =====================================================
+       START
+    ===================================================== */
+
+    if (
+        document.readyState ===
+        "loading"
+    ) {
+
+        document.addEventListener(
+            "DOMContentLoaded",
+            initializeTopbar
+        );
+
+    } else {
+
+        initializeTopbar();
+    }
+
 
     document.addEventListener(
         "jufelix:settingsChanged",
         function () {
+
             initializeTopbar();
         }
     );
@@ -33,6 +63,7 @@
                 "topbar"
             );
 
+
         if (!topbar) {
 
             console.warn(
@@ -42,17 +73,21 @@
             return;
         }
 
+
         const currentUser =
             getCurrentUser();
 
+
         const company =
             getCompanySettings();
+
 
         topbar.innerHTML =
             createTopbarMarkup(
                 currentUser,
                 company
             );
+
 
         addTopbarStyles();
 
@@ -78,31 +113,50 @@
     ) {
 
         const companyName =
+
             company.companyName ||
+
             company.name ||
+
             "Jufelix Services";
 
+
         const companyLogo =
+
             getSavedCompanyLogo() ||
+
             company.logo ||
+
             company.logoUrl ||
+
             "";
 
+
         const fullName =
+
             user.fullName ||
+
             user.name ||
+
             user.email ||
+
             user.username ||
+
             "User";
+
 
         const role =
             formatRole(
                 user.role
             );
 
+
         const branchName =
+
             user.branchName ||
+
             getActiveBranchName() ||
+
             "Head Office";
 
 
@@ -159,7 +213,6 @@
 
 
                 </div>
-
 
 
                 <div class="topbar-right">
@@ -270,11 +323,15 @@
             String(
                 companyName ||
                 "Jufelix"
-            ).trim();
+            )
+                .trim();
+
 
         return (
+
             text.charAt(0)
                 .toUpperCase() ||
+
             "J"
         );
     }
@@ -291,10 +348,12 @@
                 "topbarMenuButton"
             );
 
+
         const logoutButton =
             document.getElementById(
                 "topbarLogoutButton"
             );
+
 
         const overlay =
             document.getElementById(
@@ -357,8 +416,10 @@
                 "function"
         ) {
 
-            window.JufelixSidebar
+            window
+                .JufelixSidebar
                 .toggle();
+
 
             return;
         }
@@ -369,6 +430,7 @@
                 "sidebar"
             );
 
+
         const overlay =
             document.getElementById(
                 "sidebarOverlay"
@@ -376,6 +438,7 @@
 
 
         if (!sidebar) {
+
             return;
         }
 
@@ -423,8 +486,10 @@
                 "function"
         ) {
 
-            window.JufelixSidebar
+            window
+                .JufelixSidebar
                 .close();
+
 
             return;
         }
@@ -434,6 +499,7 @@
             document.getElementById(
                 "sidebar"
             );
+
 
         const overlay =
             document.getElementById(
@@ -512,6 +578,7 @@
 
 
         if (!dateElement) {
+
             return;
         }
 
@@ -521,28 +588,30 @@
 
 
         dateElement.textContent =
-            currentDate.toLocaleString(
-                "en-GH",
-                {
-                    weekday:
-                        "short",
+            currentDate
+                .toLocaleString(
+                    "en-GH",
+                    {
 
-                    day:
-                        "2-digit",
+                        weekday:
+                            "short",
 
-                    month:
-                        "short",
+                        day:
+                            "2-digit",
 
-                    year:
-                        "numeric",
+                        month:
+                            "short",
 
-                    hour:
-                        "2-digit",
+                        year:
+                            "numeric",
 
-                    minute:
-                        "2-digit"
-                }
-            );
+                        hour:
+                            "2-digit",
+
+                        minute:
+                            "2-digit"
+                    }
+                );
     }
 
 
@@ -570,7 +639,7 @@
        LOGOUT
     ===================================================== */
 
-    function logoutUser() {
+    async function logoutUser() {
 
         const confirmed =
             window.confirm(
@@ -579,34 +648,169 @@
 
 
         if (!confirmed) {
+
             return;
         }
 
 
-        localStorage.removeItem(
-            "jufelix_v7_current_user"
-        );
+        const logoutButton =
+            document.getElementById(
+                "topbarLogoutButton"
+            );
 
-        localStorage.removeItem(
-            "currentUser"
-        );
 
-        localStorage.removeItem(
-            "loggedIn"
-        );
+        if (logoutButton) {
 
-        localStorage.removeItem(
-            "jufelix_v7_active_branch"
-        );
+            logoutButton.disabled =
+                true;
 
-        sessionStorage.removeItem(
-            "jufelixSessionActive"
+
+            logoutButton.textContent =
+                "Logging out...";
+        }
+
+
+        /*
+         * Clear the local ERP session first.
+         *
+         * This guarantees the user is logged out
+         * locally even when internet/Firebase is
+         * temporarily unavailable.
+         */
+
+        clearLocalSession();
+
+
+        try {
+
+            const firebase =
+                window.JufelixFirebase;
+
+
+            if (
+                firebase &&
+                firebase.auth
+            ) {
+
+                try {
+
+                    /*
+                     * Firebase Auth is loaded as an
+                     * ES module in firebase.js.
+                     *
+                     * Import signOut here so the
+                     * topbar does not need to become
+                     * a module itself.
+                     */
+
+                    const authModule =
+                        await import(
+                            "https://www.gstatic.com/firebasejs/12.2.1/firebase-auth.js"
+                        );
+
+
+                    if (
+                        firebase.auth
+                            .currentUser
+                    ) {
+
+                        await authModule
+                            .signOut(
+                                firebase.auth
+                            );
+                    }
+
+
+                    firebase.user =
+                        null;
+
+
+                    console.log(
+                        "✅ Firebase Authentication signed out."
+                    );
+
+
+                } catch (firebaseError) {
+
+                    /*
+                     * Do not stop logout if the
+                     * phone is offline or Firebase
+                     * cannot be contacted.
+                     */
+
+                    console.warn(
+                        "Firebase logout warning:",
+                        firebaseError
+                    );
+                }
+            }
+
+
+        } catch (error) {
+
+            console.warn(
+                "Logout cleanup warning:",
+                error
+            );
+        }
+
+
+        /*
+         * Clear once more in case any auth event
+         * or another module recreated session
+         * values while Firebase was signing out.
+         */
+
+        clearLocalSession();
+
+
+        console.log(
+            "✅ Jufelix ERP logout complete."
         );
 
 
         window.location.replace(
-            "login.html"
+            "./login.html"
         );
+    }
+
+
+    function clearLocalSession() {
+
+        try {
+
+            localStorage.removeItem(
+                "jufelix_v7_current_user"
+            );
+
+
+            localStorage.removeItem(
+                "currentUser"
+            );
+
+
+            localStorage.removeItem(
+                "loggedIn"
+            );
+
+
+            localStorage.removeItem(
+                "jufelix_v7_active_branch"
+            );
+
+
+            sessionStorage.removeItem(
+                "jufelixSessionActive"
+            );
+
+
+        } catch (error) {
+
+            console.warn(
+                "Local logout storage warning:",
+                error
+            );
+        }
     }
 
 
@@ -617,12 +821,15 @@
     function getCurrentUser() {
 
         return (
+
             readStoredObject(
                 "jufelix_v7_current_user"
             ) ||
+
             readStoredObject(
                 "currentUser"
             ) ||
+
             {}
         );
     }
@@ -641,13 +848,17 @@
 
 
         if (!branch) {
+
             return "";
         }
 
 
         return (
+
             branch.branchName ||
+
             branch.name ||
+
             ""
         );
     }
@@ -666,6 +877,7 @@
 
 
         if (company) {
+
             return company;
         }
 
@@ -677,6 +889,7 @@
 
 
         if (legacyCompany) {
+
             return legacyCompany;
         }
 
@@ -718,11 +931,14 @@
         try {
 
             return (
+
                 localStorage.getItem(
                     "jufelix_v7_company_logo"
                 ) ||
+
                 ""
             );
+
 
         } catch (error) {
 
@@ -749,9 +965,13 @@
                 "function"
         ) {
 
-            window.JufelixTheme.apply(
-                window.JufelixTheme.current()
-            );
+            window
+                .JufelixTheme
+                .apply(
+                    window
+                        .JufelixTheme
+                        .current()
+                );
         }
     }
 
@@ -773,6 +993,7 @@
 
 
             if (!savedData) {
+
                 return null;
             }
 
@@ -797,6 +1018,7 @@
 
 
             return null;
+
 
         } catch (error) {
 
@@ -890,9 +1112,11 @@
 
 
         return (
+
             aliases[
                 value
             ] ||
+
             value
         );
     }
@@ -931,10 +1155,13 @@
 
 
         return (
+
             roles[
                 normalized
             ] ||
+
             role ||
+
             "User"
         );
     }
@@ -949,8 +1176,10 @@
     ) {
 
         return String(
-            value === undefined ||
-            value === null
+            value ===
+                undefined ||
+            value ===
+                null
                 ? ""
                 : value
         )
@@ -1109,7 +1338,8 @@
 
                 border: none;
 
-                border-radius: 9px;
+                border-radius:
+                    9px;
 
                 background:
                     var(
@@ -1126,9 +1356,11 @@
 
                 height: 3px;
 
-                border-radius: 5px;
+                border-radius:
+                    5px;
 
-                background: #ffffff;
+                background:
+                    #ffffff;
             }
 
 
@@ -1148,7 +1380,8 @@
 
                 overflow: hidden;
 
-                border-radius: 10px;
+                border-radius:
+                    10px;
 
                 background:
                     var(
@@ -1162,11 +1395,13 @@
                 width: 100%;
                 height: 100%;
 
-                object-fit: contain;
+                object-fit:
+                    contain;
 
                 padding: 3px;
 
-                background: #ffffff;
+                background:
+                    #ffffff;
             }
 
 
@@ -1182,11 +1417,14 @@
                 justify-content:
                     center;
 
-                color: #ffffff;
+                color:
+                    #ffffff;
 
-                font-size: 21px;
+                font-size:
+                    21px;
 
-                font-weight: 900;
+                font-weight:
+                    900;
             }
 
 
@@ -1201,14 +1439,17 @@
 
 
             .topbar-company strong {
-                max-width: 350px;
+                max-width:
+                    350px;
 
-                overflow: hidden;
+                overflow:
+                    hidden;
 
                 text-overflow:
                     ellipsis;
 
-                white-space: nowrap;
+                white-space:
+                    nowrap;
 
                 color:
                     var(
@@ -1216,12 +1457,14 @@
                         #1f2937
                     );
 
-                font-size: 18px;
+                font-size:
+                    18px;
             }
 
 
             .topbar-company span {
-                margin-top: 4px;
+                margin-top:
+                    4px;
 
                 color:
                     var(
@@ -1229,7 +1472,8 @@
                         #6b7280
                     );
 
-                font-size: 12px;
+                font-size:
+                    12px;
             }
 
 
@@ -1239,7 +1483,8 @@
                 flex-direction:
                     column;
 
-                text-align: right;
+                text-align:
+                    right;
             }
 
 
@@ -1250,12 +1495,14 @@
                         #1f2937
                     );
 
-                font-size: 14px;
+                font-size:
+                    14px;
             }
 
 
             .topbar-user-info span {
-                margin-top: 3px;
+                margin-top:
+                    3px;
 
                 color:
                     var(
@@ -1263,28 +1510,34 @@
                         #6b7280
                     );
 
-                font-size: 12px;
+                font-size:
+                    12px;
             }
 
 
             .topbar-logout-button {
-                min-height: 40px;
+                min-height:
+                    40px;
 
                 padding:
                     0 16px;
 
                 border: none;
 
-                border-radius: 8px;
+                border-radius:
+                    8px;
 
                 background:
                     #dc3545;
 
-                color: #ffffff;
+                color:
+                    #ffffff;
 
-                font-weight: 700;
+                font-weight:
+                    700;
 
-                cursor: pointer;
+                cursor:
+                    pointer;
             }
 
 
@@ -1294,14 +1547,26 @@
             }
 
 
+            .topbar-logout-button:disabled {
+                opacity:
+                    .65;
+
+                cursor:
+                    not-allowed;
+            }
+
+
             .sidebar-overlay {
-                position: fixed;
+                position:
+                    fixed;
 
                 inset: 0;
 
-                z-index: 900;
+                z-index:
+                    900;
 
-                display: none;
+                display:
+                    none;
 
                 background:
                     rgba(
@@ -1314,12 +1579,14 @@
 
 
             .sidebar-overlay.show {
-                display: block;
+                display:
+                    block;
             }
 
 
             body.sidebar-menu-open {
-                overflow: hidden;
+                overflow:
+                    hidden;
             }
 
 
@@ -1327,9 +1594,9 @@
             (max-width: 900px) {
 
                 .topbar-menu-button {
-                    display: flex;
+                    display:
+                        flex;
                 }
-
             }
 
 
@@ -1346,10 +1613,14 @@
 
 
                 .topbar-brand-logo {
-                    width: 38px;
-                    height: 38px;
+                    width:
+                        38px;
 
-                    min-width: 38px;
+                    height:
+                        38px;
+
+                    min-width:
+                        38px;
                 }
 
 
@@ -1363,7 +1634,8 @@
 
 
                 .topbar-user-info {
-                    display: none;
+                    display:
+                        none;
                 }
 
 
@@ -1371,7 +1643,6 @@
                     padding:
                         0 12px;
                 }
-
             }
 
 
@@ -1379,15 +1650,20 @@
             (max-width: 430px) {
 
                 .topbar-company span {
-                    display: none;
+                    display:
+                        none;
                 }
 
 
                 .topbar-brand-logo {
-                    width: 36px;
-                    height: 36px;
+                    width:
+                        36px;
 
-                    min-width: 36px;
+                    height:
+                        36px;
+
+                    min-width:
+                        36px;
                 }
 
 
@@ -1401,7 +1677,6 @@
                     font-size:
                         12px;
                 }
-
             }
 
         `;
@@ -1429,7 +1704,11 @@
             toggleSidebar,
 
         closeSidebar:
-            closeSidebar
+            closeSidebar,
+
+        logout:
+            logoutUser
     };
+
 
 })();
