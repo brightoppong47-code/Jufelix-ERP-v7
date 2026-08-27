@@ -624,15 +624,9 @@ async function handleLogin(
         ====================================== */
 
         await setPersistence(
-            auth,
-
-            remember
-
-                ? browserLocalPersistence
-
-                : browserSessionPersistence
-        );
-
+    auth,
+    browserLocalPersistence
+);
 
         console.log(
             "Firebase persistence configured:",
