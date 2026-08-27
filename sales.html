@@ -2783,8 +2783,79 @@ document.addEventListener(
 ========================================= -->
 
 <script
-    src="config/firebase-config.js?v=701"
+    src="./config/firebase-config.js?v=1301"
 ></script>
+
+
+<!-- =========================================
+     FIREBASE CONFIG FALLBACK
+========================================= -->
+
+<script>
+
+    (function () {
+
+        "use strict";
+
+
+        /*
+         * Normally firebase-config.js supplies
+         * this configuration.
+         *
+         * The fallback protects the Sales page
+         * when the PWA/service worker fails to
+         * execute the external config script.
+         */
+
+        if (
+            !window.JUFELIX_FIREBASE_CONFIG ||
+            !window
+                .JUFELIX_FIREBASE_CONFIG
+                .projectId
+        ) {
+
+            console.warn(
+                "Sales Firebase config file was not executed. Using fallback."
+            );
+
+
+            window.JUFELIX_FIREBASE_CONFIG = {
+
+                apiKey:
+                    "AIzaSyAC3sMFu0LnchFFP1Wrqc_r_fcZWSOWt5I",
+
+                authDomain:
+                    "jufelix-erp-v7.firebaseapp.com",
+
+                projectId:
+                    "jufelix-erp-v7",
+
+                storageBucket:
+                    "jufelix-erp-v7.firebasestorage.app",
+
+                messagingSenderId:
+                    "1012255951864",
+
+                appId:
+                    "1:1012255951864:web:539c79ddb4433f1dcb640d"
+            };
+        }
+
+
+        window.JUFELIX_FIREBASE_ENABLED =
+            true;
+
+
+        console.log(
+            "✅ Sales Firebase configuration ready:",
+            window
+                .JUFELIX_FIREBASE_CONFIG
+                .projectId
+        );
+
+    })();
+
+</script>
 
 
 <!-- =========================================
@@ -2793,7 +2864,41 @@ document.addEventListener(
 
 <script
     type="module"
-    src="js/core/firebase.js?v=704"
+    src="./js/core/firebase.js?v=1301"
+></script>
+
+
+<!-- =========================================
+     CORE
+========================================= -->
+
+<script
+    src="./js/core/storage.js?v=500"
+></script>
+
+<script
+    src="./js/core/permissions.js?v=501"
+></script>
+
+<script
+    src="./js/core/auth-guard.js?v=650"
+></script>
+
+<script
+    src="./js/core/theme.js?v=580"
+></script>
+
+
+<!-- =========================================
+     COMPONENTS
+========================================= -->
+
+<script
+    src="./js/components/sidebar.js?v=610"
+></script>
+
+<script
+    src="./js/components/topbar.js?v=620"
 ></script>
 
 
@@ -2803,41 +2908,7 @@ document.addEventListener(
 
 <script
     type="module"
-    src="js/cloud/sales-cloud.js?v=708"
-></script>
-
-
-<!-- =========================================
-     CORE
-========================================= -->
-
-<script
-    src="js/core/storage.js?v=500"
-></script>
-
-<script
-    src="js/core/permissions.js?v=501"
-></script>
-
-<script
-    src="js/core/auth-guard.js?v=650"
-></script>
-
-<script
-    src="js/core/theme.js?v=580"
-></script>
-
-
-<!-- =========================================
-     COMPONENTS
-========================================= -->
-
-<script
-    src="js/components/sidebar.js?v=610"
-></script>
-
-<script
-    src="js/components/topbar.js?v=620"
+    src="./js/cloud/sales-cloud.js?v=708"
 ></script>
 
 
@@ -2855,7 +2926,7 @@ document.addEventListener(
 ========================================= -->
 
 <script
-    src="js/modules/receipt.js?v=900"
+    src="./js/modules/receipt.js?v=900"
 ></script>
 
 
@@ -2864,7 +2935,7 @@ document.addEventListener(
 ========================================= -->
 
 <script
-    src="js/modules/sales.js?v=1011"
+    src="./js/modules/sales.js?v=1011"
 ></script>
 
 
