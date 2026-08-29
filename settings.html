@@ -1182,6 +1182,92 @@
 
 
                     <!-- =================================
+                         SAFE DATA RESTORE
+                    ================================== -->
+
+                    <section
+                        id="settingsRestoreCard"
+                        class="card"
+                    >
+
+                        <div class="card-header">
+
+                            <h2>
+                                ♻️ Restore Data Backup
+                            </h2>
+
+                            <p>
+                                Select a complete Jufelix JSON backup,
+                                review its record totals and restore it
+                                safely as Administrator.
+                            </p>
+
+                        </div>
+
+
+                        <div class="form-group">
+
+                            <label for="restoreBackupFile">
+                                Select Backup File
+                            </label>
+
+                            <input
+                                type="file"
+                                id="restoreBackupFile"
+                                class="form-control"
+                                accept="application/json,.json"
+                            >
+
+                        </div>
+
+
+                        <div
+                            id="restoreBackupPreview"
+                            class="cloud-status"
+                            hidden
+                        ></div>
+
+
+                        <div
+                            id="restoreStatus"
+                            class="setting-info"
+                            data-status="ready"
+                        >
+                            No backup file selected.
+                        </div>
+
+
+                        <div class="danger-warning">
+
+                            <strong>
+                                Safe restore protection
+                            </strong>
+
+                            Jufelix creates a fresh safety backup first.
+                            Matching records are restored, while newer
+                            records that are absent from the selected
+                            backup are not deleted.
+
+                        </div>
+
+
+                        <div class="form-actions">
+
+                            <button
+                                type="button"
+                                id="restoreBackupButton"
+                                class="btn btn-warning"
+                                disabled
+                            >
+                                ♻️ Restore Selected Backup
+                            </button>
+
+                        </div>
+
+                    </section>
+
+
+                    <!-- =================================
                          DANGER ZONE
                     ================================== -->
 
@@ -1625,6 +1711,15 @@
 
     <script
         src="js/modules/backup.js?v=100"
+    ></script>
+
+
+    <!-- =========================================
+         SAFE RESTORE MODULE
+    ========================================== -->
+
+    <script
+        src="js/modules/restore.js?v=100"
     ></script>
 
 
