@@ -1120,6 +1120,68 @@
 
 
                     <!-- =================================
+                         COMPLETE DATA BACKUP
+                    ================================== -->
+
+                    <section
+                        id="settingsBackupCard"
+                        class="card"
+                    >
+
+                        <div class="card-header">
+
+                            <h2>
+                                🛡️ Complete Data Backup
+                            </h2>
+
+                            <p>
+                                Download a private JSON backup containing
+                                all Jufelix Firestore collections and the
+                                ERP data stored on this device.
+                            </p>
+
+                        </div>
+
+
+                        <div
+                            id="backupStatus"
+                            class="cloud-status"
+                            data-status="ready"
+                        >
+
+                            <strong>
+                                Backup Ready
+                            </strong>
+
+                            Sign in as Administrator and keep the internet
+                            connected before starting the backup.
+
+                        </div>
+
+
+                        <div class="setting-info">
+                            The downloaded file may contain sensitive business
+                            and user information. Store it somewhere private.
+                        </div>
+
+
+                        <div class="form-actions">
+
+                            <button
+                                type="button"
+                                id="downloadCompleteBackup"
+                                class="btn btn-primary"
+                                onclick="window.JufelixBackup.downloadCompleteBackup().catch(function () {});"
+                            >
+                                ⬇️ Download Complete Backup
+                            </button>
+
+                        </div>
+
+                    </section>
+
+
+                    <!-- =================================
                          DANGER ZONE
                     ================================== -->
 
@@ -1554,6 +1616,15 @@
 
     <script
         src="js/modules/settings.js?v=572"
+    ></script>
+
+
+    <!-- =========================================
+         COMPLETE BACKUP MODULE
+    ========================================== -->
+
+    <script
+        src="js/modules/backup.js?v=100"
     ></script>
 
 
