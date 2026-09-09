@@ -9,7 +9,7 @@
    + Business logo sync across devices
    + Spark-plan compatible
    + Realtime settings updates
-   + Keeps localStorage compatibility
+   + Verifies system/company after saving
 ========================================== */
 
 
@@ -43,12 +43,6 @@ const COLLECTION_NAME =
 
 const DOCUMENT_ID =
     "company";
-
-
-/*
- * Keep the logo comfortably below
- * Firestore's document-size limit.
- */
 
 const MAX_LOGO_LENGTH =
     450000;
@@ -120,6 +114,7 @@ async function getFirebase() {
 
                 if (
                     firebase &&
+                    firebase.app &&
                     firebase.db &&
                     firebase.auth &&
                     firebase.auth.currentUser
@@ -163,7 +158,7 @@ async function getFirebase() {
 
 
 /* ==========================================
-   LOCAL HELPERS
+   LOCAL STORAGE HELPERS
 ========================================== */
 
 function readObject(
@@ -208,6 +203,13 @@ function readObject(
 
     } catch (error) {
 
+        console.error(
+            "Settings Cloud read error:",
+            key,
+            error
+        );
+
+
         return null;
     }
 }
@@ -223,6 +225,7 @@ function getLocalLogo() {
             ) ||
             ""
         );
+
 
     } catch (error) {
 
@@ -274,7 +277,7 @@ function validateLogo(
     ) {
 
         throw new Error(
-            "Company logo is too large for cloud synchronization."
+            "Company logo is too large for Firebase synchronization."
         );
     }
 
@@ -284,7 +287,7 @@ function validateLogo(
 
 
 /* ==========================================
-   BUILD LOCAL SETTINGS
+   LOCAL SETTINGS
 ========================================== */
 
 function getLocalSettings() {
@@ -410,13 +413,17 @@ async function saveSettings(
 
     try {
 
-        await setDoc(
-
+        const companyRef =
             doc(
                 firebase.db,
                 COLLECTION_NAME,
                 DOCUMENT_ID
-            ),
+            );
+
+
+        await setDoc(
+
+            companyRef,
 
             cloudData,
 
@@ -427,12 +434,82 @@ async function saveSettings(
         );
 
 
+        /* ==================================
+           VERIFY FIRESTORE SAVE
+        ================================== */
+
+        const verifySnapshot =
+            await getDoc(
+                companyRef
+            );
+
+
+        if (
+            !verifySnapshot.exists()
+        ) {
+
+            throw new Error(
+                "Firebase reported success, but system/company was not found."
+            );
+        }
+
+
+        const verifiedData =
+            verifySnapshot.data();
+
+
         console.log(
-            "✅ Company settings and logo synced to Firebase."
+            "✅ VERIFIED: system/company exists in Firebase."
         );
 
 
-        return true;
+        console.log(
+            "Firebase Project:",
+            firebase.app.options.projectId
+        );
+
+
+        console.log(
+            "Company Cloud Data:",
+            verifiedData
+        );
+
+
+        document.dispatchEvent(
+
+            new CustomEvent(
+                "jufelix:settings-cloud-saved",
+                {
+                    detail: {
+
+                        projectId:
+                            firebase.app.options.projectId,
+
+                        document:
+                            "system/company",
+
+                        data:
+                            verifiedData
+                    }
+                }
+            )
+        );
+
+
+        return {
+
+            success:
+                true,
+
+            projectId:
+                firebase.app.options.projectId,
+
+            document:
+                "system/company",
+
+            data:
+                verifiedData
+        };
 
 
     } catch (error) {
@@ -582,10 +659,6 @@ function applyCloudSettings(
         );
 
 
-        /*
-         * Save cloud logo locally.
-         */
-
         if (
             typeof cloudData.logo ===
                 "string" &&
@@ -616,11 +689,6 @@ function applyCloudSettings(
         ""
     );
 
-
-    /*
-     * Tell other ERP modules that
-     * settings changed.
-     */
 
     document.dispatchEvent(
 
@@ -663,7 +731,7 @@ function applyCloudSettings(
 
 
 /* ==========================================
-   UPDATE PAGE BRANDING
+   VISIBLE BRANDING
 ========================================== */
 
 function refreshVisibleBranding(
@@ -713,10 +781,6 @@ function refreshVisibleBranding(
     }
 
 
-    /*
-     * Refresh sidebar.
-     */
-
     if (
         window.JufelixSidebar &&
         typeof window
@@ -729,11 +793,6 @@ function refreshVisibleBranding(
             .refresh();
     }
 
-
-    /*
-     * Refresh Settings logo preview
-     * when currently on Settings page.
-     */
 
     const logoPreview =
         document.getElementById(
@@ -786,11 +845,6 @@ async function startRealtimeListener() {
         );
 
 
-    /*
-     * First check whether the shared
-     * company document exists.
-     */
-
     const snapshot =
         await getDoc(
             companyRef
@@ -803,6 +857,11 @@ async function startRealtimeListener() {
 
         applyCloudSettings(
             snapshot.data()
+        );
+
+
+        console.log(
+            "☁️ Initial company settings loaded."
         );
     }
 
@@ -819,6 +878,10 @@ async function startRealtimeListener() {
                 if (
                     !documentSnapshot.exists()
                 ) {
+
+                    console.log(
+                        "Cloud company document does not exist yet."
+                    );
 
                     return;
                 }
@@ -845,6 +908,46 @@ async function startRealtimeListener() {
                 );
             }
         );
+}
+
+
+/* ==========================================
+   MANUAL VERIFY
+========================================== */
+
+async function verifyCompanyDocument() {
+
+    const firebase =
+        await getFirebase();
+
+
+    const companyRef =
+        doc(
+            firebase.db,
+            COLLECTION_NAME,
+            DOCUMENT_ID
+        );
+
+
+    const snapshot =
+        await getDoc(
+            companyRef
+        );
+
+
+    return {
+
+        exists:
+            snapshot.exists(),
+
+        projectId:
+            firebase.app.options.projectId,
+
+        data:
+            snapshot.exists()
+                ? snapshot.data()
+                : null
+    };
 }
 
 
@@ -908,7 +1011,7 @@ function createFriendlyError(
     ) {
 
         return new Error(
-            "The company logo is too large for Firebase."
+            "The company settings or logo are too large for Firebase."
         );
     }
 
@@ -934,6 +1037,9 @@ window.JufelixSettingsCloud = {
     refresh:
         startRealtimeListener,
 
+    verify:
+        verifyCompanyDocument,
+
     getLocalSettings:
         getLocalSettings
 };
@@ -957,7 +1063,14 @@ async function startSettingsCloud() {
 
     try {
 
-        await getFirebase();
+        const firebase =
+            await getFirebase();
+
+
+        console.log(
+            "Settings Cloud Project:",
+            firebase.app.options.projectId
+        );
 
 
         await startRealtimeListener();
@@ -971,7 +1084,14 @@ async function startSettingsCloud() {
         document.dispatchEvent(
 
             new CustomEvent(
-                "jufelix:settings-cloud-ready"
+                "jufelix:settings-cloud-ready",
+                {
+                    detail: {
+
+                        projectId:
+                            firebase.app.options.projectId
+                    }
+                }
             )
         );
 
