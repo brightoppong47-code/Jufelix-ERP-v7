@@ -1,19 +1,17 @@
 /* ==========================================
    JUFELIX ERP v7.0 PROFESSIONAL
-   INVENTORY CLOUD + FIREBASE STORAGE
+   INVENTORY CLOUD BRIDGE
+
+   FIRESTORE IMAGE VERSION
 
    File:
    js/cloud/inventory-cloud.js
 
-   + Firebase Authentication aware
-   + Realtime Firestore products
-   + Firebase Storage product images
-   + Product images available on all devices
-   + Safe multi-device branch stock
-   + Preserves other branches during edit
-   + Local Base64 image uploaded to Storage
-   + Firestore stores imageUrl
-   + Permanent product + image deletion
+   + No Firebase Storage required
+   + Works on Firebase Spark plan
+   + Product images sync through Firestore
+   + Realtime multi-device products
+   + Safe multi-branch stock merge
 ========================================== */
 
 
@@ -26,15 +24,6 @@ import {
     serverTimestamp,
     setDoc
 } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js";
-
-
-import {
-    getStorage,
-    ref,
-    uploadString,
-    getDownloadURL,
-    deleteObject
-} from "https://www.gstatic.com/firebasejs/12.2.1/firebase-storage.js";
 
 
 /* ==========================================
@@ -56,8 +45,17 @@ const DEFAULT_BRANCH_ID =
 const COLLECTION_NAME =
     "products";
 
-const IMAGE_FOLDER =
-    "product-images";
+
+/*
+ * Keep Base64 images reasonably small.
+ *
+ * This is deliberately well below the
+ * Firestore document limit because the
+ * document also contains product data.
+ */
+
+const MAX_IMAGE_STRING_LENGTH =
+    450000;
 
 
 /* ==========================================
@@ -65,9 +63,6 @@ const IMAGE_FOLDER =
 ========================================== */
 
 let database =
-    null;
-
-let storage =
     null;
 
 let started =
@@ -105,12 +100,6 @@ async function getFirebase() {
             firebase.db;
 
 
-        storage =
-            getStorage(
-                firebase.app
-            );
-
-
         return firebase;
     }
 
@@ -146,7 +135,6 @@ async function getFirebase() {
 
                 if (
                     firebase &&
-                    firebase.app &&
                     firebase.db &&
                     firebase.auth &&
                     firebase.auth.currentUser
@@ -154,12 +142,6 @@ async function getFirebase() {
 
                     database =
                         firebase.db;
-
-
-                    storage =
-                        getStorage(
-                            firebase.app
-                        );
 
 
                     resolve(
@@ -202,7 +184,7 @@ async function getFirebase() {
 
 
 /* ==========================================
-   LOCAL STORAGE
+   LOCAL PRODUCTS
 ========================================== */
 
 function readLocalProducts() {
@@ -216,6 +198,7 @@ function readLocalProducts() {
 
 
         if (!stored) {
+
             return [];
         }
 
@@ -293,6 +276,7 @@ function readObject(
 
 
         if (!stored) {
+
             return null;
         }
 
@@ -377,7 +361,7 @@ function getActiveBranchId() {
 
 
 /* ==========================================
-   CLEAN FIRESTORE VALUES
+   CLEAN VALUE
 ========================================== */
 
 function cleanValue(
@@ -387,6 +371,7 @@ function cleanValue(
     if (
         value === undefined
     ) {
+
         return null;
     }
 
@@ -396,6 +381,7 @@ function cleanValue(
         typeof value !==
             "object"
     ) {
+
         return value;
     }
 
@@ -441,7 +427,60 @@ function cleanValue(
 
 
 /* ==========================================
-   NORMALIZE BRANCH STOCK
+   IMAGE HELPERS
+========================================== */
+
+function isBase64Image(
+    value
+) {
+
+    return (
+        typeof value ===
+            "string" &&
+        value.startsWith(
+            "data:image/"
+        )
+    );
+}
+
+
+function validateProductImage(
+    imageData
+) {
+
+    if (!imageData) {
+
+        return true;
+    }
+
+
+    if (
+        !isBase64Image(
+            imageData
+        )
+    ) {
+
+        return true;
+    }
+
+
+    if (
+        imageData.length >
+        MAX_IMAGE_STRING_LENGTH
+    ) {
+
+        throw new Error(
+            "The product image is still too large for Firebase. Please choose a smaller image."
+        );
+    }
+
+
+    return true;
+}
+
+
+/* ==========================================
+   BRANCH STOCK
 ========================================== */
 
 function normalizeBranchStock(
@@ -489,10 +528,6 @@ function normalizeBranchStock(
 }
 
 
-/* ==========================================
-   TOTAL STOCK
-========================================== */
-
 function sumBranchStock(
     branchStock
 ) {
@@ -520,219 +555,7 @@ function sumBranchStock(
 
 
 /* ==========================================
-   IMAGE HELPERS
-========================================== */
-
-function isBase64Image(
-    value
-) {
-
-    return (
-        typeof value ===
-            "string" &&
-        value.startsWith(
-            "data:image/"
-        )
-    );
-}
-
-
-function isRemoteImage(
-    value
-) {
-
-    return (
-        typeof value ===
-            "string" &&
-        (
-            value.startsWith(
-                "https://"
-            ) ||
-            value.startsWith(
-                "http://"
-            )
-        )
-    );
-}
-
-
-function getProductImagePath(
-    productId
-) {
-
-    return (
-        IMAGE_FOLDER +
-        "/" +
-        String(
-            productId
-        ) +
-        ".jpg"
-    );
-}
-
-
-/* ==========================================
-   UPLOAD PRODUCT IMAGE
-========================================== */
-
-async function uploadProductImage(
-    productId,
-    imageData
-) {
-
-    await getFirebase();
-
-
-    if (!storage) {
-
-        throw new Error(
-            "Firebase Storage is not ready."
-        );
-    }
-
-
-    if (
-        !isBase64Image(
-            imageData
-        )
-    ) {
-
-        return "";
-    }
-
-
-    const imageReference =
-        ref(
-            storage,
-            getProductImagePath(
-                productId
-            )
-        );
-
-
-    console.log(
-        "☁️ Uploading product image:",
-        productId
-    );
-
-
-    await uploadString(
-
-        imageReference,
-
-        imageData,
-
-        "data_url",
-
-        {
-            contentType:
-                "image/jpeg",
-
-            customMetadata: {
-
-                productId:
-                    String(
-                        productId
-                    )
-            }
-        }
-    );
-
-
-    const downloadUrl =
-        await getDownloadURL(
-            imageReference
-        );
-
-
-    console.log(
-        "✅ Product image uploaded:",
-        productId
-    );
-
-
-    return downloadUrl;
-}
-
-
-/* ==========================================
-   DELETE STORAGE IMAGE
-========================================== */
-
-async function deleteProductImage(
-    productId
-) {
-
-    await getFirebase();
-
-
-    if (!storage) {
-        return false;
-    }
-
-
-    const imageReference =
-        ref(
-            storage,
-            getProductImagePath(
-                productId
-            )
-        );
-
-
-    try {
-
-        await deleteObject(
-            imageReference
-        );
-
-
-        console.log(
-            "✅ Product image deleted:",
-            productId
-        );
-
-
-        return true;
-
-
-    } catch (error) {
-
-        const code =
-            String(
-                error &&
-                error.code ||
-                ""
-            );
-
-
-        /*
-         * Product may never have had
-         * a Storage image.
-         */
-
-        if (
-            code ===
-            "storage/object-not-found"
-        ) {
-
-            return true;
-        }
-
-
-        console.warn(
-            "Product image deletion failed:",
-            error
-        );
-
-
-        return false;
-    }
-}
-
-
-/* ==========================================
-   PREPARE PRODUCT FOR FIRESTORE
+   PREPARE PRODUCT
 ========================================== */
 
 function prepareProductForCloud(
@@ -746,37 +569,30 @@ function prepareProductForCloud(
 
 
     /*
-     * Base64 must never be stored
-     * inside Firestore.
-     */
-
-    [
-        "image",
-        "imageData",
-        "photo"
-    ].forEach(
-        function (
-            field
-        ) {
-
-            if (
-                isBase64Image(
-                    data[field]
-                )
-            ) {
-
-                delete data[field];
-            }
-        }
-    );
-
-
-    /*
-     * localOnly is device state,
-     * not business data.
+     * localOnly belongs only to this
+     * particular device.
      */
 
     delete data.localOnly;
+
+
+    /*
+     * Keep only the normal "image" field.
+     */
+
+    delete data.imageData;
+
+    delete data.photo;
+
+
+    if (
+        data.image
+    ) {
+
+        validateProductImage(
+            data.image
+        );
+    }
 
 
     return data;
@@ -784,7 +600,7 @@ function prepareProductForCloud(
 
 
 /* ==========================================
-   SAVE ONE PRODUCT SAFELY
+   SAVE PRODUCT
 ========================================== */
 
 async function saveProduct(
@@ -830,19 +646,6 @@ async function saveProduct(
         );
 
 
-    console.log(
-        "☁️ Saving Inventory product:",
-        product.name ||
-        productId,
-        "Branch:",
-        activeBranchId
-    );
-
-
-    /*
-     * Read current cloud product first.
-     */
-
     const cloudSnapshot =
         await getDoc(
             productRef
@@ -858,13 +661,12 @@ async function saveProduct(
             : {};
 
 
-    /* ==========================================
-       BRANCH STOCK MERGE
-    ========================================== */
+    let finalBranchStock = {};
 
-    let finalBranchStock =
-        {};
 
+    /* ======================================
+       EXISTING PRODUCT
+    ====================================== */
 
     if (
         cloudSnapshot.exists()
@@ -881,6 +683,12 @@ async function saveProduct(
             ...cloudBranchStock
         };
 
+
+        /*
+         * Only update the current branch.
+         * Preserve quantities belonging to
+         * other branches.
+         */
 
         if (
             Object.prototype
@@ -943,91 +751,33 @@ async function saveProduct(
     }
 
 
-    /* ==========================================
-       IMAGE SYNC
-    ========================================== */
+    /* ======================================
+       IMAGE
+    ====================================== */
 
     const localImage =
-
-        product.image ||
-
-        product.imageData ||
-
-        product.photo ||
-
-        "";
-
-
-    let finalImageUrl =
         String(
-            existingCloudProduct.imageUrl ||
-            existingCloudProduct.image ||
+            product.image ||
             ""
         );
 
 
-    /*
-     * New locally selected image.
-     */
-
-    if (
-        isBase64Image(
-            localImage
-        )
-    ) {
-
-        finalImageUrl =
-            await uploadProductImage(
-                productId,
-                localImage
-            );
-    }
+    validateProductImage(
+        localImage
+    );
 
 
     /*
-     * Existing cloud URL carried by
-     * the local product.
+     * If this product currently has an image,
+     * save it.
+     *
+     * If image === "", it means the user
+     * deliberately removed the image.
      */
 
-    else if (
-        isRemoteImage(
-            localImage
-        )
-    ) {
+    const finalImage =
+        localImage;
 
-        finalImageUrl =
-            localImage;
-    }
-
-
-    /*
-     * Empty image means the user removed
-     * the image while editing.
-     */
-
-    else if (
-        localImage === ""
-    ) {
-
-        if (
-            existingCloudProduct.imageUrl ||
-            existingCloudProduct.image
-        ) {
-
-            await deleteProductImage(
-                productId
-            );
-        }
-
-
-        finalImageUrl =
-            "";
-    }
-
-
-    /* ==========================================
-       FIRESTORE DATA
-    ========================================== */
 
     const cloudProductData = {
 
@@ -1038,6 +788,9 @@ async function saveProduct(
         id:
             productId,
 
+        image:
+            finalImage,
+
         branchStock:
             finalBranchStock,
 
@@ -1045,12 +798,6 @@ async function saveProduct(
             sumBranchStock(
                 finalBranchStock
             ),
-
-        image:
-            finalImageUrl,
-
-        imageUrl:
-            finalImageUrl,
 
         imageStoredLocally:
             false,
@@ -1075,14 +822,9 @@ async function saveProduct(
         );
 
 
-        /*
-         * Update this device immediately
-         * with the Storage URL too.
-         */
-
         updateLocalProductImage(
             productId,
-            finalImageUrl
+            finalImage
         );
 
 
@@ -1093,14 +835,7 @@ async function saveProduct(
         );
 
 
-        return {
-
-            success:
-                true,
-
-            imageUrl:
-                finalImageUrl
-        };
+        return true;
 
 
     } catch (error) {
@@ -1119,12 +854,12 @@ async function saveProduct(
 
 
 /* ==========================================
-   UPDATE LOCAL IMAGE URL
+   LOCAL IMAGE UPDATE
 ========================================== */
 
 function updateLocalProductImage(
     productId,
-    imageUrl
+    image
 ) {
 
     const products =
@@ -1163,11 +898,7 @@ function updateLocalProductImage(
                     ...product,
 
                     image:
-                        imageUrl ||
-                        "",
-
-                    imageUrl:
-                        imageUrl ||
+                        image ||
                         "",
 
                     imageStoredLocally:
@@ -1187,7 +918,7 @@ function updateLocalProductImage(
 
 
 /* ==========================================
-   DELETE PRODUCT FROM FIREBASE
+   DELETE PRODUCT
 ========================================== */
 
 async function deleteProduct(
@@ -1208,19 +939,6 @@ async function deleteProduct(
 
     try {
 
-        /*
-         * Delete image first.
-         */
-
-        await deleteProductImage(
-            productId
-        );
-
-
-        /*
-         * Delete Firestore document.
-         */
-
         await deleteDoc(
 
             doc(
@@ -1234,7 +952,7 @@ async function deleteProduct(
 
 
         console.log(
-            "✅ Product and image deleted from Firebase:",
+            "✅ Product deleted from Firebase:",
             productId
         );
 
@@ -1258,7 +976,7 @@ async function deleteProduct(
 
 
 /* ==========================================
-   REALTIME PRODUCTS LISTENER
+   REALTIME LISTENER
 ========================================== */
 
 async function startRealtimeListener() {
@@ -1273,6 +991,7 @@ async function startRealtimeListener() {
     ) {
 
         productsUnsubscribe();
+
 
         productsUnsubscribe =
             null;
@@ -1386,7 +1105,7 @@ async function startRealtimeListener() {
 
 
 /* ==========================================
-   SAFE CLOUD → LOCAL MERGE
+   CLOUD → LOCAL MERGE
 ========================================== */
 
 function mergeProductsSafely(
@@ -1459,8 +1178,7 @@ function mergeProductsSafely(
     );
 
 
-    const result =
-        [];
+    const result = [];
 
 
     cloudMap.forEach(
@@ -1519,21 +1237,17 @@ function mergeProductsSafely(
             }
 
 
-            const localImage =
+            /*
+             * Cloud image now becomes authoritative.
+             */
 
-                localProduct.image ||
-
-                localProduct.imageUrl ||
-
+            const cloudImage =
+                cloudProduct.image ||
                 "";
 
 
-            const cloudImage =
-
-                cloudProduct.imageUrl ||
-
-                cloudProduct.image ||
-
+            const localImage =
+                localProduct.image ||
                 "";
 
 
@@ -1557,10 +1271,6 @@ function mergeProductsSafely(
                 image:
                     cloudImage ||
                     localImage ||
-                    "",
-
-                imageUrl:
-                    cloudImage ||
                     ""
             };
 
@@ -1573,8 +1283,8 @@ function mergeProductsSafely(
 
 
     /*
-     * Preserve products that were created
-     * offline and have not reached Firebase.
+     * Keep products created offline
+     * until they successfully reach Firestore.
      */
 
     localMap.forEach(
@@ -1611,7 +1321,7 @@ function mergeProductsSafely(
 
 
 /* ==========================================
-   REMOVE FIREBASE-ONLY FIELDS
+   REMOVE CLOUD FIELDS
 ========================================== */
 
 function removeCloudFields(
@@ -1667,7 +1377,7 @@ async function syncLocal() {
 
 
 /* ==========================================
-   FIREBASE USER CHECK
+   USER CHECK
 ========================================== */
 
 function checkFirebaseUser() {
@@ -1693,7 +1403,7 @@ function checkFirebaseUser() {
 
 
 /* ==========================================
-   ONLINE AGAIN
+   ONLINE EVENT
 ========================================== */
 
 window.addEventListener(
@@ -1722,7 +1432,7 @@ window.addEventListener(
 
 
 /* ==========================================
-   ERP DATA EVENT
+   DATA EVENT
 ========================================== */
 
 document.addEventListener(
@@ -1748,17 +1458,12 @@ document.addEventListener(
 
             return;
         }
-
-
-        console.log(
-            "Inventory local product changed."
-        );
     }
 );
 
 
 /* ==========================================
-   DATA UPDATED EVENT
+   DISPATCH UPDATE
 ========================================== */
 
 function dispatchDataUpdated(
@@ -1882,30 +1587,6 @@ function createFriendlyError(
 
     if (
         code.includes(
-            "storage/unauthorized"
-        )
-    ) {
-
-        return new Error(
-            "Firebase Storage rejected the product image upload. Check Storage rules."
-        );
-    }
-
-
-    if (
-        code.includes(
-            "storage/bucket-not-found"
-        )
-    ) {
-
-        return new Error(
-            "Firebase Storage bucket was not found. Check firebase-config.js."
-        );
-    }
-
-
-    if (
-        code.includes(
             "permission-denied"
         ) ||
         message
@@ -1935,12 +1616,29 @@ function createFriendlyError(
 
     if (
         code.includes(
+            "resource-exhausted"
+        ) ||
+        message
+            .toLowerCase()
+            .includes(
+                "too large"
+            )
+    ) {
+
+        return new Error(
+            "The product or image is too large for Firebase. Please use a smaller image."
+        );
+    }
+
+
+    if (
+        code.includes(
             "unavailable"
         )
     ) {
 
         return new Error(
-            "Firebase is temporarily unavailable. Check your internet connection."
+            "Firebase is temporarily unavailable. Check the internet connection."
         );
     }
 
@@ -2068,9 +1766,6 @@ window.JufelixInventoryCloud = {
     deleteProduct:
         deleteProduct,
 
-    deleteProductImage:
-        deleteProductImage,
-
     syncLocal:
         syncLocal,
 
@@ -2097,6 +1792,7 @@ window.JufelixInventoryCloud = {
 async function startInventoryCloud() {
 
     if (started) {
+
         return;
     }
 
@@ -2126,7 +1822,7 @@ async function startInventoryCloud() {
 
 
         console.log(
-            "✅ Inventory Cloud + Storage ready."
+            "✅ Inventory Firestore image sync ready."
         );
 
 
