@@ -2,16 +2,17 @@
    JUFELIX ERP v7.0 PROFESSIONAL
    SETTINGS MODULE
 
+   File:
+   js/modules/settings.js
+
    + Company Settings
    + Compressed Logo
    + Theme
+   + Firebase Settings Sync
+   + Logo Sync Across Devices
    + Reset Business Data
    + Factory Reset
-   + Firestore Cleanup
    + Admin Protection
-
-   File:
-   js/modules/settings.js
 ========================================== */
 
 (function () {
@@ -36,7 +37,7 @@
 
 
     /* ==========================================
-       BUSINESS DATA STORAGE KEYS
+       BUSINESS STORAGE
     ========================================== */
 
     const BUSINESS_STORAGE_KEYS = [
@@ -65,12 +66,6 @@
     ];
 
 
-    /* ==========================================
-       FIRESTORE COLLECTIONS TO RESET
-
-       USERS ARE DELIBERATELY NOT INCLUDED.
-    ========================================== */
-
     const FIRESTORE_COLLECTIONS = [
 
         "products",
@@ -90,6 +85,10 @@
         "branches"
     ];
 
+
+    /* ==========================================
+       STATE
+    ========================================== */
 
     let settings = {};
 
@@ -257,6 +256,49 @@
                 }
             );
         }
+
+
+        /*
+         * Settings received from another device.
+         */
+
+        document.addEventListener(
+            "jufelix:cloud-settings-updated",
+            function () {
+
+                settings =
+                    loadSettings();
+
+
+                loadSettingsIntoForm();
+
+
+                const logo =
+                    getSavedLogo();
+
+
+                if (logo) {
+
+                    showLogo(
+                        logo
+                    );
+                }
+
+
+                applyTheme(
+                    settings.theme ||
+                    "jufelix-blue"
+                );
+
+
+                updateVisibleBranding();
+
+
+                console.log(
+                    "☁️ Settings page refreshed from cloud."
+                );
+            }
+        );
     }
 
 
@@ -277,22 +319,10 @@
         }
 
 
-        if (!isAdministrator()) {
-
-            dangerZone.style.display =
-                "none";
-
-
-            console.warn(
-                "Danger Zone hidden: Administrator access required."
-            );
-
-            return;
-        }
-
-
         dangerZone.style.display =
-            "";
+            isAdministrator()
+                ? ""
+                : "none";
     }
 
 
@@ -307,14 +337,9 @@
         }
 
 
-        const role =
-            normalizeRole(
-                user.role
-            );
-
-
-        return role ===
-            "admin";
+        return normalizeRole(
+            user.role
+        ) === "admin";
     }
 
 
@@ -371,7 +396,7 @@
        SAVE SETTINGS
     ========================================== */
 
-    function saveAllSettings() {
+    async function saveAllSettings() {
 
         const companyName =
             getValue(
@@ -488,6 +513,10 @@
 
         try {
 
+            /* ==================================
+               SAVE LOCALLY
+            ================================== */
+
             localStorage.setItem(
                 SETTINGS_KEY,
                 JSON.stringify(
@@ -539,11 +568,32 @@
             }
 
 
+            /* ==================================
+               SAVE TO FIREBASE
+            ================================== */
+
+            const cloud =
+                await waitForSettingsCloud(
+                    15000
+                );
+
+
+            await cloud.save({
+
+                ...settings,
+
+                logo:
+                    getSavedLogo()
+            });
+
+
             document.dispatchEvent(
+
                 new CustomEvent(
                     "jufelix:settingsChanged",
                     {
                         detail: {
+
                             ...settings,
 
                             logo:
@@ -555,14 +605,12 @@
 
 
             showToast(
-                "Settings saved successfully.",
+                "Settings and logo synced successfully.",
                 "success"
             );
 
 
-        } catch (
-            error
-        ) {
+        } catch (error) {
 
             console.error(
                 "Settings save failed:",
@@ -571,10 +619,79 @@
 
 
             showToast(
-                "Settings could not be saved.",
+                (
+                    error &&
+                    error.message
+                ) ||
+                "Settings saved locally, but cloud sync failed.",
                 "error"
             );
         }
+    }
+
+
+    /* ==========================================
+       WAIT FOR SETTINGS CLOUD
+    ========================================== */
+
+    function waitForSettingsCloud(
+        timeout
+    ) {
+
+        return new Promise(
+            function (
+                resolve,
+                reject
+            ) {
+
+                const started =
+                    Date.now();
+
+
+                function check() {
+
+                    if (
+                        window.JufelixSettingsCloud &&
+                        typeof window
+                            .JufelixSettingsCloud
+                            .save ===
+                        "function"
+                    ) {
+
+                        resolve(
+                            window.JufelixSettingsCloud
+                        );
+
+                        return;
+                    }
+
+
+                    if (
+                        Date.now() -
+                        started >=
+                        timeout
+                    ) {
+
+                        reject(
+                            new Error(
+                                "Settings Cloud did not become ready."
+                            )
+                        );
+
+                        return;
+                    }
+
+
+                    window.setTimeout(
+                        check,
+                        100
+                    );
+                }
+
+
+                check();
+            }
+        );
     }
 
 
@@ -614,7 +731,7 @@
         ) {
 
             showToast(
-                'Type RESET before resetting business data.',
+                "Type RESET before resetting business data.",
                 "error"
             );
 
@@ -622,30 +739,29 @@
         }
 
 
-        const confirmed =
+        const first =
             window.confirm(
                 "WARNING:\n\n" +
-                "This will permanently delete ALL business records from this device and Firebase.\n\n" +
-                "Products, sales, purchases, expenses, transfers, customers, suppliers and branches will be removed.\n\n" +
-                "Your Admin login and company settings will be preserved.\n\n" +
+                "This will permanently delete all business records from this device and Firebase.\n\n" +
+                "Your Administrator login, company information, logo and theme will remain.\n\n" +
                 "Continue?"
             );
 
 
-        if (!confirmed) {
+        if (!first) {
             return;
         }
 
 
-        const secondConfirmation =
+        const second =
             window.confirm(
                 "FINAL CONFIRMATION\n\n" +
-                "This action cannot be undone.\n\n" +
+                "This cannot be undone.\n\n" +
                 "Delete all business data now?"
             );
 
 
-        if (!secondConfirmation) {
+        if (!second) {
             return;
         }
 
@@ -662,32 +778,10 @@
 
         try {
 
-            /*
-             * Delete cloud data FIRST.
-             * This prevents cloud bridges from
-             * immediately restoring deleted local data.
-             */
-
             await deleteBusinessDataFromFirestore();
 
 
             clearLocalBusinessData();
-
-
-            document.dispatchEvent(
-                new CustomEvent(
-                    "jufelix:data-updated",
-                    {
-                        detail: {
-                            key:
-                                "business-reset",
-
-                            reset:
-                                true
-                        }
-                    }
-                )
-            );
 
 
             const input =
@@ -717,9 +811,7 @@
             );
 
 
-        } catch (
-            error
-        ) {
+        } catch (error) {
 
             console.error(
                 "Business reset failed:",
@@ -781,7 +873,7 @@
         ) {
 
             showToast(
-                'Type FACTORY RESET before continuing.',
+                "Type FACTORY RESET before continuing.",
                 "error"
             );
 
@@ -789,21 +881,21 @@
         }
 
 
-        const confirmed =
+        const first =
             window.confirm(
                 "FACTORY RESET\n\n" +
-                "This will permanently delete business records and remove company settings, logo, theme, currency and receipt preferences.\n\n" +
-                "Your Firebase Authentication account and Users collection will NOT be deleted.\n\n" +
+                "Business records, company settings, logo, theme, currency and receipt preferences will be removed.\n\n" +
+                "Your Firebase Authentication account and Users collection will remain.\n\n" +
                 "Continue?"
             );
 
 
-        if (!confirmed) {
+        if (!first) {
             return;
         }
 
 
-        const secondConfirmation =
+        const second =
             window.confirm(
                 "FINAL FACTORY RESET CONFIRMATION\n\n" +
                 "There is no undo.\n\n" +
@@ -811,7 +903,7 @@
             );
 
 
-        if (!secondConfirmation) {
+        if (!second) {
             return;
         }
 
@@ -828,18 +920,8 @@
 
         try {
 
-            await deleteBusinessDataFromFirestore();
-
-
-            clearLocalBusinessData();
-
-
-            clearLocalSettings();
-
-
             /*
-             * Preserve the authenticated user/session
-             * so the Administrator is not locked out.
+             * Save login/session before clearing.
              */
 
             const user =
@@ -851,6 +933,30 @@
                     "jufelix_v7_active_branch"
                 );
 
+
+            /*
+             * Clear operational cloud records.
+             */
+
+            await deleteBusinessDataFromFirestore();
+
+
+            /*
+             * Factory Reset must also remove
+             * shared company settings/logo.
+             */
+
+            await deleteCloudCompanySettings();
+
+
+            clearLocalBusinessData();
+
+            clearLocalSettings();
+
+
+            /*
+             * Restore Administrator login.
+             */
 
             if (user) {
 
@@ -910,9 +1016,7 @@
             );
 
 
-        } catch (
-            error
-        ) {
+        } catch (error) {
 
             console.error(
                 "Factory reset failed:",
@@ -939,7 +1043,7 @@
 
 
     /* ==========================================
-       FIRESTORE RESET
+       DELETE FIRESTORE BUSINESS DATA
     ========================================== */
 
     async function deleteBusinessDataFromFirestore() {
@@ -972,12 +1076,6 @@
         collectionName
     ) {
 
-        console.log(
-            "Deleting Firestore collection:",
-            collectionName
-        );
-
-
         const reference =
             tools.collection(
                 db,
@@ -991,24 +1089,10 @@
             );
 
 
-        if (
-            snapshot.empty
-        ) {
-
-            console.log(
-                "Collection already empty:",
-                collectionName
-            );
-
+        if (snapshot.empty) {
             return;
         }
 
-
-        /*
-         * Firestore batches support up to
-         * 500 write operations.
-         * Use smaller batches for safety.
-         */
 
         const documents =
             snapshot.docs;
@@ -1050,17 +1134,41 @@
 
             await batch.commit();
         }
+    }
+
+
+    /* ==========================================
+       DELETE CLOUD COMPANY SETTINGS
+    ========================================== */
+
+    async function deleteCloudCompanySettings() {
+
+        const db =
+            await waitForFirebase();
+
+
+        const tools =
+            await getFirestoreTools();
+
+
+        await tools.deleteDoc(
+
+            tools.doc(
+                db,
+                "system",
+                "company"
+            )
+        );
 
 
         console.log(
-            "✅ Firestore collection cleared:",
-            collectionName
+            "✅ Cloud company settings removed."
         );
     }
 
 
     /* ==========================================
-       FIREBASE TOOLS
+       FIREBASE
     ========================================== */
 
     async function getFirestoreTools() {
@@ -1099,7 +1207,10 @@
 
                     if (
                         window.JufelixFirebase &&
-                        window.JufelixFirebase.db
+                        window.JufelixFirebase.db &&
+                        window.JufelixFirebase.auth &&
+                        window.JufelixFirebase
+                            .auth.currentUser
                     ) {
 
                         resolve(
@@ -1126,7 +1237,7 @@
                     }
 
 
-                    setTimeout(
+                    window.setTimeout(
                         check,
                         100
                     );
@@ -1156,11 +1267,6 @@
             }
         );
 
-
-        /*
-         * Compatibility keys from older
-         * Jufelix versions.
-         */
 
         [
             "products",
@@ -1215,7 +1321,7 @@
 
 
     /* ==========================================
-       RESET UI
+       RESET BUTTON STATE
     ========================================== */
 
     function setResetButtonsState(
@@ -1281,12 +1387,13 @@
 
 
         if (
-            code ===
-            "permission-denied"
+            code.includes(
+                "permission-denied"
+            )
         ) {
 
             showToast(
-                "Firebase denied the reset. Make sure you are signed in as Administrator and your Firestore Rules allow Admin deletion.",
+                "Firebase denied this reset operation.",
                 "error"
             );
 
@@ -1298,7 +1405,7 @@
             error &&
             error.message
                 ? error.message
-                : "The reset could not be completed.",
+                : "Reset could not be completed.",
             "error"
         );
     }
@@ -1352,6 +1459,7 @@
             if (stored) {
 
                 return {
+
                     ...defaults,
 
                     ...JSON.parse(
@@ -1370,6 +1478,7 @@
             if (companyStored) {
 
                 return {
+
                     ...defaults,
 
                     ...JSON.parse(
@@ -1382,15 +1491,7 @@
             return defaults;
 
 
-        } catch (
-            error
-        ) {
-
-            console.error(
-                "Unable to load settings:",
-                error
-            );
-
+        } catch (error) {
 
             return defaults;
         }
@@ -1517,14 +1618,12 @@
 
 
             showToast(
-                "Logo ready. Tap Save Settings.",
+                "Logo ready. Tap Save Settings to sync it.",
                 "success"
             );
 
 
-        } catch (
-            error
-        ) {
+        } catch (error) {
 
             console.error(
                 "Logo processing failed:",
@@ -1533,7 +1632,7 @@
 
 
             showToast(
-                "Logo could not be saved. Try a smaller image.",
+                "Logo could not be prepared.",
                 "error"
             );
         }
@@ -1577,46 +1676,36 @@
 
 
                                 if (
-                                    width >
-                                    height
+                                    width > height &&
+                                    width > maxSize
                                 ) {
 
-                                    if (
-                                        width >
-                                        maxSize
-                                    ) {
-
-                                        height =
-                                            Math.round(
-                                                height *
-                                                maxSize /
-                                                width
-                                            );
+                                    height =
+                                        Math.round(
+                                            height *
+                                            maxSize /
+                                            width
+                                        );
 
 
-                                        width =
-                                            maxSize;
-                                    }
+                                    width =
+                                        maxSize;
 
 
-                                } else {
+                                } else if (
+                                    height > maxSize
+                                ) {
 
-                                    if (
-                                        height >
-                                        maxSize
-                                    ) {
-
-                                        width =
-                                            Math.round(
-                                                width *
-                                                maxSize /
-                                                height
-                                            );
+                                    width =
+                                        Math.round(
+                                            width *
+                                            maxSize /
+                                            height
+                                        );
 
 
-                                        height =
-                                            maxSize;
-                                    }
+                                    height =
+                                        maxSize;
                                 }
 
 
@@ -1660,13 +1749,13 @@
                                 const output =
                                     canvas.toDataURL(
                                         "image/webp",
-                                        0.78
+                                        0.72
                                     );
 
 
                                 if (
                                     output.length >
-                                    700000
+                                    450000
                                 ) {
 
                                     reject(
@@ -1674,7 +1763,6 @@
                                             "Compressed logo is still too large."
                                         )
                                     );
-
 
                                     return;
                                 }
@@ -1733,9 +1821,7 @@
             );
 
 
-        } catch (
-            error
-        ) {
+        } catch (error) {
 
             return "";
         }
@@ -1753,6 +1839,15 @@
 
 
         if (!preview) {
+            return;
+        }
+
+
+        if (!source) {
+
+            preview.innerHTML =
+                "J";
+
             return;
         }
 
@@ -1896,6 +1991,7 @@
                     ) {
 
                         if (
+                            image.tagName &&
                             image.tagName
                                 .toLowerCase() ===
                             "img"
@@ -1963,7 +2059,6 @@
 
 
             if (!stored) {
-
                 return null;
             }
 
@@ -1986,9 +2081,7 @@
                 : null;
 
 
-        } catch (
-            error
-        ) {
+        } catch (error) {
 
             return null;
         }
@@ -2141,7 +2234,6 @@
             function () {
 
                 toast.remove();
-
             },
             4000
         );
@@ -2157,7 +2249,6 @@
         save:
             saveAllSettings,
 
-
         get:
             function () {
 
@@ -2170,18 +2261,14 @@
                 };
             },
 
-
         applyTheme:
             applyTheme,
-
 
         resetBusinessData:
             resetBusinessData,
 
-
         factoryReset:
             factoryReset
     };
-
 
 })();
