@@ -1,21 +1,19 @@
 /* ==========================================
    JUFELIX ERP v7.0 PROFESSIONAL
-   SAFE INVENTORY CLOUD BRIDGE
-
-   COMPLETE REPLACEMENT
+   INVENTORY CLOUD + FIREBASE STORAGE
 
    File:
    js/cloud/inventory-cloud.js
 
    + Firebase Authentication aware
    + Realtime Firestore products
+   + Firebase Storage product images
+   + Product images available on all devices
    + Safe multi-device branch stock
    + Preserves other branches during edit
-   + Preserves local Base64 product images
-   + No automatic full local inventory upload
-   + Prevents stale startup overwrite
-   + Permanent cloud product deletion
-   + Two-way inventory synchronization
+   + Local Base64 image uploaded to Storage
+   + Firestore stores imageUrl
+   + Permanent product + image deletion
 ========================================== */
 
 
@@ -28,6 +26,15 @@ import {
     serverTimestamp,
     setDoc
 } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js";
+
+
+import {
+    getStorage,
+    ref,
+    uploadString,
+    getDownloadURL,
+    deleteObject
+} from "https://www.gstatic.com/firebasejs/12.2.1/firebase-storage.js";
 
 
 /* ==========================================
@@ -49,12 +56,18 @@ const DEFAULT_BRANCH_ID =
 const COLLECTION_NAME =
     "products";
 
+const IMAGE_FOLDER =
+    "product-images";
+
 
 /* ==========================================
    STATE
 ========================================== */
 
 let database =
+    null;
+
+let storage =
     null;
 
 let started =
@@ -92,6 +105,12 @@ async function getFirebase() {
             firebase.db;
 
 
+        storage =
+            getStorage(
+                firebase.app
+            );
+
+
         return firebase;
     }
 
@@ -109,8 +128,7 @@ async function getFirebase() {
             function check() {
 
                 const firebase =
-                    window
-                        .JufelixFirebase;
+                    window.JufelixFirebase;
 
 
                 if (
@@ -128,6 +146,7 @@ async function getFirebase() {
 
                 if (
                     firebase &&
+                    firebase.app &&
                     firebase.db &&
                     firebase.auth &&
                     firebase.auth.currentUser
@@ -135,6 +154,12 @@ async function getFirebase() {
 
                     database =
                         firebase.db;
+
+
+                    storage =
+                        getStorage(
+                            firebase.app
+                        );
 
 
                     resolve(
@@ -191,7 +216,6 @@ function readLocalProducts() {
 
 
         if (!stored) {
-
             return [];
         }
 
@@ -269,7 +293,6 @@ function readObject(
 
 
         if (!stored) {
-
             return null;
         }
 
@@ -362,21 +385,17 @@ function cleanValue(
 ) {
 
     if (
-        value ===
-        undefined
+        value === undefined
     ) {
-
         return null;
     }
 
 
     if (
-        value ===
-        null ||
+        value === null ||
         typeof value !==
             "object"
     ) {
-
         return value;
     }
 
@@ -393,29 +412,24 @@ function cleanValue(
     }
 
 
-    const result =
-        {};
+    const result = {};
 
 
     Object.keys(
         value
     ).forEach(
-        function (key) {
+        function (
+            key
+        ) {
 
             if (
-                value[
-                    key
-                ] !==
+                value[key] !==
                 undefined
             ) {
 
-                result[
-                    key
-                ] =
+                result[key] =
                     cleanValue(
-                        value[
-                            key
-                        ]
+                        value[key]
                     );
             }
         }
@@ -447,14 +461,15 @@ function normalizeBranchStock(
     }
 
 
-    const result =
-        {};
+    const result = {};
 
 
     Object.keys(
         branchStock
     ).forEach(
-        function (branchId) {
+        function (
+            branchId
+        ) {
 
             result[
                 String(
@@ -486,22 +501,233 @@ function sumBranchStock(
         normalizeBranchStock(
             branchStock
         )
-    )
-        .reduce(
-            function (
-                total,
-                quantity
-            ) {
+    ).reduce(
+        function (
+            total,
+            quantity
+        ) {
 
-                return (
-                    total +
-                    toNumber(
-                        quantity
-                    )
-                );
-            },
-            0
+            return (
+                total +
+                toNumber(
+                    quantity
+                )
+            );
+        },
+        0
+    );
+}
+
+
+/* ==========================================
+   IMAGE HELPERS
+========================================== */
+
+function isBase64Image(
+    value
+) {
+
+    return (
+        typeof value ===
+            "string" &&
+        value.startsWith(
+            "data:image/"
+        )
+    );
+}
+
+
+function isRemoteImage(
+    value
+) {
+
+    return (
+        typeof value ===
+            "string" &&
+        (
+            value.startsWith(
+                "https://"
+            ) ||
+            value.startsWith(
+                "http://"
+            )
+        )
+    );
+}
+
+
+function getProductImagePath(
+    productId
+) {
+
+    return (
+        IMAGE_FOLDER +
+        "/" +
+        String(
+            productId
+        ) +
+        ".jpg"
+    );
+}
+
+
+/* ==========================================
+   UPLOAD PRODUCT IMAGE
+========================================== */
+
+async function uploadProductImage(
+    productId,
+    imageData
+) {
+
+    await getFirebase();
+
+
+    if (!storage) {
+
+        throw new Error(
+            "Firebase Storage is not ready."
         );
+    }
+
+
+    if (
+        !isBase64Image(
+            imageData
+        )
+    ) {
+
+        return "";
+    }
+
+
+    const imageReference =
+        ref(
+            storage,
+            getProductImagePath(
+                productId
+            )
+        );
+
+
+    console.log(
+        "☁️ Uploading product image:",
+        productId
+    );
+
+
+    await uploadString(
+
+        imageReference,
+
+        imageData,
+
+        "data_url",
+
+        {
+            contentType:
+                "image/jpeg",
+
+            customMetadata: {
+
+                productId:
+                    String(
+                        productId
+                    )
+            }
+        }
+    );
+
+
+    const downloadUrl =
+        await getDownloadURL(
+            imageReference
+        );
+
+
+    console.log(
+        "✅ Product image uploaded:",
+        productId
+    );
+
+
+    return downloadUrl;
+}
+
+
+/* ==========================================
+   DELETE STORAGE IMAGE
+========================================== */
+
+async function deleteProductImage(
+    productId
+) {
+
+    await getFirebase();
+
+
+    if (!storage) {
+        return false;
+    }
+
+
+    const imageReference =
+        ref(
+            storage,
+            getProductImagePath(
+                productId
+            )
+        );
+
+
+    try {
+
+        await deleteObject(
+            imageReference
+        );
+
+
+        console.log(
+            "✅ Product image deleted:",
+            productId
+        );
+
+
+        return true;
+
+
+    } catch (error) {
+
+        const code =
+            String(
+                error &&
+                error.code ||
+                ""
+            );
+
+
+        /*
+         * Product may never have had
+         * a Storage image.
+         */
+
+        if (
+            code ===
+            "storage/object-not-found"
+        ) {
+
+            return true;
+        }
+
+
+        console.warn(
+            "Product image deletion failed:",
+            error
+        );
+
+
+        return false;
+    }
 }
 
 
@@ -519,37 +745,38 @@ function prepareProductForCloud(
         ) || {};
 
 
+    /*
+     * Base64 must never be stored
+     * inside Firestore.
+     */
+
     [
         "image",
         "imageData",
         "photo"
     ].forEach(
-        function (field) {
-
-            const value =
-                data[
-                    field
-                ];
-
+        function (
+            field
+        ) {
 
             if (
-                typeof value ===
-                    "string" &&
-                value.startsWith(
-                    "data:image/"
+                isBase64Image(
+                    data[field]
                 )
             ) {
 
-                delete data[
-                    field
-                ];
-
-
-                data.imageStoredLocally =
-                    true;
+                delete data[field];
             }
         }
     );
+
+
+    /*
+     * localOnly is device state,
+     * not business data.
+     */
+
+    delete data.localOnly;
 
 
     return data;
@@ -612,11 +839,28 @@ async function saveProduct(
     );
 
 
+    /*
+     * Read current cloud product first.
+     */
+
     const cloudSnapshot =
         await getDoc(
             productRef
         );
 
+
+    const existingCloudProduct =
+        cloudSnapshot.exists()
+            ? (
+                cloudSnapshot.data() ||
+                {}
+            )
+            : {};
+
+
+    /* ==========================================
+       BRANCH STOCK MERGE
+    ========================================== */
 
     let finalBranchStock =
         {};
@@ -626,14 +870,9 @@ async function saveProduct(
         cloudSnapshot.exists()
     ) {
 
-        const cloudProduct =
-            cloudSnapshot.data() ||
-            {};
-
-
         const cloudBranchStock =
             normalizeBranchStock(
-                cloudProduct.branchStock
+                existingCloudProduct.branchStock
             );
 
 
@@ -660,13 +899,14 @@ async function saveProduct(
                     ]
                 );
 
+
         } else if (
             activeBranchId ===
-            DEFAULT_BRANCH_ID &&
+                DEFAULT_BRANCH_ID &&
             Object.keys(
                 localBranchStock
             ).length ===
-            0
+                0
         ) {
 
             finalBranchStock[
@@ -703,6 +943,92 @@ async function saveProduct(
     }
 
 
+    /* ==========================================
+       IMAGE SYNC
+    ========================================== */
+
+    const localImage =
+
+        product.image ||
+
+        product.imageData ||
+
+        product.photo ||
+
+        "";
+
+
+    let finalImageUrl =
+        String(
+            existingCloudProduct.imageUrl ||
+            existingCloudProduct.image ||
+            ""
+        );
+
+
+    /*
+     * New locally selected image.
+     */
+
+    if (
+        isBase64Image(
+            localImage
+        )
+    ) {
+
+        finalImageUrl =
+            await uploadProductImage(
+                productId,
+                localImage
+            );
+    }
+
+
+    /*
+     * Existing cloud URL carried by
+     * the local product.
+     */
+
+    else if (
+        isRemoteImage(
+            localImage
+        )
+    ) {
+
+        finalImageUrl =
+            localImage;
+    }
+
+
+    /*
+     * Empty image means the user removed
+     * the image while editing.
+     */
+
+    else if (
+        localImage === ""
+    ) {
+
+        if (
+            existingCloudProduct.imageUrl ||
+            existingCloudProduct.image
+        ) {
+
+            await deleteProductImage(
+                productId
+            );
+        }
+
+
+        finalImageUrl =
+            "";
+    }
+
+
+    /* ==========================================
+       FIRESTORE DATA
+    ========================================== */
+
     const cloudProductData = {
 
         ...prepareProductForCloud(
@@ -719,6 +1045,15 @@ async function saveProduct(
             sumBranchStock(
                 finalBranchStock
             ),
+
+        image:
+            finalImageUrl,
+
+        imageUrl:
+            finalImageUrl,
+
+        imageStoredLocally:
+            false,
 
         cloudUpdatedAt:
             serverTimestamp()
@@ -740,14 +1075,32 @@ async function saveProduct(
         );
 
 
+        /*
+         * Update this device immediately
+         * with the Storage URL too.
+         */
+
+        updateLocalProductImage(
+            productId,
+            finalImageUrl
+        );
+
+
         console.log(
-            "✅ Inventory product synced safely:",
+            "✅ Inventory product + image synced:",
             product.name ||
             productId
         );
 
 
-        return true;
+        return {
+
+            success:
+                true,
+
+            imageUrl:
+                finalImageUrl
+        };
 
 
     } catch (error) {
@@ -760,6 +1113,74 @@ async function saveProduct(
 
         throw createFriendlyError(
             error
+        );
+    }
+}
+
+
+/* ==========================================
+   UPDATE LOCAL IMAGE URL
+========================================== */
+
+function updateLocalProductImage(
+    productId,
+    imageUrl
+) {
+
+    const products =
+        readLocalProducts();
+
+
+    let changed =
+        false;
+
+
+    const updated =
+        products.map(
+            function (
+                product
+            ) {
+
+                if (
+                    String(
+                        product.id
+                    ) !==
+                    String(
+                        productId
+                    )
+                ) {
+
+                    return product;
+                }
+
+
+                changed =
+                    true;
+
+
+                return {
+
+                    ...product,
+
+                    image:
+                        imageUrl ||
+                        "",
+
+                    imageUrl:
+                        imageUrl ||
+                        "",
+
+                    imageStoredLocally:
+                        false
+                };
+            }
+        );
+
+
+    if (changed) {
+
+        saveLocalProducts(
+            updated
         );
     }
 }
@@ -787,6 +1208,19 @@ async function deleteProduct(
 
     try {
 
+        /*
+         * Delete image first.
+         */
+
+        await deleteProductImage(
+            productId
+        );
+
+
+        /*
+         * Delete Firestore document.
+         */
+
         await deleteDoc(
 
             doc(
@@ -800,7 +1234,7 @@ async function deleteProduct(
 
 
         console.log(
-            "✅ Product deleted from Firebase:",
+            "✅ Product and image deleted from Firebase:",
             productId
         );
 
@@ -839,7 +1273,6 @@ async function startRealtimeListener() {
     ) {
 
         productsUnsubscribe();
-
 
         productsUnsubscribe =
             null;
@@ -930,6 +1363,7 @@ async function startRealtimeListener() {
                 );
             },
 
+
             function (
                 error
             ) {
@@ -953,14 +1387,6 @@ async function startRealtimeListener() {
 
 /* ==========================================
    SAFE CLOUD → LOCAL MERGE
-
-   IMPORTANT:
-   Products removed from Firebase are also
-   removed from localStorage.
-
-   Local products are retained only when they
-   have not yet been uploaded and are marked
-   as local-only.
 ========================================== */
 
 function mergeProductsSafely(
@@ -1050,34 +1476,10 @@ function mergeProductsSafely(
                 {};
 
 
-            const cloudBranchStock =
+            let finalBranchStock =
                 normalizeBranchStock(
                     cloudProduct.branchStock
                 );
-
-
-            const localImage =
-
-                localProduct.image ||
-
-                localProduct.imageData ||
-
-                localProduct.photo ||
-
-                "";
-
-
-            const cloudImage =
-
-                cloudProduct.image ||
-
-                cloudProduct.imageUrl ||
-
-                "";
-
-
-            let finalBranchStock =
-                cloudBranchStock;
 
 
             if (
@@ -1103,6 +1505,7 @@ function mergeProductsSafely(
                     finalBranchStock =
                         localBranchStock;
 
+
                 } else {
 
                     finalBranchStock = {
@@ -1114,6 +1517,24 @@ function mergeProductsSafely(
                     };
                 }
             }
+
+
+            const localImage =
+
+                localProduct.image ||
+
+                localProduct.imageUrl ||
+
+                "";
+
+
+            const cloudImage =
+
+                cloudProduct.imageUrl ||
+
+                cloudProduct.image ||
+
+                "";
 
 
             const mergedProduct = {
@@ -1131,20 +1552,17 @@ function mergeProductsSafely(
                 quantity:
                     sumBranchStock(
                         finalBranchStock
-                    )
+                    ),
+
+                image:
+                    cloudImage ||
+                    localImage ||
+                    "",
+
+                imageUrl:
+                    cloudImage ||
+                    ""
             };
-
-
-            if (cloudImage) {
-
-                mergedProduct.image =
-                    cloudImage;
-
-            } else if (localImage) {
-
-                mergedProduct.image =
-                    localImage;
-            }
 
 
             result.push(
@@ -1155,8 +1573,8 @@ function mergeProductsSafely(
 
 
     /*
-     * Preserve local-only products that
-     * have never reached Firebase.
+     * Preserve products that were created
+     * offline and have not reached Firebase.
      */
 
     localMap.forEach(
@@ -1288,7 +1706,9 @@ window.addEventListener(
 
             startRealtimeListener()
                 .catch(
-                    function (error) {
+                    function (
+                        error
+                    ) {
 
                         console.warn(
                             "Inventory reconnect failed:",
@@ -1307,7 +1727,9 @@ window.addEventListener(
 
 document.addEventListener(
     "jufelix:data-updated",
-    function (event) {
+    function (
+        event
+    ) {
 
         if (
             !event.detail ||
@@ -1329,7 +1751,7 @@ document.addEventListener(
 
 
         console.log(
-            "Inventory local product data changed. Waiting for the responsible module to sync the affected product."
+            "Inventory local product changed."
         );
     }
 );
@@ -1460,6 +1882,30 @@ function createFriendlyError(
 
     if (
         code.includes(
+            "storage/unauthorized"
+        )
+    ) {
+
+        return new Error(
+            "Firebase Storage rejected the product image upload. Check Storage rules."
+        );
+    }
+
+
+    if (
+        code.includes(
+            "storage/bucket-not-found"
+        )
+    ) {
+
+        return new Error(
+            "Firebase Storage bucket was not found. Check firebase-config.js."
+        );
+    }
+
+
+    if (
+        code.includes(
             "permission-denied"
         ) ||
         message
@@ -1494,7 +1940,7 @@ function createFriendlyError(
     ) {
 
         return new Error(
-            "Firebase is temporarily unavailable. Check the internet connection."
+            "Firebase is temporarily unavailable. Check your internet connection."
         );
     }
 
@@ -1605,7 +2051,7 @@ function showCloudStatus(
                         "none";
                 }
             },
-            3000
+            3500
         );
 }
 
@@ -1621,6 +2067,9 @@ window.JufelixInventoryCloud = {
 
     deleteProduct:
         deleteProduct,
+
+    deleteProductImage:
+        deleteProductImage,
 
     syncLocal:
         syncLocal,
@@ -1648,7 +2097,6 @@ window.JufelixInventoryCloud = {
 async function startInventoryCloud() {
 
     if (started) {
-
         return;
     }
 
@@ -1678,7 +2126,7 @@ async function startInventoryCloud() {
 
 
         console.log(
-            "✅ Jufelix Safe Inventory Cloud ready."
+            "✅ Inventory Cloud + Storage ready."
         );
 
 
