@@ -23,6 +23,7 @@
 
     const COLLECTION_NAMES = [
         "branches",
+        "closingReports",
         "customers",
         "expenses",
         "products",
