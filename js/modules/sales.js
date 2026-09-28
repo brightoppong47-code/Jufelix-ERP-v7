@@ -4263,6 +4263,15 @@
                 cashier:
                     getCurrentUserName(),
 
+                cashierUid:
+                    getCurrentUserIdentity().uid,
+
+                cashierId:
+                    getCurrentUserIdentity().id,
+
+                cashierEmail:
+                    getCurrentUserIdentity().email,
+
                 saleDate:
                     getLocalDateKey(
                         now
@@ -5808,6 +5817,43 @@
             user.username ||
             "System Administrator"
         );
+    }
+
+
+    function getCurrentUserIdentity() {
+
+        const user =
+            readObject(
+                CURRENT_USER_KEY
+            ) ||
+            readObject(
+                "currentUser"
+            ) ||
+            {};
+
+
+        return {
+
+            uid:
+                String(
+                    user.uid ||
+                    user.firebaseUid ||
+                    ""
+                ),
+
+            id:
+                String(
+                    user.id ||
+                    user.userId ||
+                    ""
+                ),
+
+            email:
+                String(
+                    user.email ||
+                    ""
+                )
+        };
     }
 
 
