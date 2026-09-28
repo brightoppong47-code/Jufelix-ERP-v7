@@ -48,6 +48,9 @@
         "reports.html":
             "reports",
 
+        "closing-reports.html":
+            "closing-reports",
+
         "branches.html":
             "branches",
 
@@ -84,13 +87,15 @@
         "sales-officer": [
             "dashboard",
             "sales",
-            "customers"
+            "customers",
+            "closing-reports"
         ],
 
         cashier: [
             "dashboard",
             "sales",
-            "customers"
+            "customers",
+            "closing-reports"
         ],
 
         "store-keeper": [
