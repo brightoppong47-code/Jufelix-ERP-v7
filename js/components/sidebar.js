@@ -246,6 +246,24 @@
 
 
                 <a
+                    href="closing-reports.html"
+                    class="sidebar-link"
+                    data-page="closing-reports.html"
+                    data-permission="closing-reports"
+                >
+
+                    <span class="sidebar-link-icon">
+                        🧮
+                    </span>
+
+                    <span>
+                        Daily Closing
+                    </span>
+
+                </a>
+
+
+                <a
                     href="inventory.html"
                     class="sidebar-link"
                     data-page="inventory.html"
