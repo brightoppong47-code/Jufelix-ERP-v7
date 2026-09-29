@@ -374,6 +374,39 @@ body {
     }
 }
 
+.purchase-product-search-wrap {
+    position: relative;
+    margin-bottom: 10px;
+}
+
+.purchase-product-search {
+    padding-right: 46px !important;
+}
+
+.purchase-product-search-clear {
+    position: absolute;
+    top: 50%;
+    right: 8px;
+    width: 34px;
+    height: 34px;
+    transform: translateY(-50%);
+    border: 0;
+    border-radius: 8px;
+    background: #eef2f7;
+    color: #475569;
+    font-size: 22px;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.purchase-product-search-result {
+    display: block;
+    margin: -2px 0 9px;
+    color: #64748b;
+    font-size: 12px;
+    font-weight: 600;
+}
+
 </style>
 
 </head>
@@ -568,6 +601,33 @@ body {
                 <label for="purchaseProduct">
                     Product *
                 </label>
+
+                <div class="purchase-product-search-wrap">
+
+                    <input
+                        class="form-control purchase-product-search"
+                        type="search"
+                        id="purchaseProductSearch"
+                        placeholder="Search name, SKU, barcode, brand or category"
+                        autocomplete="off"
+                    >
+
+                    <button
+                        type="button"
+                        id="clearPurchaseProductSearch"
+                        class="purchase-product-search-clear"
+                        aria-label="Clear product search"
+                        title="Clear product search"
+                    >
+                        ×
+                    </button>
+
+                </div>
+
+                <small
+                    id="purchaseProductSearchResult"
+                    class="purchase-product-search-result"
+                ></small>
 
                 <select
                     class="form-control"
@@ -1043,7 +1103,7 @@ body {
      COMPONENTS
 ========================================= -->
 
-<script src="js/components/sidebar.js?v=800"></script>
+<script src="js/components/sidebar.js?v=801"></script>
 
 <script src="js/components/topbar.js?v=620"></script>
 
@@ -1059,7 +1119,7 @@ body {
      PURCHASES
 ========================================= -->
 
-<script src="js/modules/purchases.js?v=804"></script>
+<script src="js/modules/purchases.js?v=805"></script>
 
 
 </body>
