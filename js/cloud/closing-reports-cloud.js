@@ -33,7 +33,7 @@ function readObject(key) {
 
 function normalizeRole(role) {
     const value = String(role || "").trim().toLowerCase().replace(/_/g, "-").replace(/\s+/g, "-");
-    return ["administrator", "system-administrator"].includes(value) ? "admin" : value;
+    return value.includes("admin") ? "admin" : value;
 }
 
 function getLocalUser() {
