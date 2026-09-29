@@ -503,14 +503,21 @@
                     "-"
                 );
 
-      if (
-    value.includes(
-        "admin"
-    )
-) {
 
-    return "admin";
-}
+        /*
+         * Accept custom administrator titles such as
+         * "Super Admin" and "Company Administrator".
+         */
+
+        if (
+            value.includes(
+                "admin"
+            )
+        ) {
+
+            return "admin";
+        }
+
 
         const aliases = {
 
