@@ -503,6 +503,14 @@
                     "-"
                 );
 
+      if (
+    value.includes(
+        "admin"
+    )
+) {
+
+    return "admin";
+}
 
         const aliases = {
 
