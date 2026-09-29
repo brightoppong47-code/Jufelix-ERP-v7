@@ -243,18 +243,87 @@ function saveLocalProducts(
         );
 
 
-        return true;
+        return products;
 
 
     } catch (error) {
 
         console.error(
-            "Inventory Cloud local save failed:",
+            "Inventory Cloud full local save failed; retrying without embedded images:",
             error
         );
 
+        /*
+         * A phone's localStorage is small. A few Base64 images can
+         * prevent the complete Firebase product collection from being
+         * saved, leaving an old partial inventory visible. Keep every
+         * product and its stock, but omit only bulky embedded image
+         * copies from the local cache. Firebase remains unchanged.
+         */
 
-        return false;
+        const compactProducts =
+            (Array.isArray(products) ? products : [])
+                .map(
+                    function (product) {
+
+                        if (
+                            !product ||
+                            typeof product !== "object"
+                        ) {
+                            return product;
+                        }
+
+                        const compact = {
+                            ...product
+                        };
+
+                        delete compact.imageData;
+                        delete compact.photo;
+
+                        if (
+                            typeof compact.image === "string" &&
+                            compact.image.startsWith("data:image/")
+                        ) {
+                            compact.image = "";
+                            compact.imageStoredLocally = false;
+                        }
+
+                        if (
+                            typeof compact.imageUrl === "string" &&
+                            compact.imageUrl.startsWith("data:image/")
+                        ) {
+                            compact.imageUrl = "";
+                        }
+
+                        return compact;
+                    }
+                );
+
+        try {
+
+            localStorage.setItem(
+                PRODUCTS_KEY,
+                JSON.stringify(
+                    compactProducts
+                )
+            );
+
+            console.warn(
+                "Inventory Cloud saved all products using the compact local cache:",
+                compactProducts.length
+            );
+
+            return compactProducts;
+
+        } catch (compactError) {
+
+            console.error(
+                "Inventory Cloud compact local save failed:",
+                compactError
+            );
+
+            return null;
+        }
     }
 }
 
@@ -1049,14 +1118,26 @@ async function startRealtimeListener() {
                     );
 
 
-                saveLocalProducts(
-                    mergedProducts
-                );
+                const persistedProducts =
+                    saveLocalProducts(
+                        mergedProducts
+                    );
+
+
+                if (!persistedProducts) {
+
+                    showCloudStatus(
+                        "The phone does not have enough browser storage to cache the Firebase inventory.",
+                        "error"
+                    );
+
+                    return;
+                }
 
 
                 dispatchDataUpdated(
                     PRODUCTS_KEY,
-                    mergedProducts,
+                    persistedProducts,
                     "cloud"
                 );
 
@@ -1069,7 +1150,7 @@ async function startRealtimeListener() {
                             detail: {
 
                                 products:
-                                    mergedProducts
+                                    persistedProducts
                             }
                         }
                     )
@@ -1078,7 +1159,7 @@ async function startRealtimeListener() {
 
                 console.log(
                     "☁️ Inventory realtime products received:",
-                    mergedProducts.length
+                    persistedProducts.length
                 );
             },
 
