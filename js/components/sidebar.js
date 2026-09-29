@@ -9,6 +9,10 @@
 (function () {
     "use strict";
 
+    /* Always begin a page with the mobile menu closed. */
+    document.documentElement.classList.remove("sidebar-menu-open");
+    if (document.body) document.body.classList.remove("sidebar-menu-open");
+
     document.addEventListener(
         "DOMContentLoaded",
         initializeSidebar
@@ -606,14 +610,39 @@
 
                 link.addEventListener(
                     "click",
-                    function () {
+                    function (event) {
 
                         if (
                             window.innerWidth <=
                             900
                         ) {
 
+                            const destination =
+                                link.getAttribute(
+                                    "href"
+                                );
+
+                            event.preventDefault();
+
                             closeSidebar();
+
+                            /*
+                             * Give Android WebView time to paint the
+                             * closed state before changing pages. This
+                             * prevents the open menu being restored on
+                             * the destination page.
+                             */
+
+                            window.setTimeout(
+                                function () {
+
+                                    if (destination) {
+                                        window.location.href = destination;
+                                    }
+
+                                },
+                                80
+                            );
                         }
                     }
                 );
@@ -886,7 +915,28 @@
         document.body.classList.remove(
             "sidebar-menu-open"
         );
+
+        document.documentElement.classList.remove(
+            "sidebar-menu-open"
+        );
     }
+
+
+    /*
+     * Android WebView may restore a page from its back/forward cache
+     * with old DOM classes. Force the navigation drawer closed every
+     * time a page is shown again.
+     */
+
+    window.addEventListener(
+        "pageshow",
+        closeSidebar
+    );
+
+    window.addEventListener(
+        "pagehide",
+        closeSidebar
+    );
 
 
     function toggleSidebar() {
@@ -1854,10 +1904,10 @@ function getSavedCompanyLogo() {
                         0 !important;
 
                     width:
-                        280px !important;
+                        270px !important;
 
                     max-width:
-                        86vw !important;
+                        78vw !important;
 
                     height:
                         100vh !important;
