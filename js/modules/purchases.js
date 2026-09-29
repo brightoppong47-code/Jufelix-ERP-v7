@@ -57,6 +57,8 @@
     let branches = [];
     let suppliers = [];
 
+    let productSearchTerm = "";
+
     let saveInProgress = false;
 
     const el = {};
@@ -167,6 +169,21 @@
         el.product =
             document.getElementById(
                 "purchaseProduct"
+            );
+
+        el.productSearch =
+            document.getElementById(
+                "purchaseProductSearch"
+            );
+
+        el.clearProductSearch =
+            document.getElementById(
+                "clearPurchaseProductSearch"
+            );
+
+        el.productSearchResult =
+            document.getElementById(
+                "purchaseProductSearchResult"
             );
 
         el.status =
@@ -304,6 +321,46 @@
             el.product.addEventListener(
                 "change",
                 onProductChanged
+            );
+        }
+
+
+        if (el.productSearch) {
+
+            el.productSearch.addEventListener(
+                "input",
+                function () {
+
+                    productSearchTerm =
+                        normalizeSearchText(
+                            el.productSearch.value
+                        );
+
+                    populateProducts(
+                        false
+                    );
+                }
+            );
+        }
+
+
+        if (el.clearProductSearch) {
+
+            el.clearProductSearch.addEventListener(
+                "click",
+                function () {
+
+                    productSearchTerm = "";
+
+                    if (el.productSearch) {
+                        el.productSearch.value = "";
+                        el.productSearch.focus();
+                    }
+
+                    populateProducts(
+                        false
+                    );
+                }
             );
         }
 
@@ -855,7 +912,9 @@
        PRODUCTS
     ========================================== */
 
-    function populateProducts() {
+    function populateProducts(
+        reloadProducts = true
+    ) {
 
         if (!el.product) {
             return;
@@ -866,14 +925,48 @@
             el.product.value;
 
 
-        products =
-            readArray(
-                PRODUCTS_KEY
-            );
+        if (reloadProducts) {
+
+            products =
+                readArray(
+                    PRODUCTS_KEY
+                );
+        }
 
 
         const sortedProducts =
             products
+                .filter(
+                    function (product) {
+
+                        if (!productSearchTerm) {
+                            return true;
+                        }
+
+                        const searchable = [
+                            product.name,
+                            product.sku,
+                            product.barcode,
+                            product.brand,
+                            product.category,
+                            product.unit,
+                            product.description
+                        ]
+                            .map(normalizeSearchText)
+                            .join(" ");
+
+                        const words =
+                            productSearchTerm
+                                .split(/\s+/)
+                                .filter(Boolean);
+
+                        return words.every(
+                            function (word) {
+                                return searchable.includes(word);
+                            }
+                        );
+                    }
+                )
                 .slice()
                 .sort(
                     function (
@@ -906,8 +999,9 @@
                                 product.id
                             )}">
                                 ${escapeHTML(
-                                    product.name ||
-                                    "Unnamed Product"
+                                    formatProductOptionLabel(
+                                        product
+                                    )
                                 )}
                             </option>
                         `;
@@ -916,7 +1010,7 @@
                 .join("");
 
 
-        if (
+        const selectionStillVisible =
             sortedProducts.some(
                 function (product) {
 
@@ -929,17 +1023,77 @@
                         )
                     );
                 }
-            )
-        ) {
+            );
+
+
+        if (selectionStillVisible) {
 
             el.product.value =
                 previousValue;
+
+        } else if (previousValue) {
+
+            onProductChanged();
         }
 
 
         refreshMobileSelectButton(
             el.product
         );
+
+
+        if (el.productSearchResult) {
+
+            el.productSearchResult.textContent =
+                sortedProducts.length === 0
+                    ? "No matching product found."
+                    : String(sortedProducts.length) +
+                      " product" +
+                      (sortedProducts.length === 1 ? "" : "s") +
+                      " available.";
+        }
+    }
+
+
+    function formatProductOptionLabel(
+        product
+    ) {
+
+        const details = [];
+
+        if (product.sku) {
+            details.push("SKU: " + product.sku);
+        }
+
+        if (product.barcode) {
+            details.push("Barcode: " + product.barcode);
+        }
+
+        if (product.brand) {
+            details.push(product.brand);
+        }
+
+        return (
+            product.name ||
+            "Unnamed Product"
+        ) + (
+            details.length
+                ? " — " + details.join(" • ")
+                : ""
+        );
+    }
+
+
+    function normalizeSearchText(
+        value
+    ) {
+
+        return String(
+            value ||
+            ""
+        )
+            .trim()
+            .toLowerCase();
     }
 
 
@@ -2529,6 +2683,16 @@
         ) {
 
             el.form.reset();
+
+            productSearchTerm = "";
+
+            if (el.productSearch) {
+                el.productSearch.value = "";
+            }
+
+            populateProducts(
+                false
+            );
         }
 
 
