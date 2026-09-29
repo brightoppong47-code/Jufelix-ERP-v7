@@ -239,22 +239,10 @@
 
         try {
 
-            const testKey =
-                "__jufelix_storage_test__";
-
-
-            localStorage.setItem(
-                testKey,
-                "working"
+            return (
+                "localStorage" in window &&
+                window.localStorage !== null
             );
-
-
-            localStorage.removeItem(
-                testKey
-            );
-
-
-            return true;
 
         } catch (error) {
 
@@ -1348,15 +1336,17 @@
          * will never be overwritten.
          */
 
-        const currentProducts =
-            getArray(
-                STORAGE_KEYS.products
-            );
-
+        /*
+         * Do not JSON.parse the full inventory on every page load.
+         * Product images can make that record very large.  The
+         * presence of the current key is enough to prove migration
+         * has already happened.
+         */
 
         if (
-            currentProducts.length >
-            0
+            has(
+                STORAGE_KEYS.products
+            )
         ) {
 
             return;
