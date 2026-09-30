@@ -1741,8 +1741,9 @@
 
 
         productImageData =
-            product.image ||
-            "";
+            getProductDisplayImage(
+                product
+            );
 
 
         if (
@@ -2186,12 +2187,18 @@
         }
 
 
+        const displayImage =
+            getProductDisplayImage(
+                product
+            );
+
+
         const productImageHTML =
-            product.image
+            displayImage
                 ? `
                     <img
                         src="${escapeHTML(
-                            product.image
+                            displayImage
                         )}"
                         alt="${escapeHTML(
                             product.name
@@ -2323,6 +2330,44 @@
 
             </tr>
         `;
+    }
+
+
+    function getProductDisplayImage(
+        product
+    ) {
+
+        if (!product) {
+            return "";
+        }
+
+        const storedImage =
+            product.image ||
+            product.imageUrl ||
+            product.imageData ||
+            product.photo ||
+            "";
+
+        if (storedImage) {
+            return storedImage;
+        }
+
+        if (
+            window.JufelixInventoryCloud &&
+            typeof window
+                .JufelixInventoryCloud
+                .getProductImage ===
+                "function"
+        ) {
+
+            return window
+                .JufelixInventoryCloud
+                .getProductImage(
+                    product.id
+                );
+        }
+
+        return "";
     }
 
 
