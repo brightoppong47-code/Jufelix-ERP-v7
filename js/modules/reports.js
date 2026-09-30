@@ -4298,55 +4298,6 @@
             );
 
 
-            const dataUri =
-                doc.output(
-                    "datauristring"
-                );
-
-
-            const marker =
-                "base64,";
-
-
-            const markerIndex =
-                dataUri.indexOf(
-                    marker
-                );
-
-
-            if (
-                markerIndex ===
-                -1
-            ) {
-
-                throw new Error(
-                    "Could not prepare PDF data."
-                );
-            }
-
-
-            const rawBase64 =
-                dataUri
-                    .substring(
-                        markerIndex +
-                        marker.length
-                    )
-                    .replace(
-                        /\s/g,
-                        ""
-                    );
-
-
-            if (
-                !rawBase64
-            ) {
-
-                throw new Error(
-                    "Generated PDF was empty."
-                );
-            }
-
-
             const fileName =
                 "Jufelix_Report_" +
                 dateKey(
@@ -4355,42 +4306,14 @@
                 ".pdf";
 
 
-            sessionStorage.removeItem(
-                PDF_STORAGE_KEY
-            );
-
-
-            sessionStorage.removeItem(
-                PDF_FILENAME_KEY
-            );
-
-
-            sessionStorage.setItem(
-                PDF_STORAGE_KEY,
-                rawBase64
-            );
-
-
-            sessionStorage.setItem(
-                PDF_FILENAME_KEY,
+            /*
+             * Download directly from the Reports page. This avoids
+             * Android WebView/PWA navigation conflicts and avoids
+             * storing a large PDF inside sessionStorage.
+             */
+            doc.save(
                 fileName
             );
-
-
-            if (
-                !sessionStorage.getItem(
-                    PDF_STORAGE_KEY
-                )
-            ) {
-
-                throw new Error(
-                    "PDF could not be stored for preview."
-                );
-            }
-
-
-            window.location.href =
-                "pdf-preview.html";
 
 
         } catch (error) {
@@ -4401,23 +4324,10 @@
             );
 
 
-            if (
-                error &&
-                error.name ===
-                "QuotaExceededError"
-            ) {
-
-                alert(
-                    "The PDF is too large for temporary browser storage. Choose a shorter report period and try again."
-                );
-
-            } else {
-
-                alert(
-                    error.message ||
-                    "The PDF could not be generated."
-                );
-            }
+            alert(
+                error.message ||
+                "The PDF could not be generated."
+            );
 
 
         } finally {
