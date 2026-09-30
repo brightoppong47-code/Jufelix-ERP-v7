@@ -1,6 +1,6 @@
 /* ==========================================
    JUFELIX ERP v7.0 PROFESSIONAL
-   FIREBASE LOGIN MODULE v524
+   FIREBASE LOGIN MODULE v526
 
    File:
    js/modules/login.js
@@ -60,6 +60,10 @@ const LAST_AUTH_KEY =
     "jufelix_v7_last_authenticated";
 
 
+const PRODUCTS_KEY =
+    "jufelix_products";
+
+
 /* ==========================================
    STATE
 ========================================== */
@@ -72,6 +76,198 @@ let db =
 
 let initialized =
     false;
+
+
+let storageRecoveryAttempted =
+    false;
+
+
+/* ==========================================
+   STORAGE QUOTA RECOVERY
+========================================== */
+
+function isStorageQuotaError(
+    error
+) {
+
+    return Boolean(
+        error &&
+        (
+            error.name === "QuotaExceededError" ||
+            error.name === "NS_ERROR_DOM_QUOTA_REACHED" ||
+            error.code === 22 ||
+            error.code === 1014 ||
+            String(error.message || "")
+                .toLowerCase()
+                .includes("quota")
+        )
+    );
+}
+
+
+function compactLegacyProductImageCache() {
+
+    if (storageRecoveryAttempted) {
+        return false;
+    }
+
+    storageRecoveryAttempted = true;
+
+    const storedProducts =
+        localStorage.getItem(
+            PRODUCTS_KEY
+        );
+
+    if (!storedProducts) {
+        return false;
+    }
+
+    let products;
+
+    try {
+        products = JSON.parse(
+            storedProducts
+        );
+    } catch (error) {
+        console.warn(
+            "Unable to inspect the old product cache during storage recovery:",
+            error
+        );
+        return false;
+    }
+
+    if (!Array.isArray(products)) {
+        return false;
+    }
+
+    let removedEmbeddedImages =
+        0;
+
+    const compactProducts =
+        products.map(
+            function (product) {
+
+                if (
+                    !product ||
+                    typeof product !== "object"
+                ) {
+                    return product;
+                }
+
+                const compact = {
+                    ...product
+                };
+
+                if (
+                    typeof compact.image === "string" &&
+                    compact.image.startsWith("data:image/")
+                ) {
+                    compact.image = "";
+                    compact.imageStoredLocally = false;
+                    removedEmbeddedImages += 1;
+                }
+
+                if (
+                    typeof compact.imageUrl === "string" &&
+                    compact.imageUrl.startsWith("data:image/")
+                ) {
+                    compact.imageUrl = "";
+                    removedEmbeddedImages += 1;
+                }
+
+                if (
+                    typeof compact.imageData === "string" &&
+                    compact.imageData.startsWith("data:image/")
+                ) {
+                    delete compact.imageData;
+                    removedEmbeddedImages += 1;
+                }
+
+                if (
+                    typeof compact.photo === "string" &&
+                    compact.photo.startsWith("data:image/")
+                ) {
+                    delete compact.photo;
+                    removedEmbeddedImages += 1;
+                }
+
+                return compact;
+            }
+        );
+
+    if (removedEmbeddedImages === 0) {
+        return false;
+    }
+
+    const compactJson =
+        JSON.stringify(
+            compactProducts
+        );
+
+    localStorage.removeItem(
+        PRODUCTS_KEY
+    );
+
+    try {
+        localStorage.setItem(
+            PRODUCTS_KEY,
+            compactJson
+        );
+    } catch (error) {
+        try {
+            localStorage.setItem(
+                PRODUCTS_KEY,
+                storedProducts
+            );
+        } catch (restoreError) {
+            console.error(
+                "The original product cache could not be restored:",
+                restoreError
+            );
+        }
+
+        throw error;
+    }
+
+    console.warn(
+        "Recovered browser storage by removing old embedded product images:",
+        removedEmbeddedImages
+    );
+
+    return true;
+}
+
+
+function saveLocalStorage(
+    key,
+    value
+) {
+
+    try {
+        localStorage.setItem(
+            key,
+            value
+        );
+        return;
+    } catch (error) {
+
+        if (!isStorageQuotaError(error)) {
+            throw error;
+        }
+
+        const recovered =
+            compactLegacyProductImageCache();
+
+        if (!recovered) {
+            throw error;
+        }
+
+        localStorage.setItem(
+            key,
+            value
+        );
+    }
+}
 
 
 /* ==========================================
@@ -937,7 +1133,7 @@ async function loadUserProfile(
        SAVE ERP SESSION
     ====================================== */
 
-    localStorage.setItem(
+    saveLocalStorage(
         CURRENT_USER_KEY,
         JSON.stringify(
             currentUser
@@ -945,7 +1141,7 @@ async function loadUserProfile(
     );
 
 
-    localStorage.setItem(
+    saveLocalStorage(
         "currentUser",
         JSON.stringify(
             currentUser
@@ -953,7 +1149,7 @@ async function loadUserProfile(
     );
 
 
-    localStorage.setItem(
+    saveLocalStorage(
         ACTIVE_BRANCH_KEY,
         JSON.stringify(
             activeBranch
@@ -961,13 +1157,13 @@ async function loadUserProfile(
     );
 
 
-    localStorage.setItem(
+    saveLocalStorage(
         "loggedIn",
         "true"
     );
 
 
-    localStorage.setItem(
+    saveLocalStorage(
         LAST_AUTH_KEY,
         now
     );
@@ -980,7 +1176,7 @@ async function loadUserProfile(
 
     if (remember) {
 
-        localStorage.setItem(
+        saveLocalStorage(
             OFFLINE_ACCESS_KEY,
             "true"
         );
