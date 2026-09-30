@@ -72,6 +72,58 @@ let productsUnsubscribe =
     null;
 
 
+/*
+ * Large Base64 images must not live in localStorage. Keep the images
+ * received during the current Firebase session in memory so the UI
+ * can still display them while product records use a compact cache.
+ */
+
+const runtimeProductImages =
+    new Map();
+
+
+function cacheRuntimeProductImages(
+    products
+) {
+
+    runtimeProductImages.clear();
+
+    (Array.isArray(products) ? products : [])
+        .forEach(
+            function (product) {
+
+                if (!product || !product.id) {
+                    return;
+                }
+
+                const image =
+                    product.image ||
+                    product.imageUrl ||
+                    product.imageData ||
+                    product.photo ||
+                    "";
+
+                if (image) {
+                    runtimeProductImages.set(
+                        String(product.id),
+                        String(image)
+                    );
+                }
+            }
+        );
+}
+
+
+function getRuntimeProductImage(
+    productId
+) {
+
+    return runtimeProductImages.get(
+        String(productId || "")
+    ) || "";
+}
+
+
 /* ==========================================
    WAIT FOR FIREBASE
 ========================================== */
@@ -1118,6 +1170,11 @@ async function startRealtimeListener() {
                     );
 
 
+                cacheRuntimeProductImages(
+                    mergedProducts
+                );
+
+
                 const persistedProducts =
                     saveLocalProducts(
                         mergedProducts
@@ -1855,6 +1912,9 @@ window.JufelixInventoryCloud = {
 
     readLocalProducts:
         readLocalProducts,
+
+    getProductImage:
+        getRuntimeProductImage,
 
     refresh:
         async function () {
