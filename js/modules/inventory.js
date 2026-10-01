@@ -3254,12 +3254,73 @@
             );
 
 
+        /*
+         * Never place Base64 product photos in localStorage.
+         * Mobile browsers normally allow only a few megabytes for the
+         * entire app, so even compressed photos eventually fill it.
+         * Product details and branch stock remain cached locally; the
+         * full photos are held in runtime memory and Firebase.
+         */
+        const compactProducts =
+            products.map(
+                function (product) {
+
+                    const compact = {
+                        ...product
+                    };
+
+                    const embeddedImage =
+                        typeof compact.image === "string" &&
+                        compact.image.startsWith("data:image/")
+                            ? compact.image
+                            : "";
+
+
+                    if (
+                        embeddedImage &&
+                        window.JufelixInventoryCloud &&
+                        typeof window
+                            .JufelixInventoryCloud
+                            .rememberProductImage ===
+                            "function"
+                    ) {
+                        window.JufelixInventoryCloud
+                            .rememberProductImage(
+                                compact.id,
+                                embeddedImage
+                            );
+                    }
+
+
+                    if (embeddedImage) {
+                        compact.image = "";
+                        compact.imageStoredLocally = false;
+                    }
+
+
+                    if (
+                        typeof compact.imageUrl === "string" &&
+                        compact.imageUrl.startsWith("data:image/")
+                    ) {
+                        compact.imageUrl = "";
+                    }
+
+
+                    delete compact.imageData;
+                    delete compact.photo;
+
+
+                    return compact;
+                }
+            );
+
+
         try {
 
             localStorage.setItem(
                 PRODUCTS_KEY,
                 JSON.stringify(
-                    products
+                    compactProducts
                 )
             );
 
@@ -3283,7 +3344,7 @@
             ) {
 
                 throw new Error(
-                    "Phone storage for the app is full. Try a smaller product image."
+                    "Phone storage for the app is full. Product images are already excluded, so clear this site's old browser data once and sign in again."
                 );
             }
 
@@ -3308,7 +3369,7 @@
                                 PRODUCTS_KEY,
 
                             value:
-                                products,
+                                compactProducts,
 
                             source:
                                 "inventory-module"
