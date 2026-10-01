@@ -335,6 +335,7 @@ function saveLocalProducts(
 
                 delete compact.imageData;
                 delete compact.photo;
+                delete compact.imageRemovalRequested;
 
                 if (
                     typeof compact.image === "string" &&
@@ -695,6 +696,8 @@ function prepareProductForCloud(
 
     delete data.localOnly;
 
+    delete data.imageRemovalRequested;
+
 
     /*
      * Keep only the normal "image" field.
@@ -878,6 +881,7 @@ async function saveProduct(
     const localImage =
         String(
             product.image ||
+            product.imageUrl ||
             ""
         );
 
@@ -887,16 +891,26 @@ async function saveProduct(
     );
 
 
-    /*
-     * If this product currently has an image,
-     * save it.
-     *
-     * If image === "", it means the user
-     * deliberately removed the image.
-     */
+    const existingCloudImage =
+        String(
+            existingCloudProduct.image ||
+            existingCloudProduct.imageUrl ||
+            ""
+        );
 
+
+    /*
+     * An empty image is normal in the compact phone cache. Preserve
+     * Firebase's existing photo unless the user explicitly pressed
+     * Remove Image inside Inventory.
+     */
     const finalImage =
-        localImage;
+        product.imageRemovalRequested === true
+            ? ""
+            : (
+                localImage ||
+                existingCloudImage
+            );
 
 
     rememberRuntimeProductImage(
