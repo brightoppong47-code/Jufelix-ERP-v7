@@ -48,6 +48,9 @@
     let productImageData =
         "";
 
+    let productImageRemovalRequested =
+        false;
+
     let refreshTimer =
         null;
 
@@ -650,6 +653,9 @@
                     productImageData =
                         compressedImage;
 
+                    productImageRemovalRequested =
+                        false;
+
 
                     showProductImagePreview(
                         compressedImage
@@ -895,6 +901,9 @@
 
         productImageData =
             "";
+
+        productImageRemovalRequested =
+            true;
 
 
         if (
@@ -1322,6 +1331,9 @@
                 productImageData ||
                 "",
 
+            imageRemovalRequested:
+                false,
+
             branchStock:
                 branchStock,
 
@@ -1419,6 +1431,9 @@
 
             image:
                 productImageData,
+
+            imageRemovalRequested:
+                productImageRemovalRequested,
 
             branchStock:
                 branchStock,
@@ -1744,6 +1759,9 @@
             getProductDisplayImage(
                 product
             );
+
+        productImageRemovalRequested =
+            false;
 
 
         if (
@@ -3060,6 +3078,9 @@
         productImageData =
             "";
 
+        productImageRemovalRequested =
+            false;
+
 
         if (
             form
@@ -3308,6 +3329,7 @@
 
                     delete compact.imageData;
                     delete compact.photo;
+                    delete compact.imageRemovalRequested;
 
 
                     return compact;
