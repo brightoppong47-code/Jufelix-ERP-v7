@@ -86,8 +86,6 @@ function cacheRuntimeProductImages(
     products
 ) {
 
-    runtimeProductImages.clear();
-
     (Array.isArray(products) ? products : [])
         .forEach(
             function (product) {
@@ -121,6 +119,30 @@ function getRuntimeProductImage(
     return runtimeProductImages.get(
         String(productId || "")
     ) || "";
+}
+
+
+function rememberRuntimeProductImage(
+    productId,
+    image
+) {
+
+    if (!productId) {
+        return false;
+    }
+
+    if (image) {
+        runtimeProductImages.set(
+            String(productId),
+            String(image)
+        );
+    } else {
+        runtimeProductImages.delete(
+            String(productId)
+        );
+    }
+
+    return true;
 }
 
 
@@ -285,97 +307,74 @@ function saveLocalProducts(
     products
 ) {
 
+    const sourceProducts =
+        Array.isArray(products)
+            ? products
+            : [];
+
+
+    cacheRuntimeProductImages(
+        sourceProducts
+    );
+
+
+    const compactProducts =
+        sourceProducts.map(
+            function (product) {
+
+                if (
+                    !product ||
+                    typeof product !== "object"
+                ) {
+                    return product;
+                }
+
+                const compact = {
+                    ...product
+                };
+
+                delete compact.imageData;
+                delete compact.photo;
+
+                if (
+                    typeof compact.image === "string" &&
+                    compact.image.startsWith("data:image/")
+                ) {
+                    compact.image = "";
+                    compact.imageStoredLocally = false;
+                }
+
+                if (
+                    typeof compact.imageUrl === "string" &&
+                    compact.imageUrl.startsWith("data:image/")
+                ) {
+                    compact.imageUrl = "";
+                }
+
+                return compact;
+            }
+        );
+
+
     try {
 
         localStorage.setItem(
             PRODUCTS_KEY,
             JSON.stringify(
-                products
+                compactProducts
             )
         );
 
-
-        return products;
-
+        return compactProducts;
 
     } catch (error) {
 
         console.error(
-            "Inventory Cloud full local save failed; retrying without embedded images:",
+            "Inventory Cloud compact local save failed:",
             error
         );
 
-        /*
-         * A phone's localStorage is small. A few Base64 images can
-         * prevent the complete Firebase product collection from being
-         * saved, leaving an old partial inventory visible. Keep every
-         * product and its stock, but omit only bulky embedded image
-         * copies from the local cache. Firebase remains unchanged.
-         */
-
-        const compactProducts =
-            (Array.isArray(products) ? products : [])
-                .map(
-                    function (product) {
-
-                        if (
-                            !product ||
-                            typeof product !== "object"
-                        ) {
-                            return product;
-                        }
-
-                        const compact = {
-                            ...product
-                        };
-
-                        delete compact.imageData;
-                        delete compact.photo;
-
-                        if (
-                            typeof compact.image === "string" &&
-                            compact.image.startsWith("data:image/")
-                        ) {
-                            compact.image = "";
-                            compact.imageStoredLocally = false;
-                        }
-
-                        if (
-                            typeof compact.imageUrl === "string" &&
-                            compact.imageUrl.startsWith("data:image/")
-                        ) {
-                            compact.imageUrl = "";
-                        }
-
-                        return compact;
-                    }
-                );
-
-        try {
-
-            localStorage.setItem(
-                PRODUCTS_KEY,
-                JSON.stringify(
-                    compactProducts
-                )
-            );
-
-            console.warn(
-                "Inventory Cloud saved all products using the compact local cache:",
-                compactProducts.length
-            );
-
-            return compactProducts;
-
-        } catch (compactError) {
-
-            console.error(
-                "Inventory Cloud compact local save failed:",
-                compactError
-            );
-
-            return null;
-        }
+        return null;
     }
 }
 
@@ -900,6 +899,12 @@ async function saveProduct(
         localImage;
 
 
+    rememberRuntimeProductImage(
+        productId,
+        finalImage
+    );
+
+
     const cloudProductData = {
 
         ...prepareProductForCloud(
@@ -983,6 +988,11 @@ function updateLocalProductImage(
     image
 ) {
 
+    rememberRuntimeProductImage(
+        productId,
+        image
+    );
+
     const products =
         readLocalProducts();
 
@@ -1019,7 +1029,6 @@ function updateLocalProductImage(
                     ...product,
 
                     image:
-                        image ||
                         "",
 
                     imageStoredLocally:
@@ -1915,6 +1924,9 @@ window.JufelixInventoryCloud = {
 
     getProductImage:
         getRuntimeProductImage,
+
+    rememberProductImage:
+        rememberRuntimeProductImage,
 
     refresh:
         async function () {
