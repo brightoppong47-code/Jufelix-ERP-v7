@@ -411,34 +411,13 @@ function prepareProductForCloud(
         ) || {};
 
 
-    [
-        "image",
-        "imageData",
-        "photo"
-    ].forEach(
-        function (
-            field
-        ) {
-
-            const value =
-                data[field];
-
-
-            if (
-                typeof value ===
-                    "string" &&
-                value.startsWith(
-                    "data:image/"
-                )
-            ) {
-
-                delete data[field];
-
-                data.imageStoredLocally =
-                    true;
-            }
-        }
-    );
+    /* Purchases may update stock, never product photographs. */
+    delete data.image;
+    delete data.imageUrl;
+    delete data.imageData;
+    delete data.photo;
+    delete data.imageStoredLocally;
+    delete data.imageRemovalRequested;
 
 
     return data;
