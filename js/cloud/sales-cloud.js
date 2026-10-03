@@ -553,35 +553,17 @@ function prepareProductForCloud(
         ) || {};
 
 
-    [
-        "image",
-        "imageData",
-        "photo"
-    ].forEach(
-        function (field) {
-
-            const value =
-                data[field];
-
-
-            if (
-                typeof value ===
-                    "string" &&
-                value.startsWith(
-                    "data:image/"
-                )
-            ) {
-
-                delete data[
-                    field
-                ];
-
-
-                data.imageStoredLocally =
-                    true;
-            }
-        }
-    );
+    /*
+     * Sales updates stock only. Image ownership belongs exclusively
+     * to Inventory Cloud, so a compact local product with image: ""
+     * can never erase the existing Firebase photo.
+     */
+    delete data.image;
+    delete data.imageUrl;
+    delete data.imageData;
+    delete data.photo;
+    delete data.imageStoredLocally;
+    delete data.imageRemovalRequested;
 
 
     return data;
