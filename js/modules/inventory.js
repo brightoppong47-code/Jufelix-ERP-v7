@@ -1241,7 +1241,7 @@
 
             if (cloudResult) {
 
-                alert(
+                console.log(
                     wasEditing
                         ? "Product updated and synced to Firebase."
                         : "Product saved and synced to Firebase."
