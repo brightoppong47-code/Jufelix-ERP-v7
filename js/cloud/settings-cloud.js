@@ -9,6 +9,7 @@
    + Business logo sync across devices
    + Spark-plan compatible
    + Realtime settings updates
+   + Retailer / Wholesaler discount sync
    + Verifies system/company after saving
 ========================================== */
 
@@ -160,6 +161,31 @@ async function getFirebase() {
 /* ==========================================
    LOCAL STORAGE HELPERS
 ========================================== */
+
+function normalizePercentage(
+    value
+) {
+
+    const number =
+        Number(
+            value
+        );
+
+
+    if (!Number.isFinite(number)) {
+
+        return 0;
+    }
+
+
+    return Math.min(
+        100,
+        Math.max(
+            0,
+            number
+        )
+    );
+}
 
 function readObject(
     key
@@ -399,6 +425,16 @@ async function saveSettings(
             localSettings.theme ||
             "jufelix-blue",
 
+        retailerDiscountPercentage:
+            normalizePercentage(
+                localSettings.retailerDiscountPercentage
+            ),
+
+        wholesalerDiscountPercentage:
+            normalizePercentage(
+                localSettings.wholesalerDiscountPercentage
+            ),
+
         receiptFooter:
             localSettings.receiptFooter ||
             "Thank you for doing business with us.",
@@ -590,6 +626,16 @@ function applyCloudSettings(
             cloudData.theme ||
             "jufelix-blue",
 
+        retailerDiscountPercentage:
+            normalizePercentage(
+                cloudData.retailerDiscountPercentage
+            ),
+
+        wholesalerDiscountPercentage:
+            normalizePercentage(
+                cloudData.wholesalerDiscountPercentage
+            ),
+
         receiptFooter:
             cloudData.receiptFooter ||
             "Thank you for doing business with us."
@@ -623,7 +669,13 @@ function applyCloudSettings(
             settings.currencySymbol,
 
         theme:
-            settings.theme
+            settings.theme,
+
+        retailerDiscountPercentage:
+            settings.retailerDiscountPercentage,
+
+        wholesalerDiscountPercentage:
+            settings.wholesalerDiscountPercentage
     };
 
 
