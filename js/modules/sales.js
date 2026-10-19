@@ -1,6 +1,6 @@
 /* ==========================================
    JUFELIX ERP v7.0 PROFESSIONAL
-   SALES / POS MODULE v1011
+   SALES / POS MODULE v1013
 
    COMPLETE REPLACEMENT
 
@@ -152,7 +152,7 @@
         startSalesCloud();
 
         console.log(
-            "✅ Jufelix Sales v1011 loaded."
+            "✅ Jufelix Sales v1013 loaded."
         );
 
         console.log(
@@ -278,6 +278,21 @@
         el.saleSummaryTotal =
             document.getElementById(
                 "saleSummaryTotal"
+            );
+
+        el.saleSubtotal =
+            document.getElementById(
+                "saleSubtotal"
+            );
+
+        el.saleDiscountLabel =
+            document.getElementById(
+                "saleDiscountLabel"
+            );
+
+        el.saleDiscountAmount =
+            document.getElementById(
+                "saleDiscountAmount"
             );
 
 
@@ -576,7 +591,12 @@
 
             el.customer.addEventListener(
                 "change",
-                updateCustomerSelection
+                function () {
+
+                    updateCustomerSelection();
+
+                    updateCartSummary();
+                }
             );
         }
 
@@ -659,6 +679,12 @@
                     event.detail.key
                 );
             }
+        );
+
+
+        document.addEventListener(
+            "jufelix:settingsChanged",
+            updateCartSummary
         );
 
 
@@ -3487,6 +3513,34 @@
         );
 
 
+        setText(
+            el.saleSubtotal,
+            formatMoney(
+                totals.subtotal
+            )
+        );
+
+
+        setText(
+            el.saleDiscountLabel,
+            totals.discountLabel +
+            " (" +
+            formatPercentage(
+                totals.discountRate
+            ) +
+            "%)"
+        );
+
+
+        setText(
+            el.saleDiscountAmount,
+            "− " +
+            formatMoney(
+                totals.discountAmount
+            )
+        );
+
+
         if (
             el.cartItemCountBadge
         ) {
@@ -3531,7 +3585,8 @@
 
     function getCartTotals() {
 
-        return cart.reduce(
+        const baseTotals =
+            cart.reduce(
             function (
                 totals,
                 item
@@ -3568,14 +3623,10 @@
                 totals.quantity +=
                     quantity;
 
-                totals.revenue +=
+                totals.subtotal +=
                     revenue;
 
                 totals.cogs +=
-                    cogs;
-
-                totals.grossProfit +=
-                    revenue -
                     cogs;
 
 
@@ -3586,14 +3637,121 @@
 
                 quantity: 0,
 
-                revenue: 0,
+                subtotal: 0,
 
-                cogs: 0,
-
-                grossProfit: 0
+                cogs: 0
 
             }
         );
+
+
+        const discount =
+            getSelectedCustomerDiscount();
+
+
+        const discountAmount =
+            roundMoney(
+                baseTotals.subtotal *
+                discount.rate /
+                100
+            );
+
+
+        const revenue =
+            roundMoney(
+                Math.max(
+                    0,
+                    baseTotals.subtotal -
+                    discountAmount
+                )
+            );
+
+
+        return {
+
+            ...baseTotals,
+
+            discountRate:
+                discount.rate,
+
+            discountAmount:
+                discountAmount,
+
+            discountLabel:
+                discount.label,
+
+            revenue:
+                revenue,
+
+            grossProfit:
+                roundMoney(
+                    revenue -
+                    baseTotals.cogs
+                )
+        };
+    }
+
+
+    function getSelectedCustomerDiscount() {
+
+        const customer =
+            getSelectedCustomer();
+
+
+        if (!customer) {
+
+            return {
+                rate: 0,
+                label: "Customer Discount"
+            };
+        }
+
+
+        const settings =
+            readObject(
+                "jufelix_v7_settings"
+            ) ||
+            {};
+
+
+        const type =
+            normalizeComparable(
+                customer.type
+            );
+
+
+        if (
+            type === "wholesale" ||
+            type === "wholesaler"
+        ) {
+
+            return {
+                rate: normalizePercentage(
+                    settings.wholesalerDiscountPercentage
+                ),
+                label: "Wholesaler Discount"
+            };
+        }
+
+
+        if (
+            type === "retail" ||
+            type === "retailer"
+        ) {
+
+            return {
+                rate: normalizePercentage(
+                    settings.retailerDiscountPercentage
+                ),
+                label: "Retailer Discount"
+            };
+        }
+
+
+        return {
+            rate: 0,
+            label: "Customer Discount"
+        };
     }
 
 
@@ -3902,6 +4060,20 @@
                 formatNumber(
                     totals.quantity
                 ) +
+                "\nSubtotal: " +
+                formatMoney(
+                    totals.subtotal
+                ) +
+                "\n" +
+                totals.discountLabel +
+                " (" +
+                formatPercentage(
+                    totals.discountRate
+                ) +
+                "%): -" +
+                formatMoney(
+                    totals.discountAmount
+                ) +
                 "\nTotal: " +
                 formatMoney(
                     totals.revenue
@@ -3972,8 +4144,15 @@
                 [];
 
 
+            let allocatedDiscount =
+                0;
+
+
             cart.forEach(
-                function (cartItem) {
+                function (
+                    cartItem,
+                    cartIndex
+                ) {
 
                     const index =
                         products.findIndex(
@@ -4096,6 +4275,43 @@
                         );
 
 
+                    const lineSubtotal =
+                        roundMoney(
+                            quantity *
+                            sellingPrice
+                        );
+
+
+                    const lineDiscount =
+                        cartIndex ===
+                            cart.length - 1
+                            ? roundMoney(
+                                totals.discountAmount -
+                                allocatedDiscount
+                            )
+                            : roundMoney(
+                                lineSubtotal *
+                                totals.discountRate /
+                                100
+                            );
+
+
+                    allocatedDiscount +=
+                        lineDiscount;
+
+
+                    const discountedUnitPrice =
+                        quantity > 0
+                            ? roundMoney(
+                                (
+                                    lineSubtotal -
+                                    lineDiscount
+                                ) /
+                                quantity
+                            )
+                            : sellingPrice;
+
+
                     const costPrice =
                         toNumber(
                             cartItem.costPriceAtSale
@@ -4103,8 +4319,10 @@
 
 
                     const revenue =
-                        quantity *
-                        sellingPrice;
+                        roundMoney(
+                            lineSubtotal -
+                            lineDiscount
+                        );
 
 
                     const cost =
@@ -4134,10 +4352,22 @@
                             quantity,
 
                         sellingPrice:
-                            sellingPrice,
+                            discountedUnitPrice,
 
                         unitPrice:
+                            discountedUnitPrice,
+
+                        listPrice:
                             sellingPrice,
+
+                        subtotal:
+                            lineSubtotal,
+
+                        discountRate:
+                            totals.discountRate,
+
+                        discountAmount:
+                            lineDiscount,
 
                         total:
                             revenue,
@@ -4222,6 +4452,21 @@
 
                 totalQuantity:
                     totals.quantity,
+
+                subtotal:
+                    totals.subtotal,
+
+                discountRate:
+                    totals.discountRate,
+
+                discountPercentage:
+                    totals.discountRate,
+
+                discountAmount:
+                    totals.discountAmount,
+
+                discountLabel:
+                    totals.discountLabel,
 
                 total:
                     totals.revenue,
@@ -6674,6 +6919,56 @@
                 value
             )
         );
+    }
+
+
+    function normalizePercentage(
+        value
+    ) {
+
+        return Math.min(
+            100,
+            Math.max(
+                0,
+                toNumber(
+                    value
+                )
+            )
+        );
+    }
+
+
+    function formatPercentage(
+        value
+    ) {
+
+        return new Intl.NumberFormat(
+            "en-GH",
+            {
+                maximumFractionDigits: 2
+            }
+        ).format(
+            normalizePercentage(
+                value
+            )
+        );
+    }
+
+
+    function roundMoney(
+        value
+    ) {
+
+        return Math.round(
+            (
+                toNumber(
+                    value
+                ) +
+                Number.EPSILON
+            ) *
+            100
+        ) /
+        100;
     }
 
 
