@@ -275,6 +275,25 @@
             );
 
 
+        const subtotal =
+            getSaleSubtotal(
+                sale
+            );
+
+
+        const discountAmount =
+            getSaleDiscountAmount(
+                sale
+            );
+
+
+        const discountRate =
+            toNumber(
+                sale.discountRate ??
+                sale.discountPercentage
+            );
+
+
         const totalQuantity =
             items.reduce(
                 function (
@@ -351,6 +370,7 @@
                                         ×
 
                                         ${formatMoney(
+                                            item.listPrice ??
                                             item.sellingPrice
                                         )}
 
@@ -366,6 +386,7 @@
                                     <strong>
 
                                         ${formatMoney(
+                                            item.subtotal ??
                                             item.total
                                         )}
 
@@ -601,6 +622,23 @@
                             </strong>
 
                         </div>
+
+
+                        ${
+                            discountAmount > 0
+                                ? `
+                                    <div class="receipt-summary-row">
+                                        <span>Subtotal</span>
+                                        <strong>${formatMoney(subtotal)}</strong>
+                                    </div>
+
+                                    <div class="receipt-summary-row">
+                                        <span>${escapeHTML(sale.discountLabel || "Customer Discount")} (${formatNumber(discountRate)}%)</span>
+                                        <strong>− ${formatMoney(discountAmount)}</strong>
+                                    </div>
+                                `
+                                : ""
+                        }
 
 
                         <div
@@ -1211,6 +1249,7 @@
 
                     pdf.text(
                         formatMoneyPlain(
+                            item.subtotal ??
                             item.total
                         ),
                         75,
@@ -1249,6 +1288,7 @@
                         ) +
                         " x " +
                         formatMoneyPlain(
+                            item.listPrice ??
                             item.sellingPrice
                         ),
                         5,
@@ -1320,6 +1360,51 @@
 
             y +=
                 6;
+
+
+            const discountAmount =
+                getSaleDiscountAmount(
+                    sale
+                );
+
+
+            if (discountAmount > 0) {
+
+                drawInfoLine(
+                    pdf,
+                    "Subtotal",
+                    formatMoneyPlain(
+                        getSaleSubtotal(
+                            sale
+                        )
+                    ),
+                    y
+                );
+
+
+                y +=
+                    4;
+
+
+                drawInfoLine(
+                    pdf,
+                    "Discount " +
+                    formatNumber(
+                        sale.discountRate ??
+                        sale.discountPercentage
+                    ) +
+                    "%",
+                    "-" +
+                    formatMoneyPlain(
+                        discountAmount
+                    ),
+                    y
+                );
+
+
+                y +=
+                    6;
+            }
 
 
             pdf.line(
@@ -1762,6 +1847,42 @@ function showPDFMessage(
         );
 
 
+        const discountAmount =
+            getSaleDiscountAmount(
+                sale
+            );
+
+
+        if (discountAmount > 0) {
+
+            lines.push(
+                "SUBTOTAL: " +
+                formatMoney(
+                    getSaleSubtotal(
+                        sale
+                    )
+                )
+            );
+
+
+            lines.push(
+                (
+                    sale.discountLabel ||
+                    "Customer Discount"
+                ) +
+                " (" +
+                formatNumber(
+                    sale.discountRate ??
+                    sale.discountPercentage
+                ) +
+                "%): -" +
+                formatMoney(
+                    discountAmount
+                )
+            );
+        }
+
+
         lines.push(
             "Receipt: " +
             (
@@ -1841,10 +1962,12 @@ function showPDFMessage(
                     ) +
                     " x " +
                     formatMoney(
+                        item.listPrice ??
                         item.sellingPrice
                     ) +
                     " = " +
                     formatMoney(
+                        item.subtotal ??
                         item.total
                     )
                 );
@@ -2184,6 +2307,35 @@ function showPDFMessage(
             sale.totalAmount ??
             sale.revenue ??
             sale.grandTotal
+        );
+    }
+
+
+    function getSaleSubtotal(
+        sale
+    ) {
+
+        return toNumber(
+            sale.subtotal ??
+            sale.subTotal ??
+            getSaleTotal(
+                sale
+            )
+        );
+    }
+
+
+    function getSaleDiscountAmount(
+        sale
+    ) {
+
+        return Math.max(
+            0,
+            toNumber(
+                sale.discountAmount ??
+                sale.discount ??
+                0
+            )
         );
     }
 
