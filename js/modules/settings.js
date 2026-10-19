@@ -10,6 +10,7 @@
    + Theme
    + Firebase Settings Sync
    + Logo Sync Across Devices
+   + Retailer / Wholesaler Discounts
    + Reset Business Data
    + Factory Reset
    + Admin Protection
@@ -46,6 +47,8 @@
 
         "jufelix_v7_sales",
 
+        "jufelix_v7_closing_reports",
+
         "jufelix_v7_purchases",
 
         "jufelix_v7_expenses",
@@ -71,6 +74,8 @@
         "products",
 
         "sales",
+
+        "closingReports",
 
         "purchases",
 
@@ -429,6 +434,18 @@
             "jufelix-blue";
 
 
+        const retailerDiscountPercentage =
+            getPercentageValue(
+                "retailerDiscountPercentage"
+            );
+
+
+        const wholesalerDiscountPercentage =
+            getPercentageValue(
+                "wholesalerDiscountPercentage"
+            );
+
+
         settings = {
 
             companyName:
@@ -464,6 +481,12 @@
 
             theme:
                 theme,
+
+            retailerDiscountPercentage:
+                retailerDiscountPercentage,
+
+            wholesalerDiscountPercentage:
+                wholesalerDiscountPercentage,
 
             receiptFooter:
                 getValue(
@@ -505,6 +528,12 @@
 
             theme:
                 settings.theme,
+
+            retailerDiscountPercentage:
+                settings.retailerDiscountPercentage,
+
+            wholesalerDiscountPercentage:
+                settings.wholesalerDiscountPercentage,
 
             updatedAt:
                 settings.updatedAt
@@ -1443,6 +1472,12 @@
             theme:
                 "jufelix-blue",
 
+            retailerDiscountPercentage:
+                0,
+
+            wholesalerDiscountPercentage:
+                0,
+
             receiptFooter:
                 "Thank you for doing business with us."
         };
@@ -1545,6 +1580,22 @@
             "themeSelect",
             settings.theme ||
             "jufelix-blue"
+        );
+
+
+        setValue(
+            "retailerDiscountPercentage",
+            normalizePercentage(
+                settings.retailerDiscountPercentage
+            )
+        );
+
+
+        setValue(
+            "wholesalerDiscountPercentage",
+            normalizePercentage(
+                settings.wholesalerDiscountPercentage
+            )
         );
 
 
@@ -2108,6 +2159,44 @@
                 ""
             ).trim()
             : "";
+    }
+
+
+    function normalizePercentage(
+        value
+    ) {
+
+        const number =
+            Number(
+                value
+            );
+
+
+        if (!Number.isFinite(number)) {
+
+            return 0;
+        }
+
+
+        return Math.min(
+            100,
+            Math.max(
+                0,
+                number
+            )
+        );
+    }
+
+
+    function getPercentageValue(
+        id
+    ) {
+
+        return normalizePercentage(
+            getValue(
+                id
+            )
+        );
     }
 
 
