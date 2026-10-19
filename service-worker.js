@@ -5,8 +5,8 @@
    File:
    service-worker.js
 
-   ERP Build: 1205
-   Service Worker: v5
+   ERP Build: 1206
+   Service Worker: v6
 
    COMPLETE REPLACEMENT
 
@@ -28,11 +28,11 @@
 ========================================== */
 
 const CACHE_VERSION =
-    "v5";
+    "v6";
 
 
 const ERP_BUILD =
-    "1205";
+    "1206";
 
 
 const CACHE_PREFIX =
@@ -229,7 +229,9 @@ const CORE_FILES = [
 
     "./js/cloud/branches-cloud.js",
 
-    "./js/cloud/users-cloud.js"
+    "./js/cloud/users-cloud.js",
+
+    "./js/cloud/settings-cloud.js"
 
 ];
 
