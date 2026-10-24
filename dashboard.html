@@ -754,6 +754,78 @@
             }
         }
 
+    
+        /* Top-selling products: responsive Admin analytics card */
+        #topSellingPanel {
+            font-family: Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+            border: 1px solid #e8e1f1;
+            border-radius: 20px;
+            padding: 24px;
+            background: var(--surface, #fff);
+            box-shadow: 0 8px 28px rgba(63, 22, 90, .07);
+            overflow: hidden;
+        }
+        #topSellingPanel .panel-header {
+            border-bottom: 1px solid #eee8f4;
+            padding-bottom: 16px;
+            margin-bottom: 12px;
+        }
+        #topSellingPanel h2 {font-size: 22px; font-weight: 800; letter-spacing: -.5px; line-height: 1.3;}
+        #topSellingPanel h2::before {
+            content: "↗"; display: inline-grid; place-items: center;
+            width: 38px; height: 38px; border-radius: 12px;
+            background: #f1e7fc; color: #681b99; margin-right: 10px;
+        }
+        #topSellingPanel > p {font-size: 13px; line-height: 1.65; color: #717080; margin: 10px 0 18px;}
+        #topSellingPanel .top-selling-filters {
+            display: grid !important; grid-template-columns: 1.2fr 1fr 1fr;
+            gap: 14px !important; padding: 16px; background: #f7f5fb;
+            border: 1px solid #eee8f4; border-radius: 14px;
+        }
+        #topSellingPanel label {
+            display: flex; flex-direction: column; gap: 7px;
+            min-width: 0; font-size: 12px; font-weight: 700; color: #575164;
+        }
+        #topSellingPanel select, #topSellingPanel input {
+            box-sizing: border-box; width: 100%; min-width: 0; max-width: 100%;
+            min-height: 46px; padding: 10px 12px; border: 1px solid #ddd5e8;
+            border-radius: 10px; background: #fff; color: #292332;
+            font: 500 14px/1.4 system-ui, sans-serif; color-scheme: light;
+        }
+        #topSellingPanel select:focus, #topSellingPanel input:focus {
+            outline: 3px solid #e9d9f8; border-color: #863db0;
+        }
+        #topSellingPanel #topSellingNote {
+            font-size: 11px; overflow-wrap: anywhere;
+            padding: 10px 12px; background: #faf8fd; border-radius: 9px;
+        }
+        #topSellingPanel .dashboard-table {min-width: 0; width: 100%; table-layout: fixed;}
+        #topSellingPanel th {font-size: 11px; text-transform: uppercase; letter-spacing: .7px; color: #82758e; background: #f8f5fc;}
+        #topSellingPanel th, #topSellingPanel td {padding: 15px 10px; border-color: #f0ecf5;}
+        #topSellingPanel th:first-child {width: 58px;}
+        #topSellingPanel th:last-child {width: 100px; text-align: right;}
+        #topSellingPanel td:nth-child(2) {font-size: 14px; font-weight: 600; overflow-wrap: anywhere; line-height: 1.5;}
+        #topSellingPanel td:last-child {text-align: right; font-weight: 800; font-size: 16px; color: #6b2598; font-variant-numeric: tabular-nums;}
+        #topSellingPanel tbody tr:not(:has(.dashboard-empty)) td:first-child {
+            font-size: 13px; font-weight: 800; color: #84738f; text-align: center;
+        }
+        #topSellingPanel tbody tr:nth-child(1) {background: #fcf8ef;}
+        #topSellingPanel tbody tr:nth-child(1) td:first-child {color: #9b6c0a;}
+        #topSellingPanel tbody tr:nth-child(2) td:first-child {color: #68758b;}
+        #topSellingPanel tbody tr:nth-child(3) td:first-child {color: #ab7149;}
+        #topSellingPanel tbody tr:hover {background: #f8f3fd;}
+        @media (max-width: 600px) {
+            #topSellingPanel {padding: 16px; border-radius: 16px;}
+            #topSellingPanel h2 {font-size: 19px;}
+            #topSellingPanel .top-selling-filters {grid-template-columns: minmax(0,1fr) minmax(0,1fr); padding: 12px;}
+            #topSellingPanel label:first-child {grid-column: 1 / -1;}
+            #topSellingPanel th:first-child {width: 42px;}
+            #topSellingPanel th:last-child {width: 72px;}
+            #topSellingPanel th, #topSellingPanel td {padding: 13px 6px;}
+            #topSellingPanel td:nth-child(2) {font-size: 13px;}
+            #topSellingPanel td:last-child {font-size: 15px;}
+        }
+
     </style>
 
 </head>
@@ -1453,7 +1525,7 @@
             <section class="dashboard-panel" id="topSellingPanel" hidden style="margin-bottom:24px">
                 <div class="panel-header"><h2>Top-Selling Products</h2></div>
                 <p>Products ranked by quantity sold during your selected period. Uses the Dashboard's active branch.</p>
-                <div style="display:flex;flex-wrap:wrap;gap:14px;margin-bottom:16px">
+                <div class="top-selling-filters" style="margin-bottom:16px">
                     <label>Period <select id="topSellingPeriod">
                         <option value="today">Today</option><option value="week">Last 7 Days</option>
                         <option value="month" selected>This Month</option><option value="all">All Time</option>
