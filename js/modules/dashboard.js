@@ -3204,6 +3204,7 @@
         if (!admin) return;
         if (!panel.dataset.bound) {
             panel.dataset.bound = "true";
+            document.getElementById("topSellingBranch").addEventListener("change", renderTopSellingProducts);
             document.getElementById("topSellingPeriod").addEventListener("change", setTopSellingPeriod);
             ["topSellingStart", "topSellingEnd"].forEach(function (id) {
                 document.getElementById(id).addEventListener("change", function () {
@@ -3223,10 +3224,36 @@
             note.textContent = "Start date must not be after end date.";
             return;
         }
-        const user = getCurrentUser();
-        const branch = getActiveBranchId(user);
-        const companyWide = isCompanyWideView(user, branch);
         let rows = topSellingCloudSales === null ? readArray(SALES_KEY) : topSellingCloudSales;
+        const selector = document.getElementById("topSellingBranch");
+        const selected = selector.value || "all";
+        const branches = new Map([["head-office", "Head Office"]]);
+        readArray("jufelix_v7_branches").forEach(function (b) {
+            if (b && b.id) branches.set(String(b.id), b.name || b.branchName || String(b.id));
+        });
+        rows.forEach(function (sale) {
+            if (sale.branchId) {
+                const id = String(sale.branchId);
+                if (!branches.has(id) || sale.branchName) branches.set(id, sale.branchName || id);
+            }
+        });
+        if (selected !== "all" && !branches.has(selected)) branches.set(selected, selected);
+        const choices = [["all", "All Branches"], ...Array.from(branches.entries()).sort(function (a,b) {
+            return a[1].localeCompare(b[1]);
+        })];
+        const signature = JSON.stringify(choices);
+        if (selector.dataset.choices !== signature) {
+            selector.replaceChildren();
+            choices.forEach(function (choice) {
+                const option = document.createElement("option");
+                option.value = choice[0]; option.textContent = choice[1];
+                selector.appendChild(option);
+            });
+            selector.value = selected;
+            selector.dataset.choices = signature;
+        }
+        const branch = selected;
+        const companyWide = branch === "all";
         if (!companyWide) rows = filterByBranch(rows, branch);
         const products = new Map(readArray(PRODUCTS_KEY).map(function (p) { return [String(p.id), p.name]; }));
         const ranking = new Map();
@@ -3265,7 +3292,7 @@
             td.textContent = "No dated sales items in this period.";
             tr.appendChild(td); body.appendChild(tr);
         }
-        note.textContent = "Top 10 by quantity sold • " + (companyWide ? "All branches" : "Active branch: " + branch) +
+        note.textContent = "Top 10 by quantity sold • " + (companyWide ? "All branches" : "Branch: " + (branches.get(branch) || branch)) +
             (topSellingCloudSales === null ? " • Device cache; waiting for Firebase sync." : " • Firebase listener data" + (!navigator.onLine ? " (offline; may be cached)." : ".")) +
             (undated ? " " + undated + " sale(s) skipped because the date is missing or invalid." : "");
     }
