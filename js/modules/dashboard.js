@@ -20,6 +20,7 @@
 
 (function () {
     "use strict";
+    let topSellingCloudSales = null;
 
 
     /* ==========================================
@@ -359,6 +360,7 @@
 
 
         refreshDashboard();
+        renderTopSellingProducts();
     }
 
 
@@ -3161,5 +3163,111 @@
 
     };
 
+
+
+    /* Admin top-selling products: read-only, quantity-based ranking. */
+    document.addEventListener("jufelix:data-updated", function (event) {
+        if (event.detail && event.detail.key === SALES_KEY && Array.isArray(event.detail.value)) {
+            topSellingCloudSales = event.detail.value;
+            renderTopSellingProducts();
+        }
+    });
+
+    function topSellingDate(value) {
+        if (!value) return "";
+        if (typeof value.toDate === "function") value = value.toDate();
+        else if (value.seconds !== undefined) value = new Date(value.seconds * 1000);
+        if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
+        const date = new Date(value);
+        if (Number.isNaN(date.getTime())) return "";
+        return date.getFullYear() + "-" + String(date.getMonth()+1).padStart(2,"0") + "-" + String(date.getDate()).padStart(2,"0");
+    }
+
+    function setTopSellingPeriod() {
+        const period = document.getElementById("topSellingPeriod").value;
+        const now = new Date();
+        const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        if (period === "week") start.setDate(start.getDate()-6);
+        if (period === "month") start.setDate(1);
+        if (period !== "custom") {
+            document.getElementById("topSellingStart").value = period === "all" ? "" : topSellingDate(start);
+            document.getElementById("topSellingEnd").value = period === "all" ? "" : topSellingDate(now);
+        }
+        renderTopSellingProducts();
+    }
+
+    function renderTopSellingProducts() {
+        const panel = document.getElementById("topSellingPanel");
+        if (!panel) return;
+        const admin = normalizeRole(getCurrentUser().role) === "admin";
+        panel.hidden = !admin;
+        if (!admin) return;
+        if (!panel.dataset.bound) {
+            panel.dataset.bound = "true";
+            document.getElementById("topSellingPeriod").addEventListener("change", setTopSellingPeriod);
+            ["topSellingStart", "topSellingEnd"].forEach(function (id) {
+                document.getElementById(id).addEventListener("change", function () {
+                    document.getElementById("topSellingPeriod").value = "custom";
+                    renderTopSellingProducts();
+                });
+            });
+            setTopSellingPeriod();
+            return;
+        }
+        const start = document.getElementById("topSellingStart").value;
+        const end = document.getElementById("topSellingEnd").value;
+        const body = document.getElementById("topSellingRows");
+        const note = document.getElementById("topSellingNote");
+        body.replaceChildren();
+        if (start && end && start > end) {
+            note.textContent = "Start date must not be after end date.";
+            return;
+        }
+        const user = getCurrentUser();
+        const branch = getActiveBranchId(user);
+        const companyWide = isCompanyWideView(user, branch);
+        let rows = topSellingCloudSales === null ? readArray(SALES_KEY) : topSellingCloudSales;
+        if (!companyWide) rows = filterByBranch(rows, branch);
+        const products = new Map(readArray(PRODUCTS_KEY).map(function (p) { return [String(p.id), p.name]; }));
+        const ranking = new Map();
+        let undated = 0;
+        rows.filter(isValidTransaction).forEach(function (sale) {
+            const date = topSellingDate(sale.saleDate || sale.createdAt || sale.date);
+            if (!date) { undated++; return; }
+            if ((start && date < start) || (end && date > end)) return;
+            (Array.isArray(sale.items) ? sale.items : []).forEach(function (item) {
+                const quantity = Number(item.quantity !== undefined ? item.quantity : item.qty);
+                if (!Number.isFinite(quantity) || quantity <= 0) return;
+                const name = item.productName || item.name || products.get(String(item.productId)) || "Unnamed product";
+                const key = item.productId ? String(item.productId) : "name:" + name;
+                const entry = ranking.get(key) || {name: name, quantity: 0};
+                entry.quantity += quantity;
+                ranking.set(key, entry);
+            });
+        });
+        const sorted = Array.from(ranking.values()).sort(function (a,b) {
+            return b.quantity-a.quantity || a.name.localeCompare(b.name);
+        }).slice(0,10);
+        sorted.forEach(function (item, index) {
+            const tr = document.createElement("tr");
+            [index+1, item.name, formatNumber(item.quantity)].forEach(function (value) {
+                const td = document.createElement("td");
+                td.textContent = String(value);
+                tr.appendChild(td);
+            });
+            body.appendChild(tr);
+        });
+        if (!sorted.length) {
+            const tr = document.createElement("tr");
+            const td = document.createElement("td");
+            td.colSpan = 3;
+            td.className = "dashboard-empty";
+            td.textContent = "No dated sales items in this period.";
+            tr.appendChild(td); body.appendChild(tr);
+        }
+        note.textContent = "Top 10 by quantity sold • " + (companyWide ? "All branches" : "Active branch: " + branch) +
+            (topSellingCloudSales === null ? " • Device cache; waiting for Firebase sync." : " • Firebase listener data" + (!navigator.onLine ? " (offline; may be cached)." : ".")) +
+            (undated ? " " + undated + " sale(s) skipped because the date is missing or invalid." : "");
+    }
 
 })();
