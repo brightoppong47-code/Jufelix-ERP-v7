@@ -1449,6 +1449,26 @@
                  LOW STOCK
             ================================== -->
 
+
+            <section class="dashboard-panel" id="topSellingPanel" hidden style="margin-bottom:24px">
+                <div class="panel-header"><h2>Top-Selling Products</h2></div>
+                <p>Products ranked by quantity sold during your selected period. Uses the Dashboard's active branch.</p>
+                <div style="display:flex;flex-wrap:wrap;gap:14px;margin-bottom:16px">
+                    <label>Period <select id="topSellingPeriod">
+                        <option value="today">Today</option><option value="week">Last 7 Days</option>
+                        <option value="month" selected>This Month</option><option value="all">All Time</option>
+                        <option value="custom">Custom Dates</option>
+                    </select></label>
+                    <label>From <input type="date" id="topSellingStart"></label>
+                    <label>To <input type="date" id="topSellingEnd"></label>
+                </div>
+                <p id="topSellingNote" role="status" aria-live="polite"></p>
+                <div class="dashboard-table-wrapper"><table class="dashboard-table">
+                    <thead><tr><th>Rank</th><th>Product</th><th>Quantity Sold</th></tr></thead>
+                    <tbody id="topSellingRows"></tbody>
+                </table></div>
+            </section>
+
             <section
                 class="dashboard-panel"
                 id="lowStockPanel"
@@ -1771,7 +1791,7 @@
     ========================================== -->
 
     <script
-        src="./js/modules/dashboard.js?v=643"
+        src="./js/modules/dashboard.js?v=644"
     ></script>
 
 
