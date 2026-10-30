@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="theme-color" content="#0b5ed7">
-    <title>Daily Closing Reports | Jufelix ERP v7.0</title>
+    <title>Daily & Monthly Closing Accounts | Jufelix ERP v7.0</title>
 
     <link rel="stylesheet" href="assets/css/variables.css">
     <link rel="stylesheet" href="assets/css/base.css">
@@ -80,7 +80,7 @@
         <div class="closing-page">
             <header class="page-heading">
                 <div>
-                    <h1>Daily Closing Reports</h1>
+                    <h1>Daily & Monthly Closing Accounts</h1>
                     <p class="muted" id="pageDescription">Review today's branch activity and submit your closing report.</p>
                 </div>
                 <div class="branch-badge" id="activeBranchBadge">Branch</div>
@@ -88,6 +88,17 @@
 
             <div id="closingNotice" class="notice"></div>
 
+            <section class="panel" id="monthlyAccountsPanel">
+<div class="panel-header"><h2>Monthly Closing Accounts</h2></div>
+<p class="muted">Your monthly sales summary. Cancelled, void, deleted and draft sales are excluded. This report does not lock the month or change stock.</p>
+<div class="filters">
+<div class="form-group"><label for="monthlyPeriod">Select Month</label><input type="month" id="monthlyPeriod" class="form-control"></div>
+<div class="form-group admin-only"><label for="monthlyOfficer">Sales Officer</label><select id="monthlyOfficer" class="form-control"><option value="">All Officers</option></select></div>
+</div>
+<div class="summary-grid"><div class="summary-card"><span>Transactions</span><strong id="monthlyCount">—</strong></div><div class="summary-card"><span>Quantity Sold</span><strong id="monthlyQuantity">—</strong></div><div class="summary-card"><span>Before Discounts</span><strong id="monthlySubtotal">—</strong></div><div class="summary-card"><span>Discounts Given</span><strong id="monthlyDiscount">—</strong></div><div class="summary-card"><span>Sales Value After Discounts</span><strong id="monthlyTotal">—</strong></div><div class="summary-card"><span>Cash Sales</span><strong id="monthlyCash">—</strong></div><div class="summary-card"><span>Mobile Money Sales</span><strong id="monthlyMobile">—</strong></div><div class="summary-card"><span>Card Sales</span><strong id="monthlyCard">—</strong></div><div class="summary-card"><span>Bank Sales</span><strong id="monthlyBank">—</strong></div><div class="summary-card"><span>Credit Sales — Not Cash Received</span><strong id="monthlyCredit">—</strong></div><div class="summary-card"><span>Other / Unknown Payment</span><strong id="monthlyOther">—</strong></div></div>
+<p class="muted" id="monthlySync" role="status" aria-live="polite"></p>
+<div class="action-row"><button type="button" id="monthlyPdf" class="primary-button" disabled>Download Monthly PDF</button></div>
+</section>
             <section class="panel" id="officerClosingPanel">
                 <div class="panel-header">
                     <h2 id="closingHeading">Today's Closing</h2>
@@ -160,7 +171,8 @@
     <script src="js/core/theme.js?v=580"></script>
     <script src="js/components/sidebar.js?v=801"></script>
     <script src="js/components/topbar.js?v=620"></script>
-    <script src="js/modules/closing-reports.js?v=2"></script>
-    <script type="module" src="js/cloud/closing-reports-cloud.js?v=2"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="js/modules/closing-reports.js?v=3"></script>
+    <script type="module" src="js/cloud/closing-reports-cloud.js?v=3"></script>
 </body>
 </html>
