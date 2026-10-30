@@ -181,3 +181,24 @@ window.addEventListener("online", function () {
 });
 
 start();
+
+/* Separate read-only listener: officers query only their authenticated UID. */
+(async function startMonthlySales() {
+    try {
+        const firebase = await getFirebase();
+        const role = normalizeRole(getLocalUser().role);
+        const salesCollection = collection(firebase.db, "sales");
+        const salesQuery = role === "admin" ? salesCollection :
+            query(salesCollection, where("cashierUid", "==", firebase.auth.currentUser.uid));
+        onSnapshot(salesQuery, {includeMetadataChanges:true}, function (snapshot) {
+            document.dispatchEvent(new CustomEvent("jufelix:monthly-sales", {
+                detail:{rows:snapshot.docs.map(function(d){return {...d.data(),id:d.id};}),
+                    fromCache:snapshot.metadata.fromCache}
+            }));
+        }, function(error) {
+            document.dispatchEvent(new CustomEvent("jufelix:monthly-sales-error",{detail:{message:error.message || String(error)}}));
+        });
+    } catch(error) {
+        document.dispatchEvent(new CustomEvent("jufelix:monthly-sales-error",{detail:{message:error.message || String(error)}}));
+    }
+})();
