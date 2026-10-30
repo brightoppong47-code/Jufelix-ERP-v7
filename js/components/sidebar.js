@@ -261,7 +261,7 @@
                     </span>
 
                     <span>
-                        Daily Closing
+                        Closing Accounts
                     </span>
 
                 </a>
