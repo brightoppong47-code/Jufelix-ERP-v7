@@ -22,6 +22,10 @@
     let products = [];
     let branches = [];
     let submitting = false;
+    let monthlySales = [];
+    let monthlyReady = false;
+    let monthlyState = "Waiting for Firebase sales synchronization.";
+
 
     if (document.readyState === "loading") {
         document.addEventListener("DOMContentLoaded", initialize);
@@ -41,6 +45,7 @@
         configurePageForRole();
         populateFilters();
         connectEvents();
+        initializeMonthlyAccounts();
         renderAll();
 
         document.addEventListener("jufelix:closing-reports-updated", function () {
@@ -640,6 +645,128 @@
 
     function escapeHTML(value) {
         return String(value ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+    }
+
+
+    /* Monthly accounts are read-only summaries, not locked accounting periods. */
+    function monthlyTotals(records) {
+        const result = {count:0, quantity:0, subtotal:0, discount:0, total:0,
+            cash:0, mobile:0, card:0, bank:0, credit:0, other:0};
+        records.forEach(function (sale) {
+            if (!sale || sale.deleted === true ||
+                ["cancelled","canceled","void","voided","deleted","draft"].includes(normalize(sale.status))) return;
+            const total = toNumber(sale.total ?? sale.totalAmount ?? sale.revenue);
+            const discount = toNumber(sale.discountAmount);
+            const method = normalize(sale.paymentMethod).replace(/[-_]/g," ");
+            const key = method === "cash" ? "cash" : /mobile|momo/.test(method) ? "mobile" :
+                method.includes("credit") ? "credit" : method.includes("card") ? "card" :
+                /bank|transfer/.test(method) ? "bank" : "other";
+            result.count++;
+            result.quantity += toNumber(sale.totalQuantity ?? sumItemQuantity(sale.items));
+            result.total += total;
+            result.discount += discount;
+            result.subtotal += toNumber(sale.subtotal ?? (total + discount));
+            result[key] += total;
+        });
+        return result;
+    }
+    function monthlyRecords() {
+        const month = getValue("monthlyPeriod");
+        const officer = getValue("monthlyOfficer");
+        return monthlySales.filter(function (sale) {
+            let value = sale.saleDate || sale.createdAt;
+            if (value && typeof value.toDate === "function") value = value.toDate();
+            else if (value && value.seconds !== undefined) value = new Date(value.seconds * 1000);
+            const date = normalizeDate(value);
+            const uid = String(sale.cashierUid || "");
+            const ownUid = window.JufelixFirebase && window.JufelixFirebase.auth &&
+                window.JufelixFirebase.auth.currentUser ? window.JufelixFirebase.auth.currentUser.uid : getUserIdentity().uid;
+            return month && date.slice(0,7) === month &&
+                (isAdmin() ? (!officer || uid === officer) : Boolean(ownUid && uid === ownUid));
+        });
+    }
+    function renderMonthlyAccounts() {
+        const picker = document.getElementById("monthlyOfficer");
+        if (!picker) return;
+        const previous = picker.value;
+        const officers = new Map();
+        monthlySales.forEach(function (s) {
+            if (s.cashierUid) officers.set(String(s.cashierUid), s.cashier || s.cashierEmail || String(s.cashierUid));
+        });
+        const signature = JSON.stringify(Array.from(officers.entries()));
+        if (picker.dataset.signature !== signature) {
+            picker.replaceChildren();
+            [["","All Officers"],...officers.entries()].forEach(function (pair) {
+                const option = document.createElement("option");
+                option.value=pair[0]; option.textContent=pair[1]; picker.appendChild(option);
+            });
+            if (officers.has(previous)) picker.value = previous;
+            picker.dataset.signature=signature;
+        }
+        const records = monthlyRecords();
+        const totals = monthlyTotals(records);
+        const values = {monthlyCount:formatNumber(totals.count),monthlyQuantity:formatNumber(totals.quantity),
+            monthlySubtotal:formatMoney(totals.subtotal),monthlyDiscount:formatMoney(totals.discount),
+            monthlyTotal:formatMoney(totals.total),monthlyCash:formatMoney(totals.cash),
+            monthlyMobile:formatMoney(totals.mobile),monthlyCard:formatMoney(totals.card),
+            monthlyBank:formatMoney(totals.bank),monthlyCredit:formatMoney(totals.credit),
+            monthlyOther:formatMoney(totals.other)};
+        Object.keys(values).forEach(function (id) {setText(id,values[id]);});
+        setText("monthlySync", monthlyState + " Credit sales are not cash received. Payment amounts are classified by the sale's recorded method; this is not a collections or bank-reconciliation statement. Older records without cashier UID are excluded for officers.");
+        document.getElementById("monthlyPdf").disabled = !monthlyReady;
+    }
+    function downloadMonthlyAccounts() {
+        if (!monthlyReady) return;
+        if (!window.jspdf || !window.jspdf.jsPDF) {
+            alert("PDF library unavailable. Connect to the internet and reload."); return;
+        }
+        const totals = monthlyTotals(monthlyRecords());
+        const pdf = new window.jspdf.jsPDF();
+        const officer = isAdmin() ? document.getElementById("monthlyOfficer").selectedOptions[0].textContent : getUserIdentity().name;
+        pdf.setFontSize(18); pdf.text("Monthly Sales Accounts",14,20);
+        pdf.setFontSize(11);
+        const lines = [
+            "Month: " + getValue("monthlyPeriod"), "Officer: " + officer,
+            "Generated: " + new Date().toLocaleString("en-GH"),
+            "Source: " + monthlyState, "",
+            "Transactions: " + totals.count, "Quantity sold: " + formatNumber(totals.quantity),
+            "Before discounts: GHS " + totals.subtotal.toFixed(2),
+            "Discounts: GHS " + totals.discount.toFixed(2), "Sales value: GHS " + totals.total.toFixed(2),
+            "Cash sales: GHS " + totals.cash.toFixed(2), "Mobile Money sales: GHS " + totals.mobile.toFixed(2),
+            "Card sales: GHS " + totals.card.toFixed(2), "Bank sales: GHS " + totals.bank.toFixed(2),
+            "Credit sales (not cash received): GHS " + totals.credit.toFixed(2),
+            "Other / unknown method: GHS " + totals.other.toFixed(2), "",
+            "Read-only summary, not a submitted or locked month-end closing.",
+            "Amounts reflect recorded sale payment methods, not later debt collections.",
+            "Older records without cashier UID are excluded for sales officers."
+        ];
+        let y=32;
+        lines.forEach(function (line) {
+            const wrapped=pdf.splitTextToSize(line,180);
+            if(y+wrapped.length*6>280){pdf.addPage();y=20;}
+            pdf.text(wrapped,14,y);y+=wrapped.length*6+2;
+        });
+        pdf.save("Jufelix-monthly-accounts-"+getValue("monthlyPeriod")+".pdf");
+    }
+    function initializeMonthlyAccounts() {
+        const input=document.getElementById("monthlyPeriod");
+        if(!input)return;
+        input.value=getLocalDateKey(new Date()).slice(0,7);
+        input.addEventListener("change",renderMonthlyAccounts);
+        document.getElementById("monthlyOfficer").addEventListener("change",renderMonthlyAccounts);
+        document.getElementById("monthlyPdf").addEventListener("click",downloadMonthlyAccounts);
+        document.addEventListener("jufelix:monthly-sales",function(event){
+            monthlySales=event.detail.rows || [];
+            monthlyReady=true;
+            monthlyState=event.detail.fromCache ? "Firebase cached data (may be incomplete)." : "Firebase server data loaded.";
+            renderMonthlyAccounts();
+        });
+        document.addEventListener("jufelix:monthly-sales-error",function(event){
+            monthlyReady=false;monthlySales=[];
+            monthlyState="Unable to load monthly sales: "+event.detail.message;
+            renderMonthlyAccounts();
+        });
+        renderMonthlyAccounts();
     }
 
     window.JufelixClosingReports = {
