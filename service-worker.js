@@ -5,8 +5,8 @@
    File:
    service-worker.js
 
-   ERP Build: 1210
-   Service Worker: v10
+   ERP Build: 1211
+   Service Worker: v11
 
    COMPLETE REPLACEMENT
 
@@ -28,11 +28,11 @@
 ========================================== */
 
 const CACHE_VERSION =
-    "v10";
+    "v11";
 
 
 const ERP_BUILD =
-    "1210";
+    "1211";
 
 
 const CACHE_PREFIX =
