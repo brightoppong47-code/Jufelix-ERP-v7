@@ -722,31 +722,80 @@
         }
         const totals = monthlyTotals(monthlyRecords());
         const pdf = new window.jspdf.jsPDF();
+        const company = {...(readObject("jufelix_v7_company") || {}), ...(readObject("jufelix_v7_settings") || {})};
+        const business = company.companyName || company.name || "Jufelix Services";
         const officer = isAdmin() ? document.getElementById("monthlyOfficer").selectedOptions[0].textContent : getUserIdentity().name;
-        pdf.setFontSize(18); pdf.text("Monthly Sales Accounts",14,20);
-        pdf.setFontSize(11);
-        const lines = [
-            "Month: " + getValue("monthlyPeriod"), "Officer: " + officer,
-            "Generated: " + new Date().toLocaleString("en-GH"),
-            "Source: " + monthlyState, "",
-            "Transactions: " + totals.count, "Quantity sold: " + formatNumber(totals.quantity),
-            "Before discounts: GHS " + totals.subtotal.toFixed(2),
-            "Discounts: GHS " + totals.discount.toFixed(2), "Sales value: GHS " + totals.total.toFixed(2),
-            "Cash sales: GHS " + totals.cash.toFixed(2), "Mobile Money sales: GHS " + totals.mobile.toFixed(2),
-            "Card sales: GHS " + totals.card.toFixed(2), "Bank sales: GHS " + totals.bank.toFixed(2),
-            "Credit sales (not cash received): GHS " + totals.credit.toFixed(2),
-            "Other / unknown method: GHS " + totals.other.toFixed(2), "",
-            "Read-only summary, not a submitted or locked month-end closing.",
-            "Amounts reflect recorded sale payment methods, not later debt collections.",
-            "Older records without cashier UID are excluded for sales officers."
+        const month = getValue("monthlyPeriod");
+        const monthLabel = /^\d{4}-\d{2}$/.test(month)
+            ? new Date(month+"-01T12:00:00").toLocaleDateString("en-GH",{month:"long",year:"numeric"}) : month;
+        const purple=[65,20,96], gold=[218,177,86], ink=[39,32,49], muted=[112,102,124];
+        const money = value => "GHS "+Number(value).toLocaleString("en-GH",{minimumFractionDigits:2,maximumFractionDigits:2});
+        function text(value,x,y,size,color,bold) {
+            pdf.setFont("helvetica",bold?"bold":"normal");
+            pdf.setFontSize(size); pdf.setTextColor(...color);
+            pdf.text(String(value),x,y);
+        }
+        function fitted(value,x,y,width,size,color,bold) {
+            pdf.setFont("helvetica",bold?"bold":"normal");
+            pdf.setFontSize(size);
+            while(pdf.getTextWidth(String(value))>width && size>7){size-=0.5;pdf.setFontSize(size);}
+            const lines=pdf.splitTextToSize(String(value),width);
+            text(lines[0] || "",x,y,size,color,bold);
+        }
+        pdf.setFillColor(...purple);pdf.rect(0,0,210,48,"F");
+        pdf.setFillColor(...gold);pdf.rect(0,48,210,2,"F");
+        fitted(business,15,18,180,23,[255,255,255],true);
+        text("MONTHLY SALES ACCOUNTS",15,30,10,gold,true);
+        fitted([company.phone,company.email].filter(Boolean).join("  |  "),15,40,180,8,[229,215,239],false);
+        text(monthLabel,15,63,17,ink,true);
+        fitted("Officer: "+officer,15,72,180,10,muted,false);
+        text("Generated: "+new Date().toLocaleString("en-GH"),15,79,8,muted,false);
+        const cards=[
+            ["SALES VALUE",money(totals.total)],
+            ["QUANTITY SOLD",formatNumber(totals.quantity)],
+            ["TRANSACTIONS",String(totals.count)]
         ];
-        let y=32;
-        lines.forEach(function (line) {
-            const wrapped=pdf.splitTextToSize(line,180);
-            if(y+wrapped.length*6>280){pdf.addPage();y=20;}
-            pdf.text(wrapped,14,y);y+=wrapped.length*6+2;
+        cards.forEach(function(card,i){
+            const x=15+i*62;
+            pdf.setFillColor(247,243,251);pdf.roundedRect(x,87,58,27,3,3,"F");
+            text(card[0],x+5,96,8,muted,true);
+            fitted(card[1],x+5,107,48,15,purple,true);
         });
-        pdf.save("Jufelix-monthly-accounts-"+getValue("monthlyPeriod")+".pdf");
+        text("SALES SUMMARY",15,126,10,purple,true);
+        const rows=[
+            ["Before discounts",money(totals.subtotal)],
+            ["Discounts given",money(totals.discount)],
+            ["Sales value after discounts",money(totals.total)]
+        ];
+        function row(label,value,y,highlight){
+            pdf.setFillColor(...(highlight?[240,232,249]:[249,248,251]));
+            pdf.rect(15,y,180,10,"F");
+            text(label,20,y+6.6,9,ink,highlight);
+            pdf.setFont("helvetica",highlight?"bold":"normal");pdf.setFontSize(9);pdf.setTextColor(...ink);
+            pdf.text(value,190,y+6.6,{align:"right"});
+        }
+        rows.forEach((r,i)=>row(r[0],r[1],131+i*10,i===2));
+        text("PAYMENT BREAKDOWN",15,174,10,purple,true);
+        [["Cash sales",totals.cash],["Mobile Money sales",totals.mobile],
+            ["Card sales",totals.card],["Bank sales",totals.bank],
+            ["Credit sales - NOT cash received",totals.credit],["Other / unknown method",totals.other]]
+            .forEach((r,i)=>row(r[0],money(r[1]),179+i*10,i===4));
+        const notes=[
+            "Source: "+monthlyState,
+            "Read-only summary; not a submitted or locked month-end closing.",
+            "Payment methods reflect recorded sales, not later debt collections.",
+            "Older sales without cashier UID are excluded for officers."
+        ];
+        let y=248;
+        notes.forEach(function(note){
+            pdf.setFont("helvetica","normal");pdf.setFontSize(7);
+            const lines=pdf.splitTextToSize(note,180);
+            pdf.setTextColor(...muted);pdf.text(lines,15,y);y+=lines.length*3.5+1;
+        });
+        pdf.setDrawColor(...gold);pdf.line(15,279,195,279);
+        fitted(business+" | Confidential business report",15,286,160,7,muted,false);
+        text("1 / 1",184,286,7,muted,false);
+        pdf.save("Jufelix-monthly-accounts-"+month+".pdf");
     }
     function initializeMonthlyAccounts() {
         const input=document.getElementById("monthlyPeriod");
