@@ -249,6 +249,11 @@
                 </a>
 
 
+                ${normalizeRole(user.role) === "admin" ? `
+                <a href="catalogue-admin.html" class="sidebar-link" data-page="catalogue-admin.html">
+                    <span class="sidebar-link-icon">🛍️</span><span>Publish Catalogue</span>
+                </a>
+                ` : ""}
                 <a
                     href="closing-reports.html"
                     class="sidebar-link"
