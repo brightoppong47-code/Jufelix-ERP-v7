@@ -40,8 +40,9 @@ $("selectNone").addEventListener("click",()=>document.querySelectorAll(".product
 $("publish").addEventListener("click",async()=>{
  if(busy)return;
  const chosen=new Set([...document.querySelectorAll(".productChoice:checked")].map(c=>c.value));
- if(!confirm("Publish "+chosen.size+" selected products? Unchecked products will be removed from the public catalogue only. ERP stock and records will not change."))return;
  busy=true;$("publish").disabled=true;
+ const approved=await confirmPublication(chosen.size);
+ if(!approved){busy=false;$("publish").disabled=false;return;}
  try{
  // Validate every product before writing anything. Replace full public docs; never merge private fields.
  const writes=products.filter(p=>chosen.has(p.id)).map(p=>({id:p.id,data:publicProduct(p)}));
@@ -65,3 +66,20 @@ $("publish").addEventListener("click",async()=>{
  }catch(error){$("status").classList.add("error");$("status").textContent="Publishing failed or was incomplete. Check your connection and rules, then retry. "+error.message;}
  finally{busy=false;$("publish").disabled=false;}
 });
+
+function confirmPublication(count){
+ return new Promise(resolve=>{
+ const dialog=document.createElement("dialog");
+ dialog.setAttribute("aria-labelledby","publishConfirmTitle");
+ const heading=node("h2","Publish your catalogue?");heading.id="publishConfirmTitle";
+ const brand=node("div","JUFELIX SERVICES","category");
+ const message=node("p","Publish "+count+" selected products? Unchecked products will be removed from the public catalogue only.");
+ const assurance=node("p","Your ERP products, stock and sales records will not change.","notice");
+ const form=node("form");form.method="dialog";form.className="actions";
+ const cancel=node("button","Cancel","secondary");cancel.value="cancel";cancel.autofocus=true;
+ const accept=node("button","Publish catalogue");accept.value="publish";
+ form.append(cancel,accept);dialog.append(brand,heading,message,assurance,form);
+ dialog.addEventListener("close",()=>{const approved=dialog.returnValue==="publish";dialog.remove();resolve(approved);},{once:true});
+ document.body.append(dialog);dialog.showModal();
+ });
+}
