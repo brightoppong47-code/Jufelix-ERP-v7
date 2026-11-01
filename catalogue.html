@@ -1,0 +1,13 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="theme-color" content="#321048"><title>Shop the Catalogue | Jufelix Services</title><link rel="stylesheet" href="./assets/css/catalogue.css?v=1"></head><body>
+<header><div><strong>Jufelix Services</strong><small>Browse. Choose. Order on WhatsApp.</small></div><a class="btn gold" href="https://wa.me/233244252983" target="_blank" rel="noopener noreferrer">Chat with us</a></header>
+<main class="wrap"><section class="hero"><div class="eyebrow">The Jufelix Collection</div><h1>Everyday favourites.<br>One easy order.</h1><p>Browse our products and build your order. Send it to our team on WhatsApp for availability, delivery and payment confirmation.</p><span>WhatsApp: +233 24 425 2983</span></section>
+<div class="toolbar"><label>Find a product<input type="search" id="search" placeholder="Search names, categories or descriptions"></label><label>Category<select id="category"><option value="">All Categories</option></select></label></div>
+<p id="status" class="notice" role="status">Loading the Jufelix catalogue...</p><p id="count" class="muted"></p><div id="products" class="grid"></div>
+<p class="muted">Orders are requests, not confirmed purchases. Delivery fees and any applicable discounts are confirmed by our team. No online payment is taken on this page.</p></main>
+<div class="cartbar"><span id="cartSummary">0 items • GHS 0.00</span><button id="review" disabled>Review order</button></div>
+<dialog id="orderDialog" aria-labelledby="orderTitle"><h2 id="orderTitle">Your WhatsApp order</h2><div id="orderRows"></div>
+<label>Your name (optional)<input id="customerName" maxlength="100" autocomplete="name"></label>
+<label>Delivery area or pickup request (optional)<textarea id="location" maxlength="300" placeholder="e.g. Delivery to... / I will collect"></textarea></label>
+<p class="muted">These details will be included in WhatsApp, not saved to the ERP by this page. Opening WhatsApp does not send the message automatically; review it and tap Send there.</p>
+<p id="orderMessage" role="status"></p><div class="actions"><button id="send">Continue to WhatsApp</button><button class="secondary" id="close">Continue browsing</button></div></dialog>
+<script src="./config/firebase-config.js?v=1301"></script><script type="module" src="./js/modules/catalogue.js?v=1"></script></body></html>
