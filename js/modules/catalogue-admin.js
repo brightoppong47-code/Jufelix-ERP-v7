@@ -48,9 +48,18 @@ $("publish").addEventListener("click",async()=>{
  const removals=published.filter(id=>!chosen.has(id));
  const ops=[...writes.map(p=>({type:"set",...p})),...removals.map(id=>({type:"delete",id}))];
  let committed=0;
- for(let i=0;i<ops.length;i+=400){
- const batch=writeBatch(db);ops.slice(i,i+400).forEach(op=>{const ref=doc(db,"publicCatalogue",op.id);if(op.type==="set")batch.set(ref,op.data);else batch.delete(ref);});
- await batch.commit();committed+=Math.min(400,ops.length-i);$("status").textContent="Publishing... "+committed+" updates saved.";
+ // Embedded product photos make count-only batches unsafe. Each validated
+ // public document is below 1 MiB, so commit exactly one operation per request.
+ for(const op of ops){
+ const batch=writeBatch(db);
+ const ref=doc(db,"publicCatalogue",op.id);
+ if(op.type==="set")batch.set(ref,op.data);else batch.delete(ref);
+ await batch.commit();
+ if(op.type==="set"){if(!published.includes(op.id))published.push(op.id);}
+ else published=published.filter(id=>id!==op.id);
+ committed++;
+ $("status").classList.remove("error");
+ $("status").textContent="Publishing... "+committed+" of "+ops.length+" updates saved. Keep this page open.";
  }
  published=[...chosen];$("status").classList.remove("error");$("status").textContent="Published "+writes.length+" products. "+removals.length+" items unpublished. ERP data unchanged. Open the customer catalogue to verify.";
  }catch(error){$("status").classList.add("error");$("status").textContent="Publishing failed or was incomplete. Check your connection and rules, then retry. "+error.message;}
