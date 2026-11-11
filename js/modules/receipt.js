@@ -814,7 +814,107 @@
        PDF
     ========================================== */
 
-    function generatePDF() {
+
+    let pdfLibraryPromise =
+        null;
+
+
+    function loadPdfLibrary() {
+
+        if (
+            window.jspdf &&
+            typeof window.jspdf.jsPDF ===
+                "function"
+        ) {
+
+            return Promise.resolve();
+        }
+
+
+        if (pdfLibraryPromise) {
+
+            return pdfLibraryPromise;
+        }
+
+
+        pdfLibraryPromise =
+            new Promise(
+                function (
+                    resolve,
+                    reject
+                ) {
+
+                    const script =
+                        document.createElement(
+                            "script"
+                        );
+
+
+                    script.src =
+                        "https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js";
+
+
+                    script.async =
+                        true;
+
+
+                    script.onload =
+                        function () {
+
+                            if (
+                                window.jspdf &&
+                                typeof window.jspdf.jsPDF ===
+                                    "function"
+                            ) {
+
+                                resolve();
+
+                            } else {
+
+                                reject(
+                                    new Error(
+                                        "PDF library did not initialize."
+                                    )
+                                );
+                            }
+                        };
+
+
+                    script.onerror =
+                        function () {
+
+                            reject(
+                                new Error(
+                                    "PDF library could not be downloaded."
+                                )
+                            );
+                        };
+
+
+                    document.head.appendChild(
+                        script
+                    );
+                }
+            )
+                .catch(
+                    function (
+                        error
+                    ) {
+
+                        pdfLibraryPromise =
+                            null;
+
+
+                        throw error;
+                    }
+                );
+
+
+        return pdfLibraryPromise;
+    }
+
+
+    async function generatePDF() {
 
         if (!currentSale) {
 
@@ -826,16 +926,24 @@
         }
 
 
-        if (
-            !window.jspdf ||
-            typeof window.jspdf.jsPDF !==
-                "function"
-        ) {
+        try {
+
+            await loadPdfLibrary();
+
+
+        } catch (error) {
+
+            console.error(
+                "PDF library load error:",
+                error
+            );
+
 
             alert(
-                "The PDF feature is not available in this preview. " +
-                "Your receipt is still saved and can be shared."
+                "The PDF feature could not be loaded. " +
+                "Check the internet connection and try again."
             );
+
 
             return;
         }
