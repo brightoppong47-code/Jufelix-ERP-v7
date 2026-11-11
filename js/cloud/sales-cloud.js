@@ -5,7 +5,7 @@
    File:
    js/cloud/sales-cloud.js
 
-   Version: 708
+   Version: 710
 
    + Firebase Authentication aware
    + Realtime sales across devices
@@ -73,6 +73,13 @@ let salesUnsubscribe =
 
 const listeners =
     new Set();
+
+/*
+ * Product images can be large Base64 strings. Keep them in memory for the
+ * current session instead of repeatedly serializing them into localStorage.
+ */
+const runtimeProductImages =
+    new Map();
 
 
 /* ==========================================
@@ -1270,6 +1277,92 @@ async function syncLocal(
 }
 
 
+
+/* ==========================================
+   LIGHTWEIGHT PRODUCT IMAGE CACHE
+========================================== */
+
+function rememberProductImage(
+    product
+) {
+
+    if (
+        !product ||
+        !product.id
+    ) {
+
+        return;
+    }
+
+
+    const image =
+
+        product.image ||
+
+        product.imageUrl ||
+
+        product.imageData ||
+
+        product.photo ||
+
+        "";
+
+
+    if (image) {
+
+        runtimeProductImages.set(
+            String(
+                product.id
+            ),
+            image
+        );
+    }
+}
+
+
+function compactProductForStorage(
+    product
+) {
+
+    rememberProductImage(
+        product
+    );
+
+
+    const compact = {
+
+        ...(
+            product ||
+            {}
+        )
+    };
+
+
+    delete compact.image;
+    delete compact.imageUrl;
+    delete compact.imageData;
+    delete compact.photo;
+    delete compact.imageStoredLocally;
+    delete compact.imageRemovalRequested;
+
+
+    return compact;
+}
+
+
+function getProductImage(
+    productId
+) {
+
+    return runtimeProductImages.get(
+        String(
+            productId ||
+            ""
+        )
+    ) || "";
+}
+
+
 /* ==========================================
    REALTIME
 ========================================== */
@@ -1330,11 +1423,28 @@ async function startRealtimeListeners() {
                         );
 
 
+                    localProducts.forEach(
+                        rememberProductImage
+                    );
+
+
+                    cloudProducts.forEach(
+                        rememberProductImage
+                    );
+
+
                     const merged =
                         mergeProductsSafely(
-                            localProducts,
-                            cloudProducts
-                        );
+                            localProducts.map(
+                                compactProductForStorage
+                            ),
+                            cloudProducts.map(
+                                compactProductForStorage
+                            )
+                        )
+                            .map(
+                                compactProductForStorage
+                            );
 
 
                     saveArray(
@@ -2494,7 +2604,10 @@ window.JufelixSalesCloud = {
         checkFirebaseUser,
 
     recoverOfflineSales:
-        recoverOfflineSales
+        recoverOfflineSales,
+
+    getProductImage:
+        getProductImage
 };
 
 
