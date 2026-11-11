@@ -77,6 +77,7 @@
     let activeProductCategory = "all";
 
     let refreshTimer = null;
+    let productSearchTimer = null;
     let cloudListenerStarted = false;
 
     const el = {};
@@ -417,12 +418,25 @@
                         "";
 
 
-                    loadProductDropdown(
-                        true
+                    window.clearTimeout(
+                        productSearchTimer
                     );
 
 
-                    renderProductSuggestions();
+                    productSearchTimer =
+                        window.setTimeout(
+                            function () {
+
+                                loadProductDropdown(
+                                    true
+                                );
+
+
+                                renderProductSuggestions();
+
+                            },
+                            90
+                        );
                 }
             );
 
@@ -739,12 +753,6 @@
         }
 
 
-        products =
-            readArray(
-                PRODUCTS_KEY
-            );
-
-
         const matches =
             getFilteredProducts()
                 .slice(
@@ -785,15 +793,17 @@
 
 
                         const image =
-                            product.image ||
-                            product.imageUrl ||
-                            "";
+                            getProductImage(
+                                product
+                            );
 
 
                         const imageMarkup =
                             image
                                 ? `
                                     <img
+                                        loading="lazy"
+                                        decoding="async"
                                         src="${escapeHTML(
                                             image
                                         )}"
@@ -1098,12 +1108,6 @@
 
             return;
         }
-
-
-        products =
-            readArray(
-                PRODUCTS_KEY
-            );
 
 
         const categoryProducts =
@@ -1795,12 +1799,6 @@
 
             return;
         }
-
-
-        products =
-            readArray(
-                PRODUCTS_KEY
-            );
 
 
         buildCategoryTabs(
@@ -2736,9 +2734,9 @@
         ) {
 
             const image =
-                product.image ||
-                product.imageUrl ||
-                "";
+                getProductImage(
+                    product
+                );
 
 
             if (
@@ -2747,6 +2745,8 @@
 
                 el.productImage.innerHTML = `
                     <img
+                        loading="lazy"
+                        decoding="async"
                         src="${escapeHTML(
                             image
                         )}"
@@ -3021,9 +3021,9 @@
                     "",
 
                 image:
-                    product.image ||
-                    product.imageUrl ||
-                    "",
+                    getProductImage(
+                        product
+                    ),
 
                 quantity:
                     quantity,
@@ -5456,6 +5456,57 @@
     /* ==========================================
        PRODUCT HELPERS
     ========================================== */
+
+
+    function getProductImage(
+        product
+    ) {
+
+        if (!product) {
+
+            return "";
+        }
+
+
+        const localImage =
+
+            product.image ||
+
+            product.imageUrl ||
+
+            product.imageData ||
+
+            product.photo ||
+
+            "";
+
+
+        if (localImage) {
+
+            return localImage;
+        }
+
+
+        if (
+            window.JufelixSalesCloud &&
+            typeof window
+                .JufelixSalesCloud
+                .getProductImage ===
+            "function"
+        ) {
+
+            return window
+                .JufelixSalesCloud
+                .getProductImage(
+                    product.id
+                ) || "";
+        }
+
+
+        return "";
+    }
+
+
 
     function getSelectedProduct() {
 
